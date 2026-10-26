@@ -8,7 +8,7 @@ Le cahier des charges complet est dans `CLAUDE.md`.
 
 - [x] 1. Squelette, base SQLite, `config.yaml`, `.env.example`, Git
 - [ ] 2. API France Travail (reportée : API suspendue par France Travail)
-- [ ] 3. API Adzuna
+- [ ] 3. Google Jobs (SerpApi), puis Careerjet
 - [ ] 4. Alertes Gmail
 - [ ] 5. Scraping direct LinkedIn et Indeed
 - [ ] 6. Pages carrières
@@ -48,7 +48,26 @@ Une fois activé, tu peux taper `python` au lieu de `.venv\Scripts\python`.
 .venv\Scripts\python run.py
 ```
 
-Option `--auto` : passage automatique (utilisé par la tâche planifiée, envoie aussi le récap du jour).
+Options :
+
+| Commande | Effet |
+|---|---|
+| `run.py --auto` | passage automatique (tâche planifiée) : lance aussi les sources réservées au matin, comme Google Jobs |
+| `run.py --source google_jobs` | lance une seule source, même désactivée ou réservée au mode auto |
+| `run.py --source google_jobs --max-requetes 1` | test avec une seule requête (économise le quota) |
+| `run.py --verifier` | affiche l'état de la base et les secrets manquants, sans rien collecter |
+
+### Quota Google Jobs (SerpApi)
+
+L'offre gratuite donne 250 recherches par mois. Par défaut, Google Jobs ne tourne qu'au passage automatique, avec 7 recherches par passage, soit environ 217 par mois. Avant de commencer, le programme demande à SerpApi combien de recherches il reste (cet appel est gratuit). Une recherche identique relancée dans l'heure est servie depuis le cache de SerpApi et n'est pas décomptée. Réglages : `sources.google_jobs` dans `config.yaml`.
+
+## Tests
+
+```
+.venv\Scripts\python -m pytest
+```
+
+Les tests utilisent une vraie réponse enregistrée (`tests/donnees/`) : ils ne consomment aucun quota et ne touchent pas à ta base.
 
 ## Lancement de l'appli
 
@@ -66,8 +85,11 @@ config.yaml            paramètres (critères, mots-clés, entreprises suivies, 
 run.py                 lancement d'un passage
 stage_scraper/
   config.py            lecture de config.yaml et .env
-  db.py                tables SQLite
-  sources/             un module de collecte par source
+  db.py                tables SQLite, enregistrement des offres, journal
+  offre.py             format commun d'une offre
+  collecte.py          lance chaque source, isole les pannes, écrit le journal
+  sources/             un module de collecte par source (google_jobs.py, ...)
+tests/                 tests automatiques
 data/stages.db         base SQLite (créée au premier lancement, jamais sur Git)
 profil/cv.pdf          ton CV, utilisé par le scoring dès qu'il est présent (jamais sur Git)
 ```

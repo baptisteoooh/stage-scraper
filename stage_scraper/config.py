@@ -18,8 +18,8 @@ SECRETS_ATTENDUS = {
     "ANTHROPIC_API_KEY": "scoring IA",
     "FRANCE_TRAVAIL_CLIENT_ID": "API France Travail",
     "FRANCE_TRAVAIL_CLIENT_SECRET": "API France Travail",
-    "ADZUNA_APP_ID": "API Adzuna",
-    "ADZUNA_APP_KEY": "API Adzuna",
+    "SERPAPI_API_KEY": "Google Jobs via SerpApi",
+    "CAREERJET_API_KEY": "API Careerjet",
     "GMAIL_ADRESSE": "alertes Gmail et envoi des mails",
     "GMAIL_MOT_DE_PASSE_APPLI": "alertes Gmail et envoi des mails",
 }

@@ -2,8 +2,16 @@
 import sqlite3
 from pathlib import Path
 
-# À augmenter quand on modifiera la structure des tables.
-VERSION_SCHEMA = 1
+# À augmenter quand on modifie la structure des tables, en ajoutant la
+# modification correspondante dans MIGRATIONS (pour mettre à jour les bases existantes).
+VERSION_SCHEMA = 2
+
+MIGRATIONS = {
+    2: [
+        "ALTER TABLE offres ADD COLUMN site_origine TEXT",
+        "ALTER TABLE runs ADD COLUMN nb_requetes INTEGER NOT NULL DEFAULT 0",
+    ],
+}
 
 SCHEMA = """
 -- Journal des passages : une ligne par source et par passage.
@@ -18,6 +26,7 @@ CREATE TABLE IF NOT EXISTS runs (
     source          TEXT    NOT NULL,
     nb_offres       INTEGER NOT NULL DEFAULT 0,
     nb_nouvelles    INTEGER NOT NULL DEFAULT 0,
+    nb_requetes     INTEGER NOT NULL DEFAULT 0,  -- requêtes envoyées (suivi des quotas d'API)
     erreurs         TEXT,
     tokens_entree   INTEGER NOT NULL DEFAULT 0,
     tokens_sortie   INTEGER NOT NULL DEFAULT 0,
@@ -49,6 +58,7 @@ CREATE TABLE IF NOT EXISTS offres (
     lien                TEXT,
     description         TEXT,
     contact             TEXT,               -- recruteur ou manager, s'il apparaît
+    site_origine        TEXT,               -- site qui publie l'offre (HelloWork, LinkedIn...) pour les agrégateurs
 
     -- Dédoublonnage
     empreinte           TEXT,               -- clé approximative entreprise + titre + lieu
@@ -117,9 +127,48 @@ def connecter(chemin: Path) -> sqlite3.Connection:
 
 
 def initialiser(conn: sqlite3.Connection) -> None:
-    """Crée les tables si elles n'existent pas encore. Sans effet sur une base existante."""
-    conn.executescript(SCHEMA)
+    """Crée les tables d'une base neuve, ou met à jour une base existante."""
+    version = conn.execute("PRAGMA user_version").fetchone()[0]
+    if version == 0:
+        conn.executescript(SCHEMA)  # base neuve : directement la dernière version
+    else:
+        for numero in range(version + 1, VERSION_SCHEMA + 1):
+            for instruction in MIGRATIONS.get(numero, []):
+                conn.execute(instruction)
+        conn.executescript(SCHEMA)  # crée les éventuelles nouvelles tables ou index
     conn.execute(f"PRAGMA user_version = {VERSION_SCHEMA}")
+    conn.commit()
+
+
+def nouveau_passage_id(conn: sqlite3.Connection) -> int:
+    """Numéro du prochain passage (1, 2, 3...)."""
+    return conn.execute("SELECT COALESCE(MAX(passage_id), 0) + 1 FROM runs").fetchone()[0]
+
+
+def enregistrer_offres(conn: sqlite3.Connection, offres: list[dict], passage_id: int) -> int:
+    """Ajoute les offres pas encore connues (même source + même source_id = déjà connue).
+    Renvoie le nombre d'offres réellement nouvelles."""
+    nb_nouvelles = 0
+    for offre in offres:
+        colonnes = list(offre) + ["passage_id"]
+        valeurs = list(offre.values()) + [passage_id]
+        curseur = conn.execute(
+            f"INSERT INTO offres ({', '.join(colonnes)}) VALUES ({', '.join('?' * len(colonnes))}) "
+            "ON CONFLICT (source, source_id) DO NOTHING",
+            valeurs,
+        )
+        nb_nouvelles += curseur.rowcount
+    conn.commit()
+    return nb_nouvelles
+
+
+def journaliser_run(conn: sqlite3.Connection, **valeurs) -> None:
+    """Ajoute une ligne au journal des passages (table runs)."""
+    colonnes = list(valeurs)
+    conn.execute(
+        f"INSERT INTO runs ({', '.join(colonnes)}) VALUES ({', '.join('?' * len(colonnes))})",
+        list(valeurs.values()),
+    )
     conn.commit()
 
 

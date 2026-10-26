@@ -8,7 +8,7 @@ Le cahier des charges complet est dans `CLAUDE.md`.
 
 - [x] 1. Squelette, base SQLite, `config.yaml`, `.env.example`, Git
 - [ ] 2. API France Travail (reportée : API suspendue par France Travail)
-- [ ] 3. Google Jobs (SerpApi), puis Careerjet
+- [x] 3. Google Jobs (SerpApi) et Careerjet
 - [ ] 4. Alertes Gmail
 - [ ] 5. Scraping direct LinkedIn et Indeed
 - [ ] 6. Pages carrières
@@ -61,6 +61,15 @@ Options :
 
 L'offre gratuite donne 250 recherches par mois. Par défaut, Google Jobs ne tourne qu'au passage automatique, avec 7 recherches par passage, soit environ 217 par mois. Avant de commencer, le programme demande à SerpApi combien de recherches il reste (cet appel est gratuit). Une recherche identique relancée dans l'heure est servie depuis le cache de SerpApi et n'est pas décomptée. Réglages : `sources.google_jobs` dans `config.yaml`.
 
+### Careerjet
+
+Careerjet tourne à chaque passage, manuel ou auto, avec les 13 recherches de `config.yaml`. Il exige :
+- la clé `CAREERJET_API_KEY` dans `.env` ;
+- que l'adresse IP de ta box soit autorisée dans ton espace partenaire Careerjet ;
+- l'en-tête Referer `https://ton-pseudo.github.io/`, ta page de présentation (réglage `sources.careerjet.referer`).
+
+Si le journal affiche « Unauthorized access from IP », c'est que l'adresse IP de ta box a changé : ajoute la nouvelle adresse dans l'espace partenaire Careerjet.
+
 ## Tests
 
 ```
@@ -88,7 +97,7 @@ stage_scraper/
   db.py                tables SQLite, enregistrement des offres, journal
   offre.py             format commun d'une offre
   collecte.py          lance chaque source, isole les pannes, écrit le journal
-  sources/             un module de collecte par source (google_jobs.py, ...)
+  sources/             un module de collecte par source (google_jobs.py, careerjet.py, ...)
 tests/                 tests automatiques
 data/stages.db         base SQLite (créée au premier lancement, jamais sur Git)
 profil/cv.pdf          ton CV, utilisé par le scoring dès qu'il est présent (jamais sur Git)

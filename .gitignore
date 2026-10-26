@@ -1,0 +1,22 @@
+# Secrets
+.env
+
+# Base de données et données locales
+*.db
+data/
+
+# CV et infos perso
+profil/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Journaux et exports
+logs/
+*.log
+exports/
+
+# Éditeur
+.vscode/

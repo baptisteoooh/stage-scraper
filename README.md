@@ -7,7 +7,7 @@ Le cahier des charges complet est dans `CLAUDE.md`.
 ## État d'avancement
 
 - [x] 1. Squelette, base SQLite, `config.yaml`, `.env.example`, Git
-- [ ] 2. API France Travail
+- [ ] 2. API France Travail (reportée : API suspendue par France Travail)
 - [ ] 3. API Adzuna
 - [ ] 4. Alertes Gmail
 - [ ] 5. Scraping direct LinkedIn et Indeed

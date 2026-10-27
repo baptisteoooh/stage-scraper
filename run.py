@@ -16,6 +16,7 @@ from stage_scraper.config import SECRETS_ATTENDUS, charger_config, chemin_projet
 
 
 def main(argv: list[str] | None = None) -> int:
+    utf8_sur_la_console()
     parser = argparse.ArgumentParser(description="Collecte et notation des offres de stage.")
     parser.add_argument("--auto", action="store_true", help="passage automatique (tâche planifiée)")
     parser.add_argument("--source", action="append", choices=list(collecte.SOURCES),
@@ -52,6 +53,15 @@ def main(argv: list[str] | None = None) -> int:
         for erreur in ligne["erreurs"]:
             print(f"      ERREUR : {erreur}")
     return 0
+
+
+def utf8_sur_la_console() -> None:
+    """Évite un plantage sur les accents quand la sortie va dans un fichier (tâche planifiée)."""
+    for flux in (sys.stdout, sys.stderr):
+        try:
+            flux.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
 
 
 def afficher_etat(conn, chemin_db) -> None:

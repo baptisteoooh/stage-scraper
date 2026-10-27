@@ -70,6 +70,20 @@ Careerjet tourne à chaque passage, manuel ou auto, avec les 13 recherches de `c
 
 Si le journal affiche « Unauthorized access from IP », c'est que l'adresse IP de ta box a changé : ajoute la nouvelle adresse dans l'espace partenaire Careerjet.
 
+### Alertes Gmail
+
+Le programme lit, en lecture seule, les mails rangés sous le libellé `Alertes stage` (réglage `sources.gmail.libelle`) reçus ces 14 derniers jours. Il faut :
+- `GMAIL_ADRESSE` et `GMAIL_MOT_DE_PASSE_APPLI` dans `.env` (mot de passe d'application créé sur https://myaccount.google.com/apppasswords, la validation en deux étapes doit être activée) ;
+- un filtre Gmail qui range les mails d'alerte sous ce libellé (depuis un mail d'alerte : ⋮ > Filtrer les messages similaires).
+
+Pour étudier le format des mails avant d'écrire un parseur :
+
+```
+.venv\Scripts\python -m stage_scraper.sources.gmail --telecharger
+```
+
+Les mails sont enregistrés dans `data/emails/` (jamais sur Git).
+
 ## Tests
 
 ```

@@ -84,6 +84,12 @@ Pour étudier le format des mails avant d'écrire un parseur :
 
 Les mails sont enregistrés dans `data/emails/` (jamais sur Git).
 
+### Pages carrières
+
+Les entreprises suivies qui ont un bloc `carrieres` dans `config.yaml` sont collectées directement sur leur outil de recrutement, via ses données JSON publiques. Seuls les stages et les CDD sont gardés. Outils gérés : Ashby (Doctolib, Owkin, Nabla, Lifen).
+
+Pour ajouter une entreprise sur Ashby : son identifiant est la fin de l'adresse `jobs.ashbyhq.com/<identifiant>` de ses offres.
+
 ## Tests
 
 ```

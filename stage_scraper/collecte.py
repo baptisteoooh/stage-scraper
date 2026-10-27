@@ -3,13 +3,14 @@ import logging
 from datetime import datetime
 
 from . import db
-from .sources import Contexte, Resultat, careerjet, gmail, google_jobs
+from .sources import Contexte, Resultat, careerjet, carrieres, gmail, google_jobs
 
 # Sources disponibles. Pour en ajouter une : créer son module dans sources/ et l'ajouter ici.
 SOURCES = {
     "google_jobs": google_jobs.collecter,
     "careerjet": careerjet.collecter,
     "gmail": gmail.collecter,
+    "carrieres": carrieres.collecter,
 }
 
 log = logging.getLogger(__name__)

@@ -1,0 +1,156 @@
+{
+ "jobs": [
+  {
+   "id": "1a05fc07-99a5-4148-8b34-2b644d9ed030",
+   "title": "Machine Learning Engineer Intern (x/f/m)",
+   "department": "Engineering",
+   "team": "Engineering",
+   "employmentType": "Intern",
+   "location": "Paris",
+   "shouldDisplayCompensationOnJobPostings": false,
+   "secondaryLocations": [],
+   "publishedAt": "2026-10-26T13:05:40.051+00:00",
+   "isListed": true,
+   "isRemote": true,
+   "workplaceType": "Hybrid",
+   "address": {
+    "postalAddress": {
+     "postalCode": "92300",
+     "addressRegion": "Ile-de-France",
+     "streetAddress": "54 Quai Charles Pasqua (https://maps.app.goo.gl/T5ZQh6K17hWDWPia8)",
+     "addressCountry": "France",
+     "addressLocality": "Levallois-Perret"
+    }
+   },
+   "jobUrl": "https://jobs.ashbyhq.com/doctolib/1a05fc07-99a5-4148-8b34-2b644d9ed030",
+   "applyUrl": "https://jobs.ashbyhq.com/doctolib/1a05fc07-99a5-4148-8b34-2b644d9ed030/application",
+   "descriptionPlain": "We are looking for a Machine Learning Research Intern to join the Doctolib’s Artificial Intelligence teams.\n\n \n\nAs a Machine Learning Research Intern, your mission will be to contribute to developing AI solutions that transform access to healthcare and improve the experience of healthcare professionals and patients. You will work within a research team developing ethical AI technologies to optimiz",
+   "compensation": {
+    "compensationTierSummary": null,
+    "scrapeableCompensationSalarySummary": null,
+    "compensationTiers": [],
+    "summaryComponents": []
+   }
+  },
+  {
+   "id": "42b97078-9d79-432d-95d4-0a44fcbb65b9",
+   "title": "Medical Data Intern (x/f/m)",
+   "department": "Business Functions",
+   "team": "Strategy",
+   "employmentType": "Intern",
+   "location": "Berlin",
+   "shouldDisplayCompensationOnJobPostings": false,
+   "secondaryLocations": [],
+   "publishedAt": "2026-09-22T14:45:06.402+00:00",
+   "isListed": true,
+   "isRemote": true,
+   "workplaceType": "Hybrid",
+   "address": {
+    "postalAddress": {
+     "postalCode": "10117",
+     "addressRegion": "Berlin",
+     "streetAddress": "Friedrichstr. 111",
+     "addressCountry": "Germany",
+     "addressLocality": "Berlin"
+    }
+   },
+   "jobUrl": "https://jobs.ashbyhq.com/doctolib/42b97078-9d79-432d-95d4-0a44fcbb65b9",
+   "applyUrl": "https://jobs.ashbyhq.com/doctolib/42b97078-9d79-432d-95d4-0a44fcbb65b9/application",
+   "descriptionPlain": "MEDICAL DATA INTERN (X/F/M)\n\n\nSET A NEW PULSE FOR HEALTHCARE!\n\nWe are looking for a Medical Data Intern to join the Terminology and Ontology team within the Medical Excellence department at Doctolib in Berlin.\n\n \n\nAt Doctolib, we're setting a new pulse for healthcare. We create AI-powered solutions that help health professionals focus on care and help people prevent, detect, and treat health probl",
+   "compensation": {
+    "compensationTierSummary": null,
+    "scrapeableCompensationSalarySummary": null,
+    "compensationTiers": [],
+    "summaryComponents": []
+   }
+  },
+  {
+   "id": "640d50c5-09ec-44fd-9f53-e50d060e5d5e",
+   "title": "Stage - Assistant Commercial (x/f/m) - janvier 2027",
+   "department": "Sales",
+   "team": "Sales",
+   "employmentType": "Intern",
+   "location": "Strasbourg",
+   "shouldDisplayCompensationOnJobPostings": false,
+   "secondaryLocations": [],
+   "publishedAt": "2026-09-17T11:46:51.513+00:00",
+   "isListed": true,
+   "isRemote": null,
+   "workplaceType": null,
+   "address": null,
+   "jobUrl": "https://jobs.ashbyhq.com/doctolib/640d50c5-09ec-44fd-9f53-e50d060e5d5e",
+   "applyUrl": "https://jobs.ashbyhq.com/doctolib/640d50c5-09ec-44fd-9f53-e50d060e5d5e/application",
+   "descriptionPlain": "En tant que stagiaire assistant commercial, vous participerez activement à l'essor de notre activité en France, en augmentant la présence des professionnels de santé sur Doctolib et en leur fournissant des solutions adaptées à leurs besoins. Vous serez directement rattaché à l’équipe commerciale “Chargés de comptes régionaux de l’Est”, cette dernière ayant pour rôle de générer des opportunités ave",
+   "compensation": {
+    "compensationTierSummary": null,
+    "scrapeableCompensationSalarySummary": null,
+    "compensationTiers": [],
+    "summaryComponents": []
+   }
+  },
+  {
+   "id": "a65ecf68-6f19-4b5b-9769-8507a21f8881",
+   "title": "Localization Operations Manager (x/f/m)",
+   "department": "Product",
+   "team": "Product Design",
+   "employmentType": "FullTime",
+   "location": "Paris",
+   "shouldDisplayCompensationOnJobPostings": false,
+   "secondaryLocations": [],
+   "publishedAt": "2026-10-20T12:19:12.545+00:00",
+   "isListed": true,
+   "isRemote": true,
+   "workplaceType": "Hybrid",
+   "address": {
+    "postalAddress": {
+     "postalCode": "92300",
+     "addressRegion": "Ile-de-France",
+     "streetAddress": "54 Quai Charles Pasqua (https://maps.app.goo.gl/T5ZQh6K17hWDWPia8)",
+     "addressCountry": "France",
+     "addressLocality": "Levallois-Perret"
+    }
+   },
+   "jobUrl": "https://jobs.ashbyhq.com/doctolib/a65ecf68-6f19-4b5b-9769-8507a21f8881",
+   "applyUrl": "https://jobs.ashbyhq.com/doctolib/a65ecf68-6f19-4b5b-9769-8507a21f8881/application",
+   "descriptionPlain": "SET A NEW PULSE FOR HEALTHCARE!\n\nWe're looking for a Localization Operations Manager to audit and redesign how we conduct translation and localization end to end; from content creation, through engineering delivery, to linguistic quality review. You will challenge our current tooling and AI/MT workflows, content ownership and governance models, integrate AI software development best practices, and",
+   "compensation": {
+    "compensationTierSummary": null,
+    "scrapeableCompensationSalarySummary": null,
+    "compensationTiers": [],
+    "summaryComponents": []
+   }
+  },
+  {
+   "id": "1e1e98f6-481b-4a04-811a-85862b87c252",
+   "title": "Responsable Partenaires Ecosystème Santé (x/f/m)",
+   "department": "Business Functions",
+   "team": "Marketing",
+   "employmentType": "Contract",
+   "location": "Paris",
+   "shouldDisplayCompensationOnJobPostings": false,
+   "secondaryLocations": [],
+   "publishedAt": "2026-10-15T08:55:24.765+00:00",
+   "isListed": true,
+   "isRemote": true,
+   "workplaceType": "Hybrid",
+   "address": {
+    "postalAddress": {
+     "postalCode": "92300",
+     "addressRegion": "Ile-de-France",
+     "streetAddress": "54 Quai Charles Pasqua (https://maps.app.goo.gl/T5ZQh6K17hWDWPia8)",
+     "addressCountry": "France",
+     "addressLocality": "Levallois-Perret"
+    }
+   },
+   "jobUrl": "https://jobs.ashbyhq.com/doctolib/1e1e98f6-481b-4a04-811a-85862b87c252",
+   "applyUrl": "https://jobs.ashbyhq.com/doctolib/1e1e98f6-481b-4a04-811a-85862b87c252/application",
+   "descriptionPlain": "VOS MISSIONS\n\nAu sein de l'équipe Public Affairs de Doctolib, vous jouez un rôle stratégique au cœur de l'écosystème de santé français. Rattaché(e) au responsable du pôle Santé, vous êtes l'interlocuteur(rice) de référence de Doctolib auprès des syndicats professionnels, ordres médicaux et paramédicaux ainsi que des associations de patients. Vous garantissez un déploiement fluide et durable de nos",
+   "compensation": {
+    "compensationTierSummary": null,
+    "scrapeableCompensationSalarySummary": null,
+    "compensationTiers": [],
+    "summaryComponents": []
+   }
+  }
+ ]
+}

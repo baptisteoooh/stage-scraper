@@ -1,6 +1,6 @@
 """Appli locale, lancée par app.py (streamlit run app.py).
 
-Pages : tableau de bord (offres + bouton de scrap), candidatures, réglages, journal.
+Pages : tableau de bord (offres + bouton de scrap), candidatures, lettre de motivation, réglages, journal.
 L'export Excel est dans la barre de gauche, sur toutes les pages.
 """
 import logging
@@ -9,7 +9,7 @@ from datetime import date
 import pandas as pd
 import streamlit as st
 
-from stage_scraper import collecte, db, export, notifications, pipeline, reglages, requetes, traitement
+from stage_scraper import collecte, db, export, lettre, notifications, pipeline, reglages, requetes, traitement
 from stage_scraper import config as parametres
 from stage_scraper.config import chemin_projet, secret
 
@@ -108,8 +108,13 @@ def fiche_offre(o: dict, cle: str) -> None:
             with st.expander("Description complète"):
                 st.text(o["description"])
 
-        actions = st.columns(2)
+        actions = st.columns(3)
         candidature = requetes.candidature_de(CONN, o["id"])
+        with actions[2]:
+            if st.button("✍️ Lettre de motivation", key=f"lettre_{cle}_{o['id']}"):
+                st.session_state["lettre_offre_id"] = o["id"]
+                if PAGES_OBJETS:
+                    st.switch_page(PAGES_OBJETS["lettre"])
         with actions[0]:
             if candidature:
                 st.success(f"Candidature suivie (statut : {candidature['statut']}).")
@@ -392,6 +397,64 @@ def section_mails():
             st.html(page)
 
 
+def page_lettre():
+    st.title("✍️ Lettre de motivation")
+    st.caption("Claude rédige un brouillon à partir de l'offre, de ton profil et de ton CV (profil/cv.pdf, s'il "
+               "existe). Il n'invente rien : les passages [à compléter : …] sont pour toi. Relis toujours avant d'envoyer.")
+
+    # Offres proposées : celles de tes candidatures d'abord, puis les autres par note.
+    offres = {o["id"]: o for o in requetes.offres_visibles(CONN)}
+    suivies = [c["offre_id"] for c in requetes.candidatures(CONN) if c["offre_id"]]
+    ordre = list(dict.fromkeys([i for i in suivies if requetes.offre(CONN, i)] + list(offres)))
+    if not ordre:
+        st.info("Aucune offre pour l'instant : lance d'abord un scrap.")
+        return
+    cache = {i: offres.get(i) or requetes.offre(CONN, i) for i in ordre}
+    demandee = st.session_state.get("lettre_offre_id")
+    choix = st.selectbox(
+        "Offre", ordre, index=ordre.index(demandee) if demandee in ordre else 0,
+        format_func=lambda i: (("📋 " if i in suivies else "")
+                               + (f"{cache[i]['score']}/10 · " if cache[i]["score"] is not None else "")
+                               + f"{cache[i]['titre']} — {cache[i]['entreprise'] or '?'}"))
+    st.session_state["lettre_offre_id"] = choix
+    o = cache[choix]
+    if o["lien"]:
+        st.link_button("Voir l'offre", o["lien"])
+
+    candidature = requetes.candidature_de(CONN, choix)
+    brouillons = st.session_state.setdefault("brouillons", {})
+    versions = st.session_state.setdefault("versions_brouillons", {})
+    if choix not in brouillons and candidature and candidature.get("lettre"):
+        brouillons[choix] = candidature["lettre"]
+
+    consignes = st.text_input("Consignes (facultatif)", placeholder="ex. insister sur mon projet de deep learning, "
+                                                                    "ton plus direct, en anglais…")
+    sans_cle = not secret("ANTHROPIC_API_KEY")
+    if sans_cle:
+        st.info("Ajoute ANTHROPIC_API_KEY dans le fichier .env pour rédiger des lettres.")
+    if st.button("Rédiger le brouillon" if choix not in brouillons else "Rédiger un nouveau brouillon",
+                 type="primary", disabled=sans_cle):
+        with st.spinner("Rédaction en cours…"):
+            try:
+                resultat = lettre.rediger(CONN, CONFIG, o, consignes)
+                brouillons[choix] = resultat["texte"]
+                versions[choix] = versions.get(choix, 0) + 1  # nouvelle zone de texte avec le nouveau brouillon
+                st.toast(f"Brouillon rédigé (coût : {resultat['cout_usd']:.4f} $).")
+            except lettre.LettreImpossible as e:
+                st.error(f"Lettre non rédigée : {e}")
+
+    if choix in brouillons:
+        texte = st.text_area("Brouillon (modifiable)", brouillons[choix], height=420,
+                             key=f"zone_lettre_{choix}_{versions.get(choix, 0)}")
+        brouillons[choix] = texte
+        c = st.columns(2)
+        nom_fichier = f"lettre_{(o['entreprise'] or 'offre').replace(' ', '_')}.txt"
+        c[0].download_button("📥 Télécharger (.txt)", texte, file_name=nom_fichier, mime="text/plain")
+        if c[1].button("💾 Garder dans la candidature"):
+            requetes.enregistrer_lettre(CONN, choix, texte)
+            st.toast("Lettre gardée dans la candidature (créée si besoin).")
+
+
 def page_journal():
     st.title("📜 Journal des passages")
     couts = requetes.couts_ia(CONN)
@@ -430,9 +493,11 @@ def barre_laterale():
 PAGES = {
     "tableau_de_bord": dict(titre="Tableau de bord", icone="🩺"),
     "candidatures": dict(titre="Candidatures", icone="📋"),
+    "lettre": dict(titre="Lettre de motivation", icone="✍️"),
     "reglages": dict(titre="Réglages", icone="⚙️"),
     "journal": dict(titre="Journal", icone="📜"),
 }
+PAGES_OBJETS: dict = {}  # rempli au lancement, pour passer d'une page à l'autre
 
 
 def main(page: str | None = None):
@@ -446,11 +511,13 @@ def main(page: str | None = None):
         if page:
             globals()[f"page_{page}"]()
             return
-        navigation = st.navigation([
-            st.Page(globals()[f"page_{nom}"], title=p["titre"], icon=p["icone"], url_path=nom,
-                    default=(nom == "tableau_de_bord"))
+        PAGES_OBJETS.clear()
+        PAGES_OBJETS.update({
+            nom: st.Page(globals()[f"page_{nom}"], title=p["titre"], icon=p["icone"], url_path=nom,
+                         default=(nom == "tableau_de_bord"))
             for nom, p in PAGES.items()
-        ])
+        })
+        navigation = st.navigation(list(PAGES_OBJETS.values()))
         barre_laterale()
         navigation.run()
     finally:

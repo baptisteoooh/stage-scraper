@@ -255,7 +255,9 @@ def ajouter_usage(bilan: dict, usage, modele: str) -> None:
 
 def cout_du_mois(conn) -> float:
     debut_mois = datetime.now().strftime("%Y-%m-01")
-    return conn.execute("SELECT COALESCE(SUM(cout_usd), 0) FROM runs WHERE source = 'scoring' AND date_debut >= ?",
+    # Budget commun au scoring et aux lettres de motivation.
+    return conn.execute("SELECT COALESCE(SUM(cout_usd), 0) FROM runs WHERE source IN ('scoring', 'lettre') "
+                        "AND date_debut >= ?",
                         (debut_mois,)).fetchone()[0]
 
 

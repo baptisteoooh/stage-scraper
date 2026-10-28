@@ -17,7 +17,7 @@ Le cahier des charges complet est dans `CLAUDE.md`.
 - [x] 9. Appli Streamlit
 - [x] 10. Mails (prêts ; envoi désactivé tant que tu n'as pas validé l'aperçu)
 - [ ] 11. Tâche planifiée Windows
-- [ ] 12. Feedback « pas intéressé » et lettres de motivation
+- [x] 12. Feedback « pas intéressé » et lettres de motivation
 
 ## Installation (Windows 11)
 
@@ -104,7 +104,7 @@ Après chaque collecte, les nouvelles offres sont triées, sans appel à l'IA :
 Chaque offre gardée par le tri est notée par `claude-haiku-5-5` : note de 0 à 10, catégorie (À postuler vite ≥ 8, À regarder 5–7, Bof < 5), section (Santé, Hors santé mais intéressant, À négocier), résumé, explication, durée et date de début lues dans l'offre, raison d'exclusion éventuelle.
 
 - Clé : `ANTHROPIC_API_KEY` dans `.env` (à créer sur https://console.anthropic.com, rubrique API Keys). Sans clé, les offres restent en attente et seront notées au premier passage qui en dispose.
-- Le CV (`profil/cv.pdf`) et les offres marquées « pas intéressé » sont utilisés automatiquement.
+- Le CV (`profil/cv.pdf`) et les offres marquées « pas intéressé » (avec leur raison) sont utilisés automatiquement : l'IA note plus bas les offres qui leur ressemblent.
 - Coût : les consignes fixes sont mises en cache, seule l'offre change. Les tokens et le coût de chaque passage sont dans le journal ; le scoring s'arrête tout seul quand `scoring.budget_mensuel_usd` (2 $) est atteint dans le mois.
 
 ### Mails (alerte et récap)
@@ -146,6 +146,10 @@ Pour l'arrêter : `Ctrl + C` dans le terminal.
 - **Réglages** : ancienneté max, seuil d'alerte, mots-clés, exclusions, entreprises suivies. Ils sont écrits
   dans `config.yaml` (ancienne version gardée dans `config.yaml.bak`). Bouton **Refaire le tri** pour les
   appliquer aux offres déjà collectées.
+- **Lettre de motivation** : choisis une offre (ou clique **Lettre de motivation** sur sa fiche), ajoute des
+  consignes si tu veux, puis **Rédiger le brouillon**. Claude s'appuie sur l'offre, ton profil et ton CV, sans rien
+  inventer : les repères [à compléter : …] sont pour toi. Le brouillon se modifie, se télécharge en .txt ou se garde
+  dans la candidature. Coût : moins d'un centime par lettre, compté dans le même budget mensuel que le scoring.
 - **Journal** : historique des passages et coût IA (mois en cours et cumulé).
 - **Exporter en Excel** (barre de gauche) : un fichier avec deux feuilles, Offres et Candidatures.
 
@@ -176,6 +180,7 @@ stage_scraper/
   requetes.py          lectures et écritures en base pour l'appli
   reglages.py          modification de config.yaml depuis l'appli
   export.py            export Excel
+  lettre.py            brouillons de lettres de motivation
   notifications.py     mails d'alerte et de récap
 tests/                 tests automatiques
 data/stages.db         base SQLite (créée au premier lancement, jamais sur Git)

@@ -140,7 +140,7 @@ def une_page(page):
     main(page)
 
 
-@pytest.mark.parametrize("page", ["tableau_de_bord", "candidatures", "reglages", "journal"])
+@pytest.mark.parametrize("page", ["tableau_de_bord", "candidatures", "lettre", "reglages", "journal"])
 def test_chaque_page_s_affiche(appli, page):
     at = AppTest.from_function(une_page, args=(page,), default_timeout=30).run()
     assert not at.exception, at.exception

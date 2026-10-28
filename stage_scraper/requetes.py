@@ -157,10 +157,19 @@ def journal(conn, limite: int = 200) -> list[dict]:
 
 
 def couts_ia(conn) -> dict:
-    total = conn.execute("SELECT COALESCE(SUM(cout_usd), 0) FROM runs WHERE source = 'scoring'").fetchone()[0]
-    mois = conn.execute("SELECT COALESCE(SUM(cout_usd), 0) FROM runs WHERE source = 'scoring' AND date_debut >= ?",
+    ia = "source IN ('scoring', 'lettre')"
+    total = conn.execute(f"SELECT COALESCE(SUM(cout_usd), 0) FROM runs WHERE {ia}").fetchone()[0]
+    mois = conn.execute(f"SELECT COALESCE(SUM(cout_usd), 0) FROM runs WHERE {ia} AND date_debut >= ?",
                         (datetime.now().strftime("%Y-%m-01"),)).fetchone()[0]
     return {"total": total, "mois": mois}
+
+
+def enregistrer_lettre(conn, offre_id: int, texte: str) -> int:
+    """Garde le brouillon de lettre dans la candidature de l'offre (créée si besoin)."""
+    candidature_id = creer_candidature(conn, offre_id=offre_id)
+    conn.execute("UPDATE candidatures SET lettre = ?, date_maj = ? WHERE id = ?", (texte, maintenant(), candidature_id))
+    conn.commit()
+    return candidature_id
 
 
 def statistiques(conn) -> dict:

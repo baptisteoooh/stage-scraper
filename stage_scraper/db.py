@@ -4,7 +4,7 @@ from pathlib import Path
 
 # À augmenter quand on modifie la structure des tables, en ajoutant la
 # modification correspondante dans MIGRATIONS (pour mettre à jour les bases existantes).
-VERSION_SCHEMA = 3
+VERSION_SCHEMA = 4
 
 MIGRATIONS = {
     2: [
@@ -14,12 +14,15 @@ MIGRATIONS = {
     3: [
         "ALTER TABLE offres ADD COLUMN poste_ia_data INTEGER",
     ],
+    4: [
+        "ALTER TABLE candidatures ADD COLUMN lettre TEXT",
+    ],
 }
 
 SCHEMA = """
 -- Journal des passages : une ligne par source et par passage.
 -- Toutes les lignes d'un même passage partagent le même passage_id.
--- Le scoring IA a sa propre ligne (source = 'scoring') avec les tokens et le coût.
+-- Le scoring IA (source = 'scoring') et les lettres (source = 'lettre') ont leur ligne avec tokens et coût.
 CREATE TABLE IF NOT EXISTS runs (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     passage_id      INTEGER NOT NULL,
@@ -108,6 +111,7 @@ CREATE TABLE IF NOT EXISTS candidatures (
     date_candidature    TEXT,
     date_relance        TEXT,
     date_maj            TEXT,
+    lettre              TEXT,               -- brouillon de lettre de motivation
     notes               TEXT
 );
 

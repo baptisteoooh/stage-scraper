@@ -169,9 +169,9 @@ Autre heure : ajoute `-Heure 07:30` à la fin.
 
 - Tester tout de suite : `powershell -Command "Start-ScheduledTask -TaskName 'Stage Scraper'"`
   (ou Planificateur de tâches > Bibliothèque > Stage Scraper > Exécuter).
-- Messages des passages automatiques : `logsuto.log`.
+- Messages des passages automatiques : `logs\auto.log`.
 - Supprimer la tâche : `powershell -ExecutionPolicy Bypass -File planification\desinstaller_tache.ps1`
-- Vérifier le lanceur sans rien collecter : `planification\lancer_auto.cmd --verifier` (le résultat est dans `logsuto.log`).
+- Vérifier le lanceur sans rien collecter : `planification\lancer_auto.cmd --verifier` (le résultat est dans `logs\auto.log`).
 
 ## Organisation des fichiers
 

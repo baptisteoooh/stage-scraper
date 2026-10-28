@@ -86,9 +86,9 @@ Les mails sont enregistrés dans `data/emails/` (jamais sur Git).
 
 ### Pages carrières
 
-Les entreprises suivies qui ont un bloc `carrieres` dans `config.yaml` sont collectées directement sur leur outil de recrutement, via ses données JSON publiques. Seuls les stages et les CDD sont gardés. Outils gérés : Ashby (Doctolib, Owkin, Nabla, Lifen).
-
-Pour ajouter une entreprise sur Ashby : son identifiant est la fin de l'adresse `jobs.ashbyhq.com/<identifiant>` de ses offres.
+Les entreprises suivies qui ont un bloc `carrieres` dans `config.yaml` sont collectées directement sur leur outil de recrutement, via ses données JSON publiques. Seuls les stages et les CDD sont gardés. Outils gérés :
+- **Ashby** (Doctolib, Owkin, Nabla, Lifen) : `carrieres: {outil: ashby, id: doctolib}`, l'identifiant étant la fin de l'adresse `jobs.ashbyhq.com/<identifiant>` ;
+- **Workday** (Medtronic, J&J, GE HealthCare, Philips, Abbott, Stryker, BD) : `carrieres: {outil: workday, url: <adresse de la page carrières>}`, du type `https://<groupe>.wdN.myworkdayjobs.com/<site>`. Seules les offres en France sont lues : le module trouve tout seul le bon filtre.
 
 ## Tests
 

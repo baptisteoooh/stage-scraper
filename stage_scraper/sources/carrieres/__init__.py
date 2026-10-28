@@ -15,11 +15,12 @@ import time
 import requests
 
 from .. import Contexte, Resultat
-from . import ashby
+from . import ashby, workday
 
 NOM = "carrieres"
 OUTILS = {
     "ashby": ashby,
+    "workday": workday,
 }
 
 log = logging.getLogger(__name__)

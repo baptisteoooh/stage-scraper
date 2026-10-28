@@ -9,10 +9,10 @@ Le cahier des charges complet est dans `CLAUDE.md`.
 - [x] 1. Squelette, base SQLite, `config.yaml`, `.env.example`, Git
 - [ ] 2. API France Travail (reportée : API suspendue par France Travail)
 - [x] 3. Google Jobs (SerpApi) et Careerjet
-- [ ] 4. Alertes Gmail
+- [ ] 4. Alertes Gmail (lecture du libellé faite ; parseurs à écrire quand les premiers mails arriveront)
 - [ ] 5. Scraping direct LinkedIn et Indeed
-- [ ] 6. Pages carrières
-- [ ] 7. Dédoublonnage et pré-filtre
+- [x] 6. Pages carrières (Ashby et Workday ; quelques entreprises restent à brancher)
+- [x] 7. Dédoublonnage et pré-filtre
 - [ ] 8. Scoring Claude
 - [ ] 9. Appli Streamlit
 - [ ] 10. Mails
@@ -56,6 +56,7 @@ Options :
 | `run.py --source google_jobs` | lance une seule source, même désactivée ou réservée au mode auto |
 | `run.py --source google_jobs --max-requetes 1` | test avec une seule requête (économise le quota) |
 | `run.py --verifier` | affiche l'état de la base et les secrets manquants, sans rien collecter |
+| `run.py --retraiter` | refait le tri (pré-filtre et doublons) de toutes les offres, sans collecter : à lancer après avoir modifié les critères de `config.yaml` |
 
 ### Quota Google Jobs (SerpApi)
 
@@ -89,6 +90,12 @@ Les mails sont enregistrés dans `data/emails/` (jamais sur Git).
 Les entreprises suivies qui ont un bloc `carrieres` dans `config.yaml` sont collectées directement sur leur outil de recrutement, via ses données JSON publiques. Seuls les stages et les CDD sont gardés. Outils gérés :
 - **Ashby** (Doctolib, Owkin, Nabla, Lifen) : `carrieres: {outil: ashby, id: doctolib}`, l'identifiant étant la fin de l'adresse `jobs.ashbyhq.com/<identifiant>` ;
 - **Workday** (Medtronic, J&J, GE HealthCare, Philips, Abbott, Stryker, BD) : `carrieres: {outil: workday, url: <adresse de la page carrières>}`, du type `https://<groupe>.wdN.myworkdayjobs.com/<site>`. Seules les offres en France sont lues : le module trouve tout seul le bon filtre.
+
+### Tri des offres (pré-filtre et doublons)
+
+Après chaque collecte, les nouvelles offres sont triées, sans appel à l'IA :
+- **pré-filtre** : exclut d'après le titre les contrats refusés (alternance, CDI, VIE, fin d'études…), les postes non techniques et les niveaux senior ; puis les lieux hors Île-de-France, les offres trop anciennes, les durées et les dates de début hors critères (`criteres` et `exclusions` dans `config.yaml`). Une offre douteuse est gardée : l'IA tranchera. La raison de chaque exclusion est enregistrée (colonne `exclusion_prefiltre`) ;
+- **doublons** : même entreprise (alias compris), titres très proches et même région. La première offre vue reste l'originale.
 
 ## Tests
 

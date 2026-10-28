@@ -11,7 +11,7 @@ import logging
 import sys
 from contextlib import closing
 
-from stage_scraper import collecte, db
+from stage_scraper import collecte, db, traitement
 from stage_scraper.config import SECRETS_ATTENDUS, charger_config, chemin_projet, secrets_manquants
 
 
@@ -23,6 +23,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="ne lancer que cette source (même si elle est désactivée ou réservée au mode auto)")
     parser.add_argument("--max-requetes", type=int, help="nombre maximum de requêtes par source (pour tester)")
     parser.add_argument("--verifier", action="store_true", help="affiche l'état de la base et des secrets")
+    parser.add_argument("--retraiter", action="store_true",
+                        help="refait le pré-filtre et le dédoublonnage de toutes les offres, sans collecter "
+                             "(après un changement de config.yaml)")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(message)s", datefmt="%H:%M:%S")
@@ -35,11 +38,15 @@ def main(argv: list[str] | None = None) -> int:
         if args.verifier:
             afficher_etat(conn, chemin_db)
             return 0
+        if args.retraiter:
+            afficher_traitement(traitement.traiter(conn, config, tout=True))
+            return 0
 
         passage_id, bilan = collecte.lancer_passage(
             conn, config, auto=args.auto,
             sources_demandees=args.source, max_requetes=args.max_requetes,
         )
+        bilan_traitement = traitement.traiter(conn, config)
 
     mode = "automatique" if args.auto else "manuel"
     print(f"\nPassage n°{passage_id} ({mode})")
@@ -52,7 +59,13 @@ def main(argv: list[str] | None = None) -> int:
             print(f"      {ligne['message']}")
         for erreur in ligne["erreurs"]:
             print(f"      ERREUR : {erreur}")
+    afficher_traitement(bilan_traitement)
     return 0
+
+
+def afficher_traitement(bilan: dict) -> None:
+    print(f"  Tri des {bilan['traitees']} offre(s) à traiter : {bilan['gardees']} gardée(s), "
+          f"{bilan['exclues']} exclue(s) par le pré-filtre, {bilan['doublons']} doublon(s)")
 
 
 def utf8_sur_la_console() -> None:

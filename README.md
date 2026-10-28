@@ -140,7 +140,8 @@ Pour l'arrêter : `Ctrl + C` dans le terminal. Les pages sont dans le menu en ha
 - **Offres** : bouton **Lancer le scrap** (le menu **⋯** à côté choisit les sources et exporte en Excel), puis les offres
   en vignettes, de la mieux notée à la moins bien notée, en onglets
   Toutes sections / Santé / Hors santé mais intéressant / À négocier / En attente de note IA.
-  « Nouvelles » = pas encore ouvertes ; **Toutes** pour revoir aussi celles déjà ouvertes.
+  **Toutes** (par défaut) : toutes les offres gardées, l'étiquette « Nouvelle » marque celles pas encore ouvertes ;
+  **Nouvelles** : seulement celles-là ; **Dernier passage** : celles trouvées par le dernier scrap.
   Chaque vignette montre la note, l'entreprise, le poste, le lieu, la durée, le début, le télétravail, la
   gratification (si connue), le résumé de l'IA, un extrait de l'annonce et la date de publication. 24 vignettes s'affichent d'abord,
   **Afficher plus** ajoute les suivantes. **Voir la fiche** ouvre le détail : explication de la note, contact, liens,

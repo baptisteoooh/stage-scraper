@@ -50,8 +50,9 @@ def page_tableau_de_bord():
                 "fichier .env, puis relance un scrap (ou `python run.py --noter`).")
 
     st.markdown("")
-    filtre = st.segmented_control("Afficher", ["Nouvelles", "Dernier passage", "Toutes"], default="Nouvelles",
-                                  key="filtre_offres") or "Nouvelles"
+    # « Toutes » par défaut : une offre ouverte une fois reste visible (l'étiquette « Nouvelle » repère les autres).
+    filtre = st.segmented_control("Afficher", ["Toutes", "Nouvelles", "Dernier passage"], default="Toutes",
+                                  key="filtre_offres") or "Toutes"
     if filtre == "Dernier passage":
         offres = requetes.offres_visibles(CONN, "passage", requetes.dernier_passage(CONN))
     else:

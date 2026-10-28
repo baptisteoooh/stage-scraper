@@ -225,6 +225,30 @@ def test_page_candidatures_en_cartes(appli):
         assert requetes.candidature(conn, identifiant)["statut"] == "à postuler"
 
 
+def contenu_fenetre_details(candidature_id):
+    """Contenu de la fenêtre « Détails », avec sa propre connexion comme dans l'appli."""
+    from stage_scraper import suivi
+    from stage_scraper.config import charger_config
+    with suivi._connexion(charger_config()) as conn:
+        suivi._bandeau_annulation(conn)
+        suivi._details(conn, candidature_id, 7)
+
+
+def test_supprimer_depuis_la_fenetre_details(appli):
+    # AppTest ne sait pas relancer une fenêtre seule : on affiche directement son contenu.
+    with closing(db.connecter(appli)) as conn:
+        identifiant = requetes.creer_candidature(conn, offre_id=1)
+    at = AppTest.from_function(contenu_fenetre_details, args=(identifiant,), default_timeout=30).run()
+    assert not at.exception, at.exception
+    next(b for b in at.button if b.label == "Supprimer").click().run()
+    assert not at.exception, at.exception
+    with closing(db.connecter(appli)) as conn:
+        assert requetes.candidatures(conn) == []
+    next(b for b in at.button if "Annuler" in b.label).click().run()
+    with closing(db.connecter(appli)) as conn:
+        assert requetes.candidature(conn, identifiant)["entreprise"] == "Gleamer"
+
+
 def test_page_candidatures_vide(appli):
     at = AppTest.from_function(une_page, args=("candidatures",), default_timeout=30).run()
     assert not at.exception, at.exception

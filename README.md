@@ -135,24 +135,24 @@ Les tests utilisent une vraie réponse enregistrée (`tests/donnees/`) : ils ne 
 
 L'appli s'ouvre dans le navigateur (http://localhost:8501). Elle n'est visible que depuis ce PC.
 Elle suit le mode clair ou sombre de Windows (thème dans `.streamlit/config.toml`, styles dans `stage_scraper/style.py`).
-Pour l'arrêter : `Ctrl + C` dans le terminal.
+Pour l'arrêter : `Ctrl + C` dans le terminal. Les pages sont dans le menu en haut.
 
-- **Tableau de bord** : bouton **Lancer le scrap**, puis les offres triées par note, en onglets
+- **Offres** : bouton **Lancer le scrap** (le menu **⋯** à côté choisit les sources et exporte en Excel), puis les offres triées par note, en onglets
   Santé / Hors santé mais intéressant / À négocier / En attente de note IA. « Nouvelles » = pas encore ouvertes.
   Clique sur une ligne pour voir la fiche : résumé, explication de la note, infos, liens, boutons
   **Postuler** (crée une candidature) et **Pas intéressé** (avec une raison facultative, réutilisée par l'IA).
   En bas, la liste des offres écartées par le tri, pour vérifier qu'il ne se trompe pas.
-- **Candidatures** : une colonne par étape (À postuler, Postulé, Relancé, Entretien, Terminé), une carte par
-  candidature. Le bouton bleu de la carte passe à l'étape suivante et remplit les dates (envoi, rappel de relance
+- **Candidatures** : une colonne par étape (À postuler, Postulé, Relancé, Entretien), une carte par
+  candidature ; les candidatures terminées (acceptées ou refusées) sont rangées dans le volet **Terminées**. Le bouton bleu de la carte passe à l'étape suivante et remplit les dates (envoi, rappel de relance
   7 jours après, réglable dans `config.yaml` > `candidatures.relance_jours`). **Détails** ouvre une fenêtre pour tout
   modifier ou supprimer ; chaque action peut être annulée juste après. **＋ Nouvelle candidature** pour une
   candidature faite hors de l'outil. Une vue tableau reste disponible en bas de page.
-- **Lettre de motivation** : choisis une offre (ou clique **Lettre de motivation** sur sa fiche), ajoute des
+- **Lettres** : choisis une offre (ou clique **Lettre de motivation** sur sa fiche), ajoute des
   consignes si tu veux, puis **Rédiger le brouillon**. Claude s'appuie sur l'offre, ton profil et ton CV, sans rien
   inventer : les repères [à compléter : …] sont pour toi. Le brouillon se modifie, se télécharge en .txt ou se garde
   dans la candidature. Coût : moins d'un centime par lettre, compté dans le même budget mensuel que le scoring.
 - **Journal** : historique des passages et coût IA (mois en cours et cumulé).
-- **Exporter en Excel** (barre de gauche) : un fichier avec deux feuilles, Offres et Candidatures.
+- **Exporter en Excel** (en haut de la page Candidatures, ou menu **⋯** de la page Offres) : un fichier avec deux feuilles, Offres et Candidatures.
 
 ## Tâche planifiée
 

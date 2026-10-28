@@ -16,7 +16,7 @@ import calendar
 import re
 from datetime import date, datetime, timedelta
 
-from .texte import contient, contient_un, normaliser, sans_accents
+from .texte import contient_un, normaliser, sans_accents
 
 # Expressions qui désignent un stage de fin d'études : exclu même si le titre dit « stage ».
 FIN_ETUDES = ("stage de fin d'études", "PFE", "projet de fin d'études", "end of studies internship",

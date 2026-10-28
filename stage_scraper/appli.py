@@ -1,15 +1,14 @@
 """Appli locale, lancée par app.py (streamlit run app.py).
 
-Pages : tableau de bord (offres + bouton de scrap), candidatures, lettre de motivation, réglages, journal.
-L'export Excel est dans la barre de gauche, sur toutes les pages.
+Pages (menu en haut) : offres (+ bouton de scrap), candidatures, lettres, réglages, journal.
+L'export Excel est dans le menu « ⋯ » de la page Offres et en haut de la page Candidatures.
 """
 import logging
-from datetime import date
 
 import pandas as pd
 import streamlit as st
 
-from stage_scraper import (collecte, db, export, lettre, notifications, pipeline, reglages, requetes, style,
+from stage_scraper import (collecte, db, lettre, notifications, pipeline, reglages, requetes, style,
                            suivi, traitement)
 from stage_scraper import config as parametres
 from stage_scraper.config import chemin_projet, secret
@@ -143,7 +142,9 @@ def liste_avec_fiche(offres: list[dict], cle: str) -> None:
     if not offres:
         st.caption("Aucune offre ici.")
         return
+    # Tableau haut et aéré : jusqu'à ~15 lignes visibles sans faire défiler.
     evenement = st.dataframe(tableau_offres(offres), hide_index=True, width="stretch",
+                             height=min(46 + 44 * len(offres), 46 + 44 * 15), row_height=44,
                              column_config=COLONNES_TABLEAU, on_select="rerun",
                              selection_mode="single-row", key=f"tableau_{cle}")
     lignes = evenement.selection.rows
@@ -159,12 +160,14 @@ def page_tableau_de_bord():
     entete = st.columns([4, 1.1, 0.5], vertical_alignment="bottom")
     entete[0].title("🩺 Offres de stage")
     lancer = entete[1].button("Lancer le scrap", type="primary", width="stretch")
-    with entete[2].popover("⋯", help="Choisir les sources", width="stretch"):
+    with entete[2].popover("⋯", help="Sources du scrap et export Excel", width="stretch"):
         actives = [n for n, r in CONFIG["sources"].items() if r.get("actif") and n in collecte.SOURCES]
         choix = st.multiselect(
             "Sources (vide = toutes les sources actives, sauf Google Jobs réservé au passage de 8 h)",
             list(collecte.SOURCES), placeholder="Toutes les sources actives", key="sources_choisies")
         st.caption("Actives : " + ", ".join(actives))
+        st.divider()
+        suivi.bouton_export(CONN)
     if lancer:
         lancer_scrap(choix or None)
 
@@ -448,18 +451,10 @@ def page_journal():
 
 # =========================================================================== lancement
 
-def barre_laterale():
-    with st.sidebar:
-        st.download_button("📥 Exporter en Excel", export.classeur_excel(CONN),
-                           file_name=f"stage_scraper_{date.today().isoformat()}.xlsx",
-                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                           width="stretch")
-
-
 PAGES = {
-    "tableau_de_bord": dict(titre="Tableau de bord", icone="🩺"),
+    "tableau_de_bord": dict(titre="Offres", icone="🩺"),
     "candidatures": dict(titre="Candidatures", icone="📋"),
-    "lettre": dict(titre="Lettre de motivation", icone="✍️"),
+    "lettre": dict(titre="Lettres", icone="✍️"),
     "reglages": dict(titre="Réglages", icone="⚙️"),
     "journal": dict(titre="Journal", icone="📜"),
 }
@@ -484,8 +479,8 @@ def main(page: str | None = None):
                          default=(nom == "tableau_de_bord"))
             for nom, p in PAGES.items()
         })
-        navigation = st.navigation(list(PAGES_OBJETS.values()))
-        barre_laterale()
+        # Navigation en haut de page : toute la largeur reste au contenu.
+        navigation = st.navigation(list(PAGES_OBJETS.values()), position="top")
         navigation.run()
     finally:
         CONN.close()

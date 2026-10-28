@@ -6,12 +6,14 @@ annulée juste après (bouton « Annuler » en haut de la page).
 """
 import html
 from collections import Counter
+from contextlib import closing
 from datetime import date
 
 import pandas as pd
 import streamlit as st
 
-from . import requetes
+from . import db, export, requetes
+from .config import chemin_projet
 
 # (clé, titre, symbole) ; « terminé » regroupe refus et accepté.
 ETAPES = [
@@ -30,6 +32,14 @@ ACTION_SUIVANTE = {
 }
 LIBELLES_STATUT = {"à postuler": "À postuler", "postulé": "Postulé", "relancé": "Relancé",
                    "entretien": "Entretien", "refus": "Refus", "accepté": "Accepté"}
+
+
+def bouton_export(conn) -> None:
+    """Bouton « Exporter en Excel » (offres + candidatures), utilisé dans les en-têtes de page."""
+    st.download_button("📥 Exporter en Excel", export.classeur_excel(conn),
+                       file_name=f"stage_scraper_{date.today().isoformat()}.xlsx",
+                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                       width="stretch")
 
 
 def _jour(texte: str | None) -> date | None:
@@ -69,17 +79,19 @@ def afficher(conn, config: dict) -> None:
     _bandeau_annulation(conn)
 
     toutes = requetes.candidatures(conn)
-    haut = st.columns([3, 1], vertical_alignment="bottom")
-    recherche = haut[0].text_input("Rechercher", placeholder="Entreprise, poste ou note…",
+    haut = st.columns([3, 1.1, 0.9], vertical_alignment="bottom")
+    recherche = haut[0].text_input("Rechercher", placeholder="Rechercher une entreprise, un poste ou une note…",
                                    label_visibility="collapsed", key="recherche_candidatures")
     if haut[1].button("＋ Nouvelle candidature", type="primary", width="stretch"):
-        fenetre_nouvelle(conn)
+        fenetre_nouvelle(config)
+    with haut[2]:
+        bouton_export(conn)
 
     if not toutes:
         st.markdown("")
         with st.container(border=True, key="carte_vide"):
             st.markdown("#### Aucune candidature pour l'instant")
-            st.markdown("Ouvre une offre du **Tableau de bord** et clique **Postuler**, ou ajoute une candidature "
+            st.markdown("Ouvre une offre de la page **Offres** et clique **Postuler**, ou ajoute une candidature "
                         "faite ailleurs avec **＋ Nouvelle candidature**.")
         return
 
@@ -93,22 +105,36 @@ def afficher(conn, config: dict) -> None:
     if recherche and not visibles:
         st.caption("Aucune candidature ne correspond à cette recherche.")
 
-    colonnes = st.columns(len(ETAPES), gap="small")
-    for colonne, (cle, titre, symbole) in zip(colonnes, ETAPES):
+    # Les 4 étapes en cours, en colonnes larges ; les candidatures terminées sont rangées dessous.
+    en_cours = [e for e in ETAPES if e[0] != "terminé"]
+    colonnes = st.columns(len(en_cours), gap="medium")
+    for colonne, (cle, titre, symbole) in zip(colonnes, en_cours):
         cartes = [c for c in visibles if etape(c) == cle]
         with colonne:
             with st.container(key=f"colonne_{cle.replace(' ', '_')}"):
                 st.markdown(f'<div class="etape-titre">{symbole} {titre} '
                             f'<span class="etape-compte">{len(cartes)}</span></div>', unsafe_allow_html=True)
+                if not cartes:
+                    st.markdown('<div class="etape-vide">Rien ici pour l’instant</div>', unsafe_allow_html=True)
                 for c in cartes:
-                    carte(conn, c, relance_jours)
+                    carte(conn, config, c, relance_jours)
 
+    terminees = [c for c in visibles if etape(c) == "terminé"]
     st.markdown("")
+    if terminees:
+        acceptees = sum(c["statut"] == "accepté" for c in terminees)
+        with st.expander(f"🏁 Terminées ({len(terminees)} · {acceptees} acceptée(s), "
+                         f"{len(terminees) - acceptees} refus)"):
+            grille = st.columns(4, gap="medium")
+            for i, c in enumerate(terminees):
+                with grille[i % 4]:
+                    carte(conn, config, c, relance_jours)
+
     with st.expander("Vue tableau (pour modifier beaucoup de lignes d'un coup)"):
         vue_tableau(conn, toutes)
 
 
-def carte(conn, c: dict, relance_jours: int) -> None:
+def carte(conn, config: dict, c: dict, relance_jours: int) -> None:
     e = html.escape
     with st.container(border=True, key=f"carte_{c['id']}"):
         st.markdown(f'<div class="carte-entreprise">{e(c["entreprise"] or "Entreprise ?")}</div>'
@@ -142,7 +168,7 @@ def carte(conn, c: dict, relance_jours: int) -> None:
                 _retenir(f"{c['entreprise'] or 'Candidature'} : {LIBELLES_STATUT[suivant]}", avant)
                 st.rerun()
         if st.button("Détails", key=f"details_{c['id']}", type="tertiary", width="stretch"):
-            fenetre_details(conn, c["id"], relance_jours)
+            fenetre_details(config, c["id"], relance_jours)
 
 
 # =========================================================================== annulation
@@ -165,8 +191,18 @@ def _bandeau_annulation(conn) -> None:
 
 # =========================================================================== fenêtres
 
+def _connexion(config: dict):
+    """Connexion propre à une fenêtre (Streamlit relance les fenêtres seules, dans un autre fil d'exécution)."""
+    return closing(db.connecter(chemin_projet(config["general"]["base_de_donnees"])))
+
+
 @st.dialog("Nouvelle candidature")
-def fenetre_nouvelle(conn) -> None:
+def fenetre_nouvelle(config: dict) -> None:
+    with _connexion(config) as conn:
+        _nouvelle(conn)
+
+
+def _nouvelle(conn) -> None:
     entreprise = st.text_input("Entreprise")
     poste = st.text_input("Poste")
     lien = st.text_input("Lien de l'offre (facultatif)", placeholder="https://…")
@@ -188,7 +224,12 @@ def fenetre_nouvelle(conn) -> None:
 
 
 @st.dialog("Candidature", width="large")
-def fenetre_details(conn, candidature_id: int, relance_jours: int) -> None:
+def fenetre_details(config: dict, candidature_id: int, relance_jours: int) -> None:
+    with _connexion(config) as conn:
+        _details(conn, candidature_id, relance_jours)
+
+
+def _details(conn, candidature_id: int, relance_jours: int) -> None:
     c = requetes.candidature(conn, candidature_id)
     if not c:
         st.caption("Cette candidature n'existe plus.")

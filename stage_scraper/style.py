@@ -17,7 +17,8 @@ CSS = """
 .stApp h3 { line-height: 1.2; letter-spacing: -0.012em; }
 .stApp p, .stApp li { line-height: 1.5; }
 [data-testid="stCaptionContainer"] { letter-spacing: 0.005em; }
-[data-testid="stMainBlockContainer"] { padding-top: 2.5rem; max-width: 1400px; }
+/* Place sous le menu du haut, contenu large pour les colonnes du suivi */
+[data-testid="stMainBlockContainer"] { padding-top: 5rem; max-width: 1720px; }
 
 /* ---------- Retour immédiat sur les boutons ---------- */
 .stButton button, .stDownloadButton button, .stLinkButton a, .stFormSubmitButton button {
@@ -35,7 +36,7 @@ CSS = """
 
 /* ---------- Cartes (conteneurs avec une clé « carte_… ») ---------- */
 [class*="st-key-carte_"] {
-  border-radius: 1.1rem !important;
+  border-radius: 1.1rem !important; padding: 1.15rem 1.25rem !important; gap: 0.55rem;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 14px rgba(0, 0, 0, 0.05);
   transition: transform 160ms ease-out, box-shadow 160ms ease-out;
 }
@@ -43,17 +44,21 @@ CSS = """
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05), 0 10px 24px rgba(0, 0, 0, 0.08);
 }
-[class*="st-key-carte_"] p { margin-bottom: 0.15rem; }
+[class*="st-key-carte_"] p { margin-bottom: 0.2rem; }
+/* Streamlit remonte chaque bloc de texte de 1rem : dans une carte, ça fait chevaucher le bouton */
+[class*="st-key-carte_"] [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
 
 /* En-têtes de colonnes du suivi des candidatures */
-[class*="st-key-colonne_"] { gap: 0.6rem; }
-.etape-titre { display: flex; align-items: baseline; gap: 0.45rem; margin: 0 0 0.35rem 0.15rem;
-  font-weight: 650; letter-spacing: -0.01em; }
+[class*="st-key-colonne_"] { gap: 0.9rem; }
+.etape-titre { display: flex; align-items: baseline; gap: 0.5rem; margin: 0 0 0.5rem 0.2rem;
+  font-size: 1.15rem; font-weight: 650; letter-spacing: -0.012em; }
 .etape-compte { font-weight: 500; opacity: 0.55; font-variant-numeric: tabular-nums; }
-.carte-entreprise { font-weight: 650; letter-spacing: -0.01em; font-size: 1.02rem; }
-.carte-poste { opacity: 0.8; font-size: 0.92rem; line-height: 1.35;
+.carte-entreprise { font-weight: 650; letter-spacing: -0.012em; font-size: 1.12rem; line-height: 1.25; }
+.carte-poste { opacity: 0.82; font-size: 0.98rem; line-height: 1.4;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.carte-meta { opacity: 0.6; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.carte-meta { opacity: 0.62; font-size: 0.86rem; font-variant-numeric: tabular-nums; }
+.etape-vide { padding: 1.6rem 1rem; text-align: center; font-size: 0.9rem; opacity: 0.55;
+  border: 1.5px dashed rgba(127, 127, 127, 0.35); border-radius: 1.1rem; }
 
 /* ---------- Barre latérale translucide ---------- */
 [data-testid="stSidebar"] > div:first-child {

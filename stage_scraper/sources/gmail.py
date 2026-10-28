@@ -189,9 +189,11 @@ def telecharger(config: dict) -> None:
     dossier = chemin_projet(config["sources"][NOM].get("dossier_emails", "data/emails"))
     dossier.mkdir(parents=True, exist_ok=True)
     messages = lire_messages(config["sources"][NOM])
-    for message in messages:
+    for numero, message in enumerate(messages, start=1):
         jour = email.utils.parsedate_to_datetime(message["Date"]).strftime("%Y-%m-%d")
-        nom = re.sub(r"\(.)", lambda m: m.group(1), nom[1:-1])  # retire les antislashs d'échappement
+        # Nom de fichier : date, expéditeur et numéro (caractères interdits par Windows remplacés)
+        expediteur = re.sub(r"[^A-Za-z0-9.-]+", "_", adresse_expediteur(message))
+        nom = f"{jour}_{expediteur}_{numero:03d}"
         (dossier / f"{nom}.eml").write_bytes(message.as_bytes())
         print(f"  {nom}.eml")
     print(f"{len(messages)} mail(s) enregistré(s) dans {dossier}")

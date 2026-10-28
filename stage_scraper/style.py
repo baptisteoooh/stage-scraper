@@ -60,6 +60,43 @@ CSS = """
 .etape-vide { padding: 1.6rem 1rem; text-align: center; font-size: 0.9rem; opacity: 0.55;
   border: 1.5px dashed rgba(127, 127, 127, 0.35); border-radius: 1.1rem; }
 
+/* ---------- Vignettes d'offres (page Offres) ---------- */
+/* Grille automatique : autant de colonnes de 340 px minimum que la largeur le permet.
+   Les vignettes d'une même rangée ont la même hauteur, boutons alignés en bas. */
+[class*="st-key-grille_"] { display: grid !important; gap: 1.1rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); align-items: stretch; }
+[class*="st-key-grille_"] > * { width: auto !important; min-width: 0; }
+[class*="st-key-carte_offre_"] { height: 100%; padding: 1.3rem 1.4rem 1.1rem !important; }
+[class*="st-key-carte_offre_"] [data-testid="stElementContainer"]:has(.vignette) { flex-grow: 1; }
+.vignette { display: flex; flex-direction: column; gap: 0.7rem; height: 100%; }
+.v-haut { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.8rem; }
+.v-entreprise { font-size: 0.95rem; font-weight: 600; opacity: 0.7; letter-spacing: -0.005em;
+  line-height: 1.3; padding-top: 0.15rem; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v-titre { font-size: 1.18rem; font-weight: 650; line-height: 1.3; letter-spacing: -0.015em;
+  min-height: 2.6em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* Note : couleur mélangée à la couleur du texte, donc lisible en clair comme en sombre */
+.v-note { flex-shrink: 0; border-radius: 999px; padding: 0.28rem 0.75rem; font-variant-numeric: tabular-nums;
+  line-height: 1.2; white-space: nowrap; }
+.v-note b { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.02em; }
+.v-note span { font-size: 0.8rem; opacity: 0.7; margin-left: 0.1rem; }
+.v-note-haute { background: rgba(52, 199, 89, 0.17); color: color-mix(in srgb, #34c759 65%, currentColor); }
+.v-note-moyenne { background: rgba(10, 132, 255, 0.14); color: color-mix(in srgb, #0a84ff 65%, currentColor); }
+.v-note-basse, .v-note-attente { background: rgba(142, 142, 147, 0.16); }
+.v-badges { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.v-badges:empty { display: none; }
+.v-badge { font-size: 0.75rem; font-weight: 600; padding: 0.15rem 0.6rem; border-radius: 999px; }
+.v-nouveau { background: rgba(10, 132, 255, 0.14); color: color-mix(in srgb, #0a84ff 70%, currentColor); }
+.v-ia { background: rgba(175, 82, 222, 0.15); color: color-mix(in srgb, #af52de 70%, currentColor); }
+.v-cdd { background: rgba(255, 149, 0, 0.17); color: color-mix(in srgb, #ff9500 60%, currentColor); }
+.v-suivie { background: rgba(52, 199, 89, 0.15); color: color-mix(in srgb, #34c759 65%, currentColor); }
+.v-infos { display: flex; flex-wrap: wrap; gap: 0.4rem 0.45rem; }
+.v-info { font-size: 0.86rem; padding: 0.25rem 0.65rem; border-radius: 0.6rem;
+  background: rgba(127, 127, 127, 0.09); white-space: nowrap; }
+.v-inconnu { opacity: 0.5; }
+.v-resume { font-size: 0.92rem; line-height: 1.5; opacity: 0.78; min-height: 3em;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.v-pied { font-size: 0.8rem; opacity: 0.5; margin-top: auto; }
+
 /* ---------- Barre latérale translucide ---------- */
 [data-testid="stSidebar"] > div:first-child {
   backdrop-filter: blur(20px) saturate(180%);

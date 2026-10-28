@@ -154,19 +154,51 @@ def test_appli_complete_avec_menu(appli):
     assert onglets[0] == "Santé (1)" and onglets[-1] == "En attente de note IA (1)"
 
 
-def test_postuler_depuis_la_fiche(appli):
+def test_page_offres_en_vignettes(appli):
     at = AppTest.from_function(une_page, args=("tableau_de_bord",), default_timeout=30).run()
-    # Simule le clic sur la première ligne du tableau « Santé »
-    at.session_state["tableau_Nouvelles_Santé"] = {
-        "selection": {"rows": [0], "columns": [], "cells": []}}
-    at.run()
     assert not at.exception, at.exception
-    bouton = next(b for b in at.button if "Postuler" in b.label)
-    bouton.click().run()
+    vignettes = [m.value for m in at.markdown if 'class="vignette"' in m.value]
+    assert any("Gleamer" in v and "<b>9</b>" in v for v in vignettes)
+    assert any(b.label == "Voir la fiche" for b in at.button)
+    assert not at.dataframe or len(at.dataframe) == 1  # seul reste le tableau des offres écartées
+
+
+def contenu_fiche(offre_id):
+    """Contenu de la fenêtre « Voir la fiche », avec sa propre connexion comme dans l'appli."""
+    from contextlib import closing
+    from stage_scraper import db, vignettes
+    from stage_scraper.config import charger_config, chemin_projet
+    with closing(db.connecter(chemin_projet(charger_config()["general"]["base_de_donnees"]))) as conn:
+        vignettes.fiche(conn, offre_id, "test")
+
+
+def test_postuler_depuis_la_fiche(appli):
+    # AppTest ne sait pas relancer une fenêtre seule : on affiche directement son contenu.
+    at = AppTest.from_function(contenu_fiche, args=(1,), default_timeout=30).run()
+    assert not at.exception, at.exception
+    next(b for b in at.button if "Postuler" in b.label).click().run()
     assert not at.exception, at.exception
     with closing(db.connecter(appli)) as conn:
         assert [c["entreprise"] for c in requetes.candidatures(conn)] == ["Gleamer"]
         assert conn.execute("SELECT vue FROM offres WHERE source_id = '1'").fetchone()[0] == 1
+
+
+def test_contenu_d_une_vignette():
+    from stage_scraper import vignettes
+    o = {"score": 8, "categorie": "À postuler vite", "vue": 0, "poste_ia_data": 1, "type_contrat": "cdd",
+         "entreprise": "Doctolib", "titre": "Stage <IA> & data", "lieu": "Levallois-Perret, Ile-de-France, France",
+         "duree": None, "duree_ia": "4 mois", "date_debut": "2027-04-01", "date_debut_ia": None,
+         "teletravail": "hybride", "gratification": None, "resume": "Modèles de langage.",
+         "date_publication": "2026-10-25", "site_origine": "Ashby", "source": "carrieres"}
+    contenu = vignettes.html_vignette(o, suivie=True, aujourd_hui=date(2026, 10, 28))
+    assert "Stage &lt;IA&gt; &amp; data" in contenu  # texte des sites échappé
+    for attendu in ("v-note-haute", "Nouvelle", "IA / data", "CDD", "Dans mes candidatures", "Levallois-Perret<",
+                    "4 mois", "avril 2027", "Hybride", "il y a 3 j", "Ashby"):
+        assert attendu in contenu, attendu
+    assert "Gratification" not in contenu and "💶" not in contenu  # inconnue : pas affichée
+    o.update(score=None, duree_ia=None, date_debut=None, vue=1)
+    contenu = vignettes.html_vignette(o)
+    assert "v-note-attente" in contenu and "Durée ?" in contenu and "Début ?" in contenu
 
 
 # --------------------------------------------------------------------------- suivi des candidatures

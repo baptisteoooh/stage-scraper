@@ -1,6 +1,6 @@
 """Appli locale, lancée par app.py (streamlit run app.py).
 
-Pages (menu en haut) : offres (+ bouton de scrap), candidatures, lettres, réglages, journal.
+Pages (menu en haut) : offres en vignettes (+ bouton de scrap), candidatures, lettres, réglages, journal.
 L'export Excel est dans le menu « ⋯ » de la page Offres et en haut de la page Candidatures.
 """
 import logging
@@ -9,7 +9,7 @@ import pandas as pd
 import streamlit as st
 
 from stage_scraper import (collecte, db, lettre, notifications, pipeline, reglages, requetes, style,
-                           suivi, traitement)
+                           suivi, traitement, vignettes)
 from stage_scraper import config as parametres
 from stage_scraper.config import chemin_projet, secret
 
@@ -18,140 +18,6 @@ CONFIG: dict = {}
 CONN = None
 
 ONGLET_ATTENTE = "En attente de note IA"
-
-
-# =========================================================================== outils
-
-def lien_cliquable(url: str | None, texte: str = "Ouvrir l'offre") -> None:
-    if url:
-        st.link_button(texte, url)
-
-
-def tableau_offres(offres: list[dict]) -> pd.DataFrame:
-    lignes = []
-    for o in offres:
-        lignes.append({
-            "Note": o["score"],
-            "Nouveau": "🆕" if not o["vue"] else "",
-            "Titre": o["titre"],
-            "Entreprise": o["entreprise"] or "",
-            "Contrat": "CDD" if o["type_contrat"] == "cdd" else "Stage",
-            "Lieu": o["lieu"] or "",
-            "Durée": o["duree"] or o["duree_ia"] or "",
-            "Début": o["date_debut"] or o["date_debut_ia"] or "",
-            "Gratification": o["gratification"] or "",
-            "Publiée le": (o["date_publication"] or "")[:10],
-            "Lien": o["lien"],
-        })
-    return pd.DataFrame(lignes)
-
-
-COLONNES_TABLEAU = {
-    "Note": st.column_config.NumberColumn(format="%d / 10", width="small"),
-    "Nouveau": st.column_config.TextColumn(width="small"),
-    "Titre": st.column_config.TextColumn(width="large"),
-    "Lien": st.column_config.LinkColumn(display_text="Ouvrir", width="small"),
-}
-
-
-def fiche_offre(o: dict, cle: str) -> None:
-    """Détail d'une offre, avec les boutons Postuler et Pas intéressé."""
-    if not o["vue"]:
-        requetes.marquer_vue(CONN, o["id"])
-        st.session_state.setdefault("ouvertes", set()).add(o["id"])
-
-    with st.container(border=True, key=f"carte_fiche_{o['id']}"):
-        haut = st.columns([5, 1])
-        haut[0].subheader(o["titre"])
-        haut[0].markdown(f"**{o['entreprise'] or 'Entreprise inconnue'}** — {o['lieu'] or 'lieu inconnu'}")
-        if o["score"] is not None:
-            haut[1].metric("Note IA", f"{o['score']} / 10", o["categorie"], delta_color="off")
-
-        badges = []
-        if o["type_contrat"] == "cdd":
-            badges.append(":orange-badge[CDD]")
-        if o["section"]:
-            badges.append(f":blue-badge[{o['section']}]")
-        if o["poste_ia_data"]:
-            badges.append(":violet-badge[IA / data]")
-        if badges:
-            st.markdown(" ".join(badges))
-
-        if o["resume"]:
-            st.markdown(f"**Résumé** : {o['resume']}")
-        if o["pourquoi"]:
-            st.markdown(f"**Pourquoi cette note** : {o['pourquoi']}")
-        if o["score"] is None:
-            st.info("Pas encore notée par l'IA.")
-        if o["exclusion_prefiltre"] or o["exclusion_ia"]:
-            st.warning(f"Écartée : {o['exclusion_prefiltre'] or o['exclusion_ia']}")
-
-        infos = {
-            "Durée": o["duree"] or o["duree_ia"],
-            "Début": o["date_debut"] or o["date_debut_ia"],
-            "Gratification": o["gratification"],
-            "Télétravail": o["teletravail"],
-            "Publiée le": (o["date_publication"] or "")[:10] or None,
-            "Contact": o["contact"],
-            "Trouvée via": " / ".join(x for x in (o["source"], o["site_origine"]) if x),
-        }
-        st.markdown("  \n".join(f"**{k}** : {v}" for k, v in infos.items() if v))
-
-        liens = st.columns(4)
-        with liens[0]:
-            lien_cliquable(o["lien"])
-        for i, autre in enumerate(requetes.doublons_de(CONN, o["id"])[:3], start=1):
-            with liens[i]:
-                lien_cliquable(autre["lien"], f"Aussi sur {autre['site_origine'] or autre['source']}")
-
-        if o["description"]:
-            with st.expander("Description complète"):
-                st.text(o["description"])
-
-        actions = st.columns(3)
-        candidature = requetes.candidature_de(CONN, o["id"])
-        with actions[2]:
-            if st.button("✍️ Lettre de motivation", key=f"lettre_{cle}_{o['id']}"):
-                st.session_state["lettre_offre_id"] = o["id"]
-                if PAGES_OBJETS:
-                    st.switch_page(PAGES_OBJETS["lettre"])
-        with actions[0]:
-            if candidature:
-                st.success(f"Candidature suivie (statut : {candidature['statut']}).")
-            elif st.button("✅ Postuler", key=f"postuler_{cle}_{o['id']}", type="primary"):
-                requetes.creer_candidature(CONN, offre_id=o["id"])
-                st.toast("Ajoutée aux candidatures, statut « à postuler ».")
-                st.rerun()
-        with actions[1]:
-            if o["pas_interesse"]:
-                if st.button("Annuler « pas intéressé »", key=f"annuler_{cle}_{o['id']}"):
-                    requetes.annuler_pas_interesse(CONN, o["id"])
-                    st.rerun()
-            else:
-                with st.popover("👎 Pas intéressé"):
-                    raison = st.text_input("Raison (facultatif)", key=f"raison_{cle}_{o['id']}",
-                                           placeholder="ex. trop orienté finance, trop loin…")
-                    if st.button("Confirmer", key=f"pasint_{cle}_{o['id']}"):
-                        requetes.marquer_pas_interesse(CONN, o["id"], raison)
-                        st.toast("Offre masquée. L'IA s'en servira d'exemple pour les prochaines notes.")
-                        st.rerun()
-
-
-def liste_avec_fiche(offres: list[dict], cle: str) -> None:
-    """Tableau cliquable : la fiche de l'offre choisie s'affiche dessous."""
-    if not offres:
-        st.caption("Aucune offre ici.")
-        return
-    # Tableau haut et aéré : jusqu'à ~15 lignes visibles sans faire défiler.
-    evenement = st.dataframe(tableau_offres(offres), hide_index=True, width="stretch",
-                             height=min(46 + 44 * len(offres), 46 + 44 * 15), row_height=44,
-                             column_config=COLONNES_TABLEAU, on_select="rerun",
-                             selection_mode="single-row", key=f"tableau_{cle}")
-    lignes = evenement.selection.rows
-    if lignes and lignes[0] < len(offres):
-        fiche_offre(offres[lignes[0]], cle)
-    else:
-        st.caption("Clique sur une ligne pour voir la fiche de l'offre.")
 
 
 # =========================================================================== pages
@@ -200,7 +66,7 @@ def page_tableau_de_bord():
         with onglet:
             if nom == ONGLET_ATTENTE and liste:
                 st.caption("Offres qui ont passé le pré-filtre mais que l'IA n'a pas encore notées.")
-            liste_avec_fiche(liste, cle=f"{filtre}_{nom}")
+            vignettes.grille(CONN, CONFIG, liste, cle=f"{filtre}_{nom}", page_lettre=PAGES_OBJETS.get("lettre"))
 
     if filtre == "Nouvelles" and offres:
         if st.button("Tout marquer comme vu"):

@@ -137,10 +137,14 @@ L'appli s'ouvre dans le navigateur (http://localhost:8501). Elle n'est visible q
 Elle suit le mode clair ou sombre de Windows (thème dans `.streamlit/config.toml`, styles dans `stage_scraper/style.py`).
 Pour l'arrêter : `Ctrl + C` dans le terminal. Les pages sont dans le menu en haut.
 
-- **Offres** : bouton **Lancer le scrap** (le menu **⋯** à côté choisit les sources et exporte en Excel), puis les offres triées par note, en onglets
+- **Offres** : bouton **Lancer le scrap** (le menu **⋯** à côté choisit les sources et exporte en Excel), puis les offres
+  en vignettes, de la mieux notée à la moins bien notée, en onglets
   Santé / Hors santé mais intéressant / À négocier / En attente de note IA. « Nouvelles » = pas encore ouvertes.
-  Clique sur une ligne pour voir la fiche : résumé, explication de la note, infos, liens, boutons
-  **Postuler** (crée une candidature) et **Pas intéressé** (avec une raison facultative, réutilisée par l'IA).
+  Chaque vignette montre la note, l'entreprise, le poste, le lieu, la durée, le début, le télétravail, la
+  gratification (si connue), un résumé en 2 lignes et la date de publication. 24 vignettes s'affichent d'abord,
+  **Afficher plus** ajoute les suivantes. **Voir la fiche** ouvre le détail : explication de la note, contact, liens,
+  description complète, boutons **Postuler** (crée une candidature), **Pas intéressé** (avec une raison
+  facultative, réutilisée par l'IA) et **Lettre de motivation**. **Ouvrir l'offre ↗** mène directement au site.
   En bas, la liste des offres écartées par le tri, pour vérifier qu'il ne se trompe pas.
 - **Candidatures** : une colonne par étape (À postuler, Postulé, Relancé, Entretien), une carte par
   candidature ; les candidatures terminées (acceptées ou refusées) sont rangées dans le volet **Terminées**. Le bouton bleu de la carte passe à l'étape suivante et remplit les dates (envoi, rappel de relance

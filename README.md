@@ -16,7 +16,7 @@ Le cahier des charges complet est dans `CLAUDE.md`.
 - [x] 8. Scoring Claude (prêt ; il démarre dès que `ANTHROPIC_API_KEY` est dans `.env`)
 - [x] 9. Appli Streamlit
 - [x] 10. Mails (prêts ; envoi désactivé tant que tu n'as pas validé l'aperçu)
-- [ ] 11. Tâche planifiée Windows
+- [x] 11. Tâche planifiée Windows (scripts prêts ; à installer toi-même, une commande)
 - [x] 12. Feedback « pas intéressé » et lettres de motivation
 
 ## Installation (Windows 11)
@@ -155,7 +155,23 @@ Pour l'arrêter : `Ctrl + C` dans le terminal.
 
 ## Tâche planifiée
 
-À venir (étape 11).
+Un passage automatique chaque jour à 8 h (`run.py --auto`) : collecte (y compris Google Jobs), tri, notation IA,
+alerte et récap par mail. Si le PC est éteint ou en veille à 8 h, le passage se fait dès que possible après.
+La tâche tourne avec ton compte Windows, quand ta session est ouverte.
+
+Installer (ou mettre à jour) la tâche, depuis le dossier du projet, dans PowerShell ou CMD :
+
+```
+powershell -ExecutionPolicy Bypass -File planification\installer_tache.ps1
+```
+
+Autre heure : ajoute `-Heure 07:30` à la fin.
+
+- Tester tout de suite : `powershell -Command "Start-ScheduledTask -TaskName 'Stage Scraper'"`
+  (ou Planificateur de tâches > Bibliothèque > Stage Scraper > Exécuter).
+- Messages des passages automatiques : `logsuto.log`.
+- Supprimer la tâche : `powershell -ExecutionPolicy Bypass -File planification\desinstaller_tache.ps1`
+- Vérifier le lanceur sans rien collecter : `planification\lancer_auto.cmd --verifier` (le résultat est dans `logsuto.log`).
 
 ## Organisation des fichiers
 
@@ -182,6 +198,7 @@ stage_scraper/
   export.py            export Excel
   lettre.py            brouillons de lettres de motivation
   notifications.py     mails d'alerte et de récap
+planification/         tâche planifiée Windows (installer_tache.ps1, lancer_auto.cmd, desinstaller_tache.ps1)
 tests/                 tests automatiques
 data/stages.db         base SQLite (créée au premier lancement, jamais sur Git)
 profil/cv.pdf          ton CV, utilisé par le scoring dès qu'il est présent (jamais sur Git)

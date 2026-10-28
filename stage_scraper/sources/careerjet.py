@@ -148,3 +148,20 @@ def nettoyer_html(texte: str | None) -> str | None:
         return None
     sans_balises = re.sub(r"<[^>]+>", "", texte)
     return re.sub(r"\s+", " ", html.unescape(sans_balises)).strip()
+
+
+def html_en_texte(texte: str | None) -> str | None:
+    """Description HTML complète -> texte lisible qui garde les paragraphes et les listes à puces.
+
+    (nettoyer_html, lui, met tout sur une ligne : bien pour un court extrait, pas pour une page entière.)
+    """
+    if not texte:
+        return None
+    texte = re.sub(r"(?i)<br\s*/?>", "\n", texte)
+    texte = re.sub(r"(?i)<li[^>]*>", "\n• ", texte)
+    texte = re.sub(r"(?i)</(p|ul|ol|h[1-6])>", "\n\n", texte)  # fin de paragraphe : ligne vide
+    texte = re.sub(r"(?i)</(div|tr)>", "\n", texte)
+    texte = html.unescape(re.sub(r"<[^>]+>", "", texte))
+    lignes = [re.sub(r"[ \t ]+", " ", ligne).strip() for ligne in texte.split("\n")]
+    texte = "\n".join(lignes)
+    return re.sub(r"\n{3,}", "\n\n", texte).strip() or None

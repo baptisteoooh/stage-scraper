@@ -50,6 +50,14 @@ def test_nettoyer_html():
     assert careerjet.nettoyer_html(None) is None
 
 
+def test_html_en_texte_garde_les_paragraphes():
+    page = ("<p><b>Job Description</b></p><p>En tant que   stagiaire&nbsp;:</p>"
+            "<ul><li>Python</li><li>Deep learning</li></ul><p>Bac +5<br>Anglais</p>")
+    assert careerjet.html_en_texte(page) == (
+        "Job Description\n\nEn tant que stagiaire :\n\n• Python\n• Deep learning\n\nBac +5\nAnglais")
+    assert careerjet.html_en_texte("<p></p>") is None
+
+
 def test_convertir_date():
     assert careerjet.convertir_date("Fri, 23 Oct 2026 22:45:57 GMT") == "2026-10-23"
     assert careerjet.convertir_date("n'importe quoi") is None

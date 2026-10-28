@@ -22,7 +22,7 @@ from urllib.parse import urlparse
 import requests
 
 from ...offre import nouvelle_offre
-from ..careerjet import nettoyer_html
+from ..careerjet import html_en_texte
 from ..google_jobs import detecter_contrat
 
 USER_AGENT = "StageScraper/1.0 (outil personnel de recherche de stage)"
@@ -179,6 +179,6 @@ def convertir(job: dict, info: dict, type_contrat: str, entreprise: str, api: st
         teletravail=info.get("remoteType"),
         date_publication=info.get("startDate"),
         lien=info.get("externalUrl") or site + job["externalPath"],
-        description=nettoyer_html(info.get("jobDescription")),
+        description=html_en_texte(info.get("jobDescription")),
         site_origine="Workday",
     )

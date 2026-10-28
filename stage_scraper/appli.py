@@ -17,6 +17,7 @@ from stage_scraper.config import chemin_projet, secret
 CONFIG: dict = {}
 CONN = None
 
+ONGLET_TOUTES = "Toutes sections"
 ONGLET_ATTENTE = "En attente de note IA"
 
 
@@ -59,14 +60,18 @@ def page_tableau_de_bord():
             ouvertes = st.session_state.get("ouvertes", set())
             offres = [o for o in offres if not o["vue"] or o["id"] in ouvertes]
 
-    par_section = {s: [o for o in offres if o["score"] is not None and o["section"] == s] for s in requetes.SECTIONS}
+    # Premier onglet : toutes les offres notées, de la mieux notée à la moins bien notée.
+    par_section = {ONGLET_TOUTES: [o for o in offres if o["score"] is not None]}
+    par_section.update({s: [o for o in offres if o["score"] is not None and o["section"] == s]
+                        for s in requetes.SECTIONS})
     par_section[ONGLET_ATTENTE] = [o for o in offres if o["score"] is None]
     onglets = st.tabs([f"{nom} ({len(liste)})" for nom, liste in par_section.items()])
     for onglet, (nom, liste) in zip(onglets, par_section.items()):
         with onglet:
             if nom == ONGLET_ATTENTE and liste:
                 st.caption("Offres qui ont passé le pré-filtre mais que l'IA n'a pas encore notées.")
-            vignettes.grille(CONN, CONFIG, liste, cle=f"{filtre}_{nom}", page_lettre=PAGES_OBJETS.get("lettre"))
+            vignettes.grille(CONN, CONFIG, liste, cle=f"{filtre}_{nom}", page_lettre=PAGES_OBJETS.get("lettre"),
+                             avec_section=(nom == ONGLET_TOUTES))
 
     if filtre == "Nouvelles" and offres:
         if st.button("Tout marquer comme vu"):

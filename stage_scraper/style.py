@@ -61,12 +61,12 @@ CSS = """
   border: 1.5px dashed rgba(127, 127, 127, 0.35); border-radius: 1.1rem; }
 
 /* ---------- Vignettes d'offres (page Offres) ---------- */
-/* Grille automatique : autant de colonnes de 340 px minimum que la largeur le permet.
+/* Grille automatique : autant de colonnes de 400 px minimum que la largeur le permet.
    Les vignettes d'une même rangée ont la même hauteur, boutons alignés en bas. */
 [class*="st-key-grille_"] { display: grid !important; gap: 1.1rem;
-  grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); align-items: stretch; }
+  grid-template-columns: repeat(auto-fill, minmax(min(400px, 100%), 1fr)); align-items: stretch; }
 [class*="st-key-grille_"] > * { width: auto !important; min-width: 0; }
-[class*="st-key-carte_offre_"] { height: 100%; padding: 1.3rem 1.4rem 1.1rem !important; }
+[class*="st-key-carte_offre_"] { height: 100%; padding: 1.5rem 1.6rem 1.25rem !important; }
 [class*="st-key-carte_offre_"] [data-testid="stElementContainer"]:has(.vignette) { flex-grow: 1; }
 .vignette { display: flex; flex-direction: column; gap: 0.7rem; height: 100%; }
 .v-haut { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.8rem; }
@@ -93,9 +93,19 @@ CSS = """
 .v-info { font-size: 0.86rem; padding: 0.25rem 0.65rem; border-radius: 0.6rem;
   background: rgba(127, 127, 127, 0.09); white-space: nowrap; }
 .v-inconnu { opacity: 0.5; }
-.v-resume { font-size: 0.92rem; line-height: 1.5; opacity: 0.78; min-height: 3em;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* Résumé de l'IA en entier (2 à 3 lignes), puis l'extrait de l'annonce */
+.v-resume { font-size: 0.97rem; line-height: 1.55; opacity: 0.9;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.v-extrait { font-size: 0.89rem; line-height: 1.55; opacity: 0.68; padding-left: 0.8rem;
+  border-left: 2px solid rgba(127, 127, 127, 0.28);
+  display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+.v-label { display: block; font-size: 0.72rem; font-weight: 650; text-transform: uppercase;
+  letter-spacing: 0.06em; opacity: 0.75; margin-bottom: 0.15rem; }
+.v-section { background: rgba(127, 127, 127, 0.14); }
 .v-pied { font-size: 0.8rem; opacity: 0.5; margin-top: auto; }
+
+/* Description dans la fiche : lisible, avec ses retours à la ligne */
+.fiche-description { white-space: pre-line; line-height: 1.6; font-size: 0.97rem; }
 
 /* ---------- Barre latérale translucide ---------- */
 [data-testid="stSidebar"] > div:first-child {

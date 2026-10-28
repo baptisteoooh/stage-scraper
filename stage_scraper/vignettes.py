@@ -72,12 +72,32 @@ def _court(texte: str | None, longueur: int = 32) -> str | None:
     return texte if len(texte) <= longueur else texte[:longueur - 1].rstrip() + "…"
 
 
-def html_vignette(o: dict, suivie: bool = False, aujourd_hui: date | None = None) -> str:
-    """Contenu d'une vignette (sans les boutons)."""
+def extrait(description: str | None, longueur: int = 480) -> str | None:
+    """Début de la description, coupé proprement entre deux mots."""
+    if not description:
+        return None
+    texte = " ".join(description.split())
+    if len(texte) <= longueur:
+        return texte
+    coupe = texte[:longueur].rsplit(" ", 1)[0]
+    return coupe.rstrip(" ,;:.-") + "…"
+
+
+# Sources dont l'API ne donne qu'un extrait de la description (pas le texte complet).
+SOURCES_EXTRAIT = {"careerjet"}
+
+SECTIONS_COURTES = {"Hors santé mais intéressant": "Hors santé"}
+
+
+def html_vignette(o: dict, suivie: bool = False, aujourd_hui: date | None = None,
+                  avec_section: bool = False) -> str:
+    """Contenu d'une vignette (sans les boutons). `avec_section` : étiquette Santé / Hors santé / À négocier."""
     niveau = niveau_note(o["score"])
     note = (f'<b>{o["score"]}</b><span>/10</span>' if o["score"] is not None else "<b>—</b>")
 
     badges = []
+    if avec_section and o["section"]:
+        badges.append(f'<span class="v-badge v-section">{_e(SECTIONS_COURTES.get(o["section"], o["section"]))}</span>')
     if not o["vue"]:
         badges.append('<span class="v-badge v-nouveau">Nouvelle</span>')
     if o["poste_ia_data"]:
@@ -104,6 +124,9 @@ def html_vignette(o: dict, suivie: bool = False, aujourd_hui: date | None = None
 
     pied = [x for x in (anciennete(o["date_publication"], aujourd_hui), o["site_origine"] or o["source"]) if x]
     resume = o["resume"] or ("Pas encore notée par l'IA." if o["score"] is None else "")
+    texte_annonce = extrait(o["description"])
+    bloc_extrait = (f'<div class="v-extrait"><span class="v-label">Extrait de l’annonce</span>{_e(texte_annonce)}</div>'
+                    if texte_annonce else "")
 
     return (
         '<div class="vignette">'
@@ -115,6 +138,7 @@ def html_vignette(o: dict, suivie: bool = False, aujourd_hui: date | None = None
         f'<div class="v-badges">{"".join(badges)}</div>'
         f'<div class="v-infos">{puces}</div>'
         f'<div class="v-resume">{_e(resume)}</div>'
+        f'{bloc_extrait}'
         f'<div class="v-pied">{_e(" · ".join(pied))}</div>'
         '</div>'
     )
@@ -127,7 +151,7 @@ def _slug(texte: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", texte.lower().encode("ascii", "ignore").decode()).strip("_")
 
 
-def grille(conn, config: dict, offres: list[dict], cle: str, page_lettre=None) -> None:
+def grille(conn, config: dict, offres: list[dict], cle: str, page_lettre=None, avec_section: bool = False) -> None:
     """Vignettes triées comme la liste reçue (par note décroissante).
 
     La grille est faite en CSS (style.py) : 3 ou 4 vignettes par rangée sur grand écran,
@@ -144,7 +168,7 @@ def grille(conn, config: dict, offres: list[dict], cle: str, page_lettre=None) -
     with st.container(key=f"grille_{cle}"):
         for o in offres[:nb]:
             with st.container(border=True, key=f"carte_offre_{cle}_{o['id']}"):
-                st.markdown(html_vignette(o, o["id"] in suivies), unsafe_allow_html=True)
+                st.markdown(html_vignette(o, o["id"] in suivies, avec_section=avec_section), unsafe_allow_html=True)
                 boutons = st.columns(2)
                 if boutons[0].button("Voir la fiche", key=f"fiche_{cle}_{o['id']}", width="stretch"):
                     a_ouvrir = o["id"]
@@ -221,9 +245,19 @@ def fiche(conn, offre_id: int, cle: str, page_lettre=None) -> None:
         if autre["lien"]:
             liens[i].link_button(f"Aussi sur {autre['site_origine'] or autre['source']}", autre["lien"])
 
-    if o["description"]:
-        with st.expander("Description complète"):
-            st.text(o["description"])
+    st.markdown("**Description de l'annonce**")
+    if not o["description"]:
+        st.caption("Aucune description fournie par le site : ouvre l'offre pour la lire.")
+    else:
+        texte = f'<div class="fiche-description">{_e(o["description"].strip())}</div>'
+        if len(o["description"]) > 1500:  # longue : dans un cadre qui défile
+            with st.container(height=420, border=True):
+                st.markdown(texte, unsafe_allow_html=True)
+        else:
+            st.markdown(texte, unsafe_allow_html=True)
+        if o["source"] in SOURCES_EXTRAIT or len(o["description"]) < 600:
+            st.info(f"{(o['source'] or 'Ce site').capitalize()} ne transmet qu'un extrait de l'annonce. "
+                    "Le texte complet est sur le site : bouton **Ouvrir l'offre ↗**.", icon="ℹ️")
 
     actions = st.columns(3)
     candidature = requetes.candidature_de(conn, o["id"])

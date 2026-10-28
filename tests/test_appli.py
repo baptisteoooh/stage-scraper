@@ -151,7 +151,7 @@ def test_appli_complete_avec_menu(appli):
     assert not at.exception, at.exception
     assert at.title[0].value.endswith("Offres de stage")
     onglets = [t.label for t in at.tabs]
-    assert onglets[0] == "Santé (1)" and onglets[-1] == "En attente de note IA (1)"
+    assert onglets[:2] == ["Toutes sections (1)", "Santé (1)"] and onglets[-1] == "En attente de note IA (1)"
 
 
 def test_page_offres_en_vignettes(appli):
@@ -189,15 +189,20 @@ def test_contenu_d_une_vignette():
          "entreprise": "Doctolib", "titre": "Stage <IA> & data", "lieu": "Levallois-Perret, Ile-de-France, France",
          "duree": None, "duree_ia": "4 mois", "date_debut": "2027-04-01", "date_debut_ia": None,
          "teletravail": "hybride", "gratification": None, "resume": "Modèles de langage.",
-         "date_publication": "2026-10-25", "site_origine": "Ashby", "source": "carrieres"}
-    contenu = vignettes.html_vignette(o, suivie=True, aujourd_hui=date(2026, 10, 28))
+         "date_publication": "2026-10-25", "site_origine": "Ashby", "source": "carrieres",
+         "section": "Hors santé mais intéressant", "description": "Tu rejoins   l'équipe IA.\n" + "mot " * 200}
+    contenu = vignettes.html_vignette(o, suivie=True, aujourd_hui=date(2026, 10, 28), avec_section=True)
+    assert "Extrait de l’annonce" in contenu and "Tu rejoins l&#x27;équipe IA. mot" in contenu
+    assert ">Hors santé<" in contenu  # étiquette de section (onglet « Toutes sections »)
+    assert vignettes.extrait("mot " * 200).endswith("mot…") and len(vignettes.extrait("mot " * 200)) <= 481
     assert "Stage &lt;IA&gt; &amp; data" in contenu  # texte des sites échappé
     for attendu in ("v-note-haute", "Nouvelle", "IA / data", "CDD", "Dans mes candidatures", "Levallois-Perret<",
                     "4 mois", "avril 2027", "Hybride", "il y a 3 j", "Ashby"):
         assert attendu in contenu, attendu
     assert "Gratification" not in contenu and "💶" not in contenu  # inconnue : pas affichée
-    o.update(score=None, duree_ia=None, date_debut=None, vue=1)
+    o.update(score=None, duree_ia=None, date_debut=None, vue=1, description=None)
     contenu = vignettes.html_vignette(o)
+    assert "Extrait" not in contenu and ">Hors santé<" not in contenu
     assert "v-note-attente" in contenu and "Durée ?" in contenu and "Début ?" in contenu
 
 

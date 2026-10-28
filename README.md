@@ -139,11 +139,12 @@ Pour l'arrêter : `Ctrl + C` dans le terminal. Les pages sont dans le menu en ha
 
 - **Offres** : bouton **Lancer le scrap** (le menu **⋯** à côté choisit les sources et exporte en Excel), puis les offres
   en vignettes, de la mieux notée à la moins bien notée, en onglets
-  Santé / Hors santé mais intéressant / À négocier / En attente de note IA. « Nouvelles » = pas encore ouvertes.
+  Toutes sections / Santé / Hors santé mais intéressant / À négocier / En attente de note IA.
+  « Nouvelles » = pas encore ouvertes ; **Toutes** pour revoir aussi celles déjà ouvertes.
   Chaque vignette montre la note, l'entreprise, le poste, le lieu, la durée, le début, le télétravail, la
-  gratification (si connue), un résumé en 2 lignes et la date de publication. 24 vignettes s'affichent d'abord,
+  gratification (si connue), le résumé de l'IA, un extrait de l'annonce et la date de publication. 24 vignettes s'affichent d'abord,
   **Afficher plus** ajoute les suivantes. **Voir la fiche** ouvre le détail : explication de la note, contact, liens,
-  description complète, boutons **Postuler** (crée une candidature), **Pas intéressé** (avec une raison
+  description (Careerjet ne transmet qu'un extrait : le texte complet est sur le site), boutons **Postuler** (crée une candidature), **Pas intéressé** (avec une raison
   facultative, réutilisée par l'IA) et **Lettre de motivation**. **Ouvrir l'offre ↗** mène directement au site.
   En bas, la liste des offres écartées par le tri, pour vérifier qu'il ne se trompe pas.
 - **Candidatures** : une colonne par étape (À postuler, Postulé, Relancé, Entretien), une carte par

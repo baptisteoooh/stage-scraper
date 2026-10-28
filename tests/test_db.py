@@ -35,7 +35,7 @@ def test_migration_depuis_la_version_1(tmp_path):
     # Simule une base créée à l'étape 1 : le schéma actuel, sans les colonnes ajoutées en version 2.
     schema_v1 = "\n".join(
         ligne for ligne in db.SCHEMA.splitlines()
-        if not ligne.strip().startswith(("site_origine", "nb_requetes"))
+        if not ligne.strip().startswith(("site_origine", "nb_requetes", "poste_ia_data"))
     )
     ancienne = sqlite3.connect(tmp_path / "v1.db")
     ancienne.executescript(schema_v1 + "\nPRAGMA user_version = 1;")

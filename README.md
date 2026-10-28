@@ -13,7 +13,7 @@ Le cahier des charges complet est dans `CLAUDE.md`.
 - [ ] 5. Scraping direct LinkedIn et Indeed
 - [x] 6. Pages carrières (Ashby et Workday ; quelques entreprises restent à brancher)
 - [x] 7. Dédoublonnage et pré-filtre
-- [ ] 8. Scoring Claude
+- [x] 8. Scoring Claude (prêt ; il démarre dès que `ANTHROPIC_API_KEY` est dans `.env`)
 - [ ] 9. Appli Streamlit
 - [ ] 10. Mails
 - [ ] 11. Tâche planifiée Windows
@@ -56,6 +56,7 @@ Options :
 | `run.py --source google_jobs` | lance une seule source, même désactivée ou réservée au mode auto |
 | `run.py --source google_jobs --max-requetes 1` | test avec une seule requête (économise le quota) |
 | `run.py --verifier` | affiche l'état de la base et les secrets manquants, sans rien collecter |
+| `run.py --noter` | note avec l'IA les offres en attente, sans collecter (par exemple juste après avoir ajouté la clé) |
 | `run.py --retraiter` | refait le tri (pré-filtre et doublons) de toutes les offres, sans collecter : à lancer après avoir modifié les critères de `config.yaml` |
 
 ### Quota Google Jobs (SerpApi)
@@ -96,6 +97,14 @@ Les entreprises suivies qui ont un bloc `carrieres` dans `config.yaml` sont coll
 Après chaque collecte, les nouvelles offres sont triées, sans appel à l'IA :
 - **pré-filtre** : exclut d'après le titre les contrats refusés (alternance, CDI, VIE, fin d'études…), les postes non techniques et les niveaux senior ; puis les lieux hors Île-de-France, les offres trop anciennes, les durées et les dates de début hors critères (`criteres` et `exclusions` dans `config.yaml`). Une offre douteuse est gardée : l'IA tranchera. La raison de chaque exclusion est enregistrée (colonne `exclusion_prefiltre`) ;
 - **doublons** : même entreprise (alias compris), titres très proches et même région. La première offre vue reste l'originale.
+
+### Scoring IA (Claude)
+
+Chaque offre gardée par le tri est notée par `claude-haiku-5-5` : note de 0 à 10, catégorie (À postuler vite ≥ 8, À regarder 5–7, Bof < 5), section (Santé, Hors santé mais intéressant, À négocier), résumé, explication, durée et date de début lues dans l'offre, raison d'exclusion éventuelle.
+
+- Clé : `ANTHROPIC_API_KEY` dans `.env` (à créer sur https://console.anthropic.com, rubrique API Keys). Sans clé, les offres restent en attente et seront notées au premier passage qui en dispose.
+- Le CV (`profil/cv.pdf`) et les offres marquées « pas intéressé » sont utilisés automatiquement.
+- Coût : les consignes fixes sont mises en cache, seule l'offre change. Les tokens et le coût de chaque passage sont dans le journal ; le scoring s'arrête tout seul quand `scoring.budget_mensuel_usd` (2 $) est atteint dans le mois.
 
 ## Tests
 

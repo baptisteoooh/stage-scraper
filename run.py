@@ -5,13 +5,15 @@
     python run.py --source google_jobs     une seule source (peut être répété)
     python run.py --source google_jobs --max-requetes 1    test avec une seule requête
     python run.py --verifier               état de la base et des secrets, sans collecter
+    python run.py --retraiter              refait le tri de toutes les offres (après un changement de config)
+    python run.py --noter                  note les offres en attente avec l'IA, sans collecter
 """
 import argparse
 import logging
 import sys
 from contextlib import closing
 
-from stage_scraper import collecte, db, traitement
+from stage_scraper import collecte, db, pipeline, scoring, traitement
 from stage_scraper.config import SECRETS_ATTENDUS, charger_config, chemin_projet, secrets_manquants
 
 
@@ -26,6 +28,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--retraiter", action="store_true",
                         help="refait le pré-filtre et le dédoublonnage de toutes les offres, sans collecter "
                              "(après un changement de config.yaml)")
+    parser.add_argument("--noter", action="store_true",
+                        help="note avec l'IA les offres en attente, sans collecter (après avoir ajouté la clé)")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(message)s", datefmt="%H:%M:%S")
@@ -39,33 +43,18 @@ def main(argv: list[str] | None = None) -> int:
             afficher_etat(conn, chemin_db)
             return 0
         if args.retraiter:
-            afficher_traitement(traitement.traiter(conn, config, tout=True))
+            print(pipeline.resume_tri(traitement.traiter(conn, config, tout=True)))
+            return 0
+        if args.noter:
+            passage_id = db.nouveau_passage_id(conn)
+            print("\n".join(pipeline.resume_scoring(scoring.noter_nouvelles(conn, config, passage_id, args.auto))))
             return 0
 
-        passage_id, bilan = collecte.lancer_passage(
-            conn, config, auto=args.auto,
-            sources_demandees=args.source, max_requetes=args.max_requetes,
-        )
-        bilan_traitement = traitement.traiter(conn, config)
+        bilan = pipeline.passage_complet(conn, config, auto=args.auto, sources=args.source,
+                                         max_requetes=args.max_requetes)
 
-    mode = "automatique" if args.auto else "manuel"
-    print(f"\nPassage n°{passage_id} ({mode})")
-    if not bilan:
-        print("  Aucune source active.")
-    for ligne in bilan:
-        print(f"  - {ligne['source']} : {ligne['nb_offres']} offre(s) dont {ligne['nb_nouvelles']} nouvelle(s), "
-              f"{ligne['nb_requetes']} requête(s)")
-        if ligne["message"]:
-            print(f"      {ligne['message']}")
-        for erreur in ligne["erreurs"]:
-            print(f"      ERREUR : {erreur}")
-    afficher_traitement(bilan_traitement)
+    print("\n" + "\n".join(pipeline.resume_texte(bilan)))
     return 0
-
-
-def afficher_traitement(bilan: dict) -> None:
-    print(f"  Tri des {bilan['traitees']} offre(s) à traiter : {bilan['gardees']} gardée(s), "
-          f"{bilan['exclues']} exclue(s) par le pré-filtre, {bilan['doublons']} doublon(s)")
 
 
 def utf8_sur_la_console() -> None:

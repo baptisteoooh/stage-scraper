@@ -4,12 +4,15 @@ from pathlib import Path
 
 # À augmenter quand on modifie la structure des tables, en ajoutant la
 # modification correspondante dans MIGRATIONS (pour mettre à jour les bases existantes).
-VERSION_SCHEMA = 2
+VERSION_SCHEMA = 3
 
 MIGRATIONS = {
     2: [
         "ALTER TABLE offres ADD COLUMN site_origine TEXT",
         "ALTER TABLE runs ADD COLUMN nb_requetes INTEGER NOT NULL DEFAULT 0",
+    ],
+    3: [
+        "ALTER TABLE offres ADD COLUMN poste_ia_data INTEGER",
     ],
 }
 
@@ -76,6 +79,7 @@ CREATE TABLE IF NOT EXISTS offres (
     duree_ia            TEXT,
     date_debut_ia       TEXT,
     exclusion_ia        TEXT,
+    poste_ia_data       INTEGER,            -- 1 si l'IA juge que c'est un poste IA / data (sert aux alertes)
     date_scoring        TEXT,
 
     -- Indicateurs

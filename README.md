@@ -10,7 +10,7 @@ Le cahier des charges complet est dans `CLAUDE.md`.
 - [ ] 2. API France Travail (reportée : API suspendue par France Travail)
 - [x] 3. Google Jobs (SerpApi) et Careerjet
 - [ ] 4. Alertes Gmail (lecture du libellé faite ; parseurs à écrire quand les premiers mails arriveront)
-- [ ] 5. Scraping direct LinkedIn et Indeed
+- [ ] 5. Scraping direct LinkedIn et Indeed (mis de côté : LinkedIn l'interdit dans son robots.txt, Indeed bloque les robots avec un CAPTCHA ; on passe par leurs alertes email)
 - [x] 6. Pages carrières (Ashby et Workday ; quelques entreprises restent à brancher)
 - [x] 7. Dédoublonnage et pré-filtre
 - [x] 8. Scoring Claude (prêt ; il démarre dès que `ANTHROPIC_API_KEY` est dans `.env`)

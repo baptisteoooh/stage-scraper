@@ -14,7 +14,7 @@ Le cahier des charges complet est dans `CLAUDE.md`.
 - [x] 6. Pages carrières (Ashby et Workday ; quelques entreprises restent à brancher)
 - [x] 7. Dédoublonnage et pré-filtre
 - [x] 8. Scoring Claude (prêt ; il démarre dès que `ANTHROPIC_API_KEY` est dans `.env`)
-- [ ] 9. Appli Streamlit
+- [x] 9. Appli Streamlit
 - [ ] 10. Mails
 - [ ] 11. Tâche planifiée Windows
 - [ ] 12. Feedback « pas intéressé » et lettres de motivation
@@ -116,7 +116,25 @@ Les tests utilisent une vraie réponse enregistrée (`tests/donnees/`) : ils ne 
 
 ## Lancement de l'appli
 
-À venir (étape 9).
+```
+.venv\Scripts\streamlit run app.py
+```
+
+L'appli s'ouvre dans le navigateur (http://localhost:8501). Elle n'est visible que depuis ce PC.
+Pour l'arrêter : `Ctrl + C` dans le terminal.
+
+- **Tableau de bord** : bouton **Lancer le scrap**, puis les offres triées par note, en onglets
+  Santé / Hors santé mais intéressant / À négocier / En attente de note IA. « Nouvelles » = pas encore ouvertes.
+  Clique sur une ligne pour voir la fiche : résumé, explication de la note, infos, liens, boutons
+  **Postuler** (crée une candidature) et **Pas intéressé** (avec une raison facultative, réutilisée par l'IA).
+  En bas, la liste des offres écartées par le tri, pour vérifier qu'il ne se trompe pas.
+- **Candidatures** : tableau modifiable (statut, dates, notes) ; ajoute une ligne pour une candidature faite
+  hors de l'outil, puis **Enregistrer**.
+- **Réglages** : ancienneté max, seuil d'alerte, mots-clés, exclusions, entreprises suivies. Ils sont écrits
+  dans `config.yaml` (ancienne version gardée dans `config.yaml.bak`). Bouton **Refaire le tri** pour les
+  appliquer aux offres déjà collectées.
+- **Journal** : historique des passages et coût IA (mois en cours et cumulé).
+- **Exporter en Excel** (barre de gauche) : un fichier avec deux feuilles, Offres et Candidatures.
 
 ## Tâche planifiée
 
@@ -128,12 +146,23 @@ Les tests utilisent une vraie réponse enregistrée (`tests/donnees/`) : ils ne 
 config.yaml            paramètres (critères, mots-clés, entreprises suivies, sources)
 .env                   secrets (jamais sur Git) ; modèle dans .env.example
 run.py                 lancement d'un passage
+app.py                 lancement de l'appli (streamlit run app.py)
+.streamlit/config.toml réglages de l'appli (visible seulement depuis ce PC)
 stage_scraper/
   config.py            lecture de config.yaml et .env
   db.py                tables SQLite, enregistrement des offres, journal
   offre.py             format commun d'une offre
   collecte.py          lance chaque source, isole les pannes, écrit le journal
   sources/             un module de collecte par source (google_jobs.py, careerjet.py, ...)
+  prefiltre.py         exclusions et critères (contrat, lieu, durée, dates)
+  dedoublonnage.py     repérage d'une même offre publiée sur plusieurs sites
+  traitement.py        pré-filtre + doublons des nouvelles offres
+  scoring.py           note de chaque offre par Claude
+  pipeline.py          un passage complet : collecte, tri, scoring
+  appli.py             pages de l'appli Streamlit
+  requetes.py          lectures et écritures en base pour l'appli
+  reglages.py          modification de config.yaml depuis l'appli
+  export.py            export Excel
 tests/                 tests automatiques
 data/stages.db         base SQLite (créée au premier lancement, jamais sur Git)
 profil/cv.pdf          ton CV, utilisé par le scoring dès qu'il est présent (jamais sur Git)

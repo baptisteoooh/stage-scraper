@@ -1,0 +1,6 @@
+# Réglages de l'appli Streamlit.
+[server]
+address = "localhost"     # appli visible uniquement depuis ce PC (pas depuis le réseau)
+
+[browser]
+gatherUsageStats = false  # pas de statistiques d'usage envoyées à Streamlit

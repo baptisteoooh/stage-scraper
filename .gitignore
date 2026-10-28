@@ -20,3 +20,6 @@ exports/
 
 # Éditeur
 .vscode/
+
+# Copie de sécurité écrite par la page Réglages
+config.yaml.bak

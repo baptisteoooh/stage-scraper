@@ -124,7 +124,7 @@ CREATE TABLE IF NOT EXISTS feedback (
 def connecter(chemin: Path) -> sqlite3.Connection:
     """Ouvre la base (et crée son dossier si besoin)."""
     chemin.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(chemin)
+    conn = sqlite3.connect(chemin, timeout=30)  # attend jusqu'à 30 s si l'appli et la tâche écrivent en même temps
     conn.row_factory = sqlite3.Row  # accès aux colonnes par leur nom : ligne["titre"]
     conn.execute("PRAGMA foreign_keys = ON")
     return conn

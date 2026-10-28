@@ -61,7 +61,7 @@ def remplacer_liste(seq: CommentedSeq, valeurs: list) -> bool:
 def appliquer(donnees, modifications: dict) -> list[str]:
     """Applique les champs modifiés dans l'appli et renvoie la liste de ce qui a changé.
 
-    modifications : {'anciennete_max_jours': 90, 'alerte_seuil_score': 8,
+    modifications : {'anciennete_max_jours': 90, 'alerte_seuil_score': 8, 'envoi_actif': False,
                      'contrats': [...], 'postes': [...], 'niveaux': [...],
                      'mots_cles': {nom du domaine: [...]}, 'entreprises_suivies': [dict, ...]}
     """
@@ -70,6 +70,11 @@ def appliquer(donnees, modifications: dict) -> list[str]:
         if cle in modifications and donnees[section][cle] != int(modifications[cle]):
             donnees[section][cle] = int(modifications[cle])
             changements.append(cle)
+    if "envoi_actif" in modifications:
+        voulu = bool(modifications["envoi_actif"])
+        if bool(donnees["notifications"].get("envoi_actif")) != voulu:
+            donnees["notifications"]["envoi_actif"] = voulu
+            changements.append("envoi des mails " + ("activé" if voulu else "désactivé"))
     for cle in ("contrats", "postes", "niveaux"):
         if cle in modifications and remplacer_liste(donnees["exclusions"][cle], modifications[cle]):
             changements.append(f"exclusions {cle}")

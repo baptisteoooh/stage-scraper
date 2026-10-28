@@ -9,7 +9,7 @@ from datetime import date
 import pandas as pd
 import streamlit as st
 
-from stage_scraper import collecte, db, export, pipeline, reglages, requetes, traitement
+from stage_scraper import collecte, db, export, notifications, pipeline, reglages, requetes, traitement
 from stage_scraper import config as parametres
 from stage_scraper.config import chemin_projet, secret
 
@@ -291,6 +291,8 @@ def page_reglages():
                                        int(donnees["general"]["anciennete_max_jours"]))
         seuil = c[1].number_input("Note qui déclenche une alerte immédiate (sur 10)", 0, 10,
                                   int(donnees["notifications"]["alerte_seuil_score"]))
+        envoi_actif = st.toggle("Envoyer vraiment les mails (sinon : aperçus seulement, voir plus bas)",
+                                bool(donnees["notifications"].get("envoi_actif")))
 
         st.subheader("Mots-clés par domaine")
         st.caption("Séparés par des virgules. Domaines classés par priorité (1 = le plus intéressant).")
@@ -326,7 +328,7 @@ def page_reglages():
 
     if enregistrer:
         changements = reglages.appliquer(donnees, {
-            "anciennete_max_jours": anciennete, "alerte_seuil_score": seuil,
+            "anciennete_max_jours": anciennete, "alerte_seuil_score": seuil, "envoi_actif": envoi_actif,
             "contrats": reglages.texte_en_liste(contrats), "postes": reglages.texte_en_liste(postes),
             "niveaux": reglages.texte_en_liste(niveaux),
             "mots_cles": {nom: reglages.texte_en_liste(texte, ",") for nom, texte in mots_cles.items()},
@@ -339,6 +341,8 @@ def page_reglages():
                        "pour l'appliquer aux offres déjà collectées.")
         else:
             st.info("Aucun changement.")
+
+    section_mails()
 
     st.subheader("Refaire le tri")
     st.caption("Applique les réglages actuels (pré-filtre et doublons) à toutes les offres déjà collectées. "
@@ -357,6 +361,35 @@ def page_reglages():
         if c[1].button("Rétablir", key=f"retablir_{p['id']}"):
             requetes.annuler_pas_interesse(CONN, p["id"])
             st.rerun()
+
+
+def section_mails():
+    st.subheader("Mails")
+    config = parametres.charger_config()  # relu : l'interrupteur vient peut-être d'être changé
+    _, mot_de_passe, destinataire = notifications.adresses()
+    actif = config["notifications"].get("envoi_actif")
+    st.markdown(f"Envoi : **{'activé' if actif else 'désactivé (aperçus seulement)'}** · destinataire : "
+                f"**{destinataire or 'GMAIL_ADRESSE manquant dans .env'}**")
+    alerte, recap = notifications.offres_alerte(CONN, config), notifications.offres_recap(CONN, config)
+    st.caption(f"En attente d'envoi : {len(alerte)} offre(s) pour l'alerte immédiate, {len(recap)} pour le "
+               "récap du matin (offres déjà notées par l'IA et jamais envoyées).")
+    c = st.columns(3)
+    apercu = None
+    if c[0].button("Aperçu de l'alerte", disabled=not alerte):
+        apercu = notifications.construire("alerte", alerte, config)
+    if c[1].button("Aperçu du récap", disabled=not recap):
+        apercu = notifications.construire("recap", recap, config)
+    if c[2].button("Envoyer un mail de test", disabled=not (destinataire and mot_de_passe)):
+        try:
+            notifications.mail_de_test()
+            st.success(f"Mail de test envoyé à {destinataire}.")
+        except RuntimeError as e:
+            st.error(f"Mail de test non envoyé : {e}")
+    if apercu:
+        sujet, _, page = apercu
+        with st.container(border=True):
+            st.markdown(f"**Sujet** : {sujet}")
+            st.html(page)
 
 
 def page_journal():

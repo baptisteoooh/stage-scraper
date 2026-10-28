@@ -15,7 +15,7 @@ Le cahier des charges complet est dans `CLAUDE.md`.
 - [x] 7. Dédoublonnage et pré-filtre
 - [x] 8. Scoring Claude (prêt ; il démarre dès que `ANTHROPIC_API_KEY` est dans `.env`)
 - [x] 9. Appli Streamlit
-- [ ] 10. Mails
+- [x] 10. Mails (prêts ; envoi désactivé tant que tu n'as pas validé l'aperçu)
 - [ ] 11. Tâche planifiée Windows
 - [ ] 12. Feedback « pas intéressé » et lettres de motivation
 
@@ -57,6 +57,7 @@ Options :
 | `run.py --source google_jobs --max-requetes 1` | test avec une seule requête (économise le quota) |
 | `run.py --verifier` | affiche l'état de la base et les secrets manquants, sans rien collecter |
 | `run.py --noter` | note avec l'IA les offres en attente, sans collecter (par exemple juste après avoir ajouté la clé) |
+| `run.py --test-mail` | envoie un mail de test à ton adresse, pour vérifier l'envoi Gmail |
 | `run.py --retraiter` | refait le tri (pré-filtre et doublons) de toutes les offres, sans collecter : à lancer après avoir modifié les critères de `config.yaml` |
 
 ### Quota Google Jobs (SerpApi)
@@ -105,6 +106,18 @@ Chaque offre gardée par le tri est notée par `claude-haiku-5-5` : note de 0 à
 - Clé : `ANTHROPIC_API_KEY` dans `.env` (à créer sur https://console.anthropic.com, rubrique API Keys). Sans clé, les offres restent en attente et seront notées au premier passage qui en dispose.
 - Le CV (`profil/cv.pdf`) et les offres marquées « pas intéressé » sont utilisés automatiquement.
 - Coût : les consignes fixes sont mises en cache, seule l'offre change. Les tokens et le coût de chaque passage sont dans le journal ; le scoring s'arrête tout seul quand `scoring.budget_mensuel_usd` (2 $) est atteint dans le mois.
+
+### Mails (alerte et récap)
+
+- **Alerte immédiate**, à chaque passage (manuel ou auto) : offres notées ≥ 8, ou poste IA/data chez une
+  entreprise suivie.
+- **Récap quotidien**, au passage automatique de 8 h : nouvelles offres notées ≥ 5, pas encore envoyées.
+- Une offre n'est jamais envoyée deux fois.
+- Envoi par Gmail avec le même mot de passe d'application que la lecture des alertes. Destinataire :
+  `EMAIL_DESTINATAIRE` dans `.env` (vide = `GMAIL_ADRESSE`).
+- **Désactivé au départ** (`notifications.envoi_actif: false`) : chaque mail est écrit en aperçu dans
+  `data/mails/apercu_alerte.html` et `apercu_recap.html`, et les offres restent à envoyer. Pour l'activer :
+  vérifie l'aperçu (page Réglages > Mails), lance `run.py --test-mail`, puis active l'interrupteur dans Réglages.
 
 ## Tests
 
@@ -163,6 +176,7 @@ stage_scraper/
   requetes.py          lectures et écritures en base pour l'appli
   reglages.py          modification de config.yaml depuis l'appli
   export.py            export Excel
+  notifications.py     mails d'alerte et de récap
 tests/                 tests automatiques
 data/stages.db         base SQLite (créée au premier lancement, jamais sur Git)
 profil/cv.pdf          ton CV, utilisé par le scoring dès qu'il est présent (jamais sur Git)

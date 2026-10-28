@@ -7,13 +7,14 @@
     python run.py --verifier               état de la base et des secrets, sans collecter
     python run.py --retraiter              refait le tri de toutes les offres (après un changement de config)
     python run.py --noter                  note les offres en attente avec l'IA, sans collecter
+    python run.py --test-mail              envoie un mail de test à ton adresse (vérifie l'envoi Gmail)
 """
 import argparse
 import logging
 import sys
 from contextlib import closing
 
-from stage_scraper import collecte, db, pipeline, scoring, traitement
+from stage_scraper import collecte, db, notifications, pipeline, scoring, traitement
 from stage_scraper.config import SECRETS_ATTENDUS, charger_config, chemin_projet, secrets_manquants
 
 
@@ -30,11 +31,21 @@ def main(argv: list[str] | None = None) -> int:
                              "(après un changement de config.yaml)")
     parser.add_argument("--noter", action="store_true",
                         help="note avec l'IA les offres en attente, sans collecter (après avoir ajouté la clé)")
+    parser.add_argument("--test-mail", action="store_true",
+                        help="envoie un mail de test à ton adresse, même si l'envoi est désactivé")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(message)s", datefmt="%H:%M:%S")
 
     config = charger_config()
+    if args.test_mail:
+        try:
+            notifications.mail_de_test()
+        except RuntimeError as e:
+            print(f"Mail de test non envoyé : {e}")
+            return 1
+        print(f"Mail de test envoyé à {notifications.adresses()[2]}.")
+        return 0
     chemin_db = chemin_projet(config["general"]["base_de_donnees"])
 
     with closing(db.connecter(chemin_db)) as conn:

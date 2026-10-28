@@ -1,8 +1,12 @@
-"""Un passage complet : collecte, tri (pré-filtre + doublons), scoring IA.
+"""Un passage complet : collecte, tri (pré-filtre + doublons), scoring IA, mails.
 
 Utilisé à l'identique par la ligne de commande (run.py) et par l'appli Streamlit.
 """
-from . import collecte, scoring, traitement
+import logging
+
+from . import collecte, notifications, scoring, traitement
+
+log = logging.getLogger(__name__)
 
 
 def passage_complet(conn, config: dict, auto: bool = False, sources: list[str] | None = None,
@@ -11,8 +15,13 @@ def passage_complet(conn, config: dict, auto: bool = False, sources: list[str] |
                                                         max_requetes=max_requetes)
     bilan_tri = traitement.traiter(conn, config)
     bilan_scoring = scoring.noter_nouvelles(conn, config, passage_id, auto, client=client_ia)
+    try:
+        bilan_mails = notifications.apres_passage(conn, config, passage_id, auto)
+    except Exception as e:  # un souci de mail ne doit pas faire échouer le passage
+        log.exception("Les mails ont planté")
+        bilan_mails = [{"type": "alerte", "nb": 1, "envoye": False, "apercu": None, "erreur": type(e).__name__}]
     return {"passage_id": passage_id, "auto": auto, "sources": bilan_sources,
-            "tri": bilan_tri, "scoring": bilan_scoring}
+            "tri": bilan_tri, "scoring": bilan_scoring, "mails": bilan_mails}
 
 
 def resume_texte(bilan: dict) -> list[str]:
@@ -29,6 +38,7 @@ def resume_texte(bilan: dict) -> list[str]:
         lignes.extend(f"      ERREUR : {erreur}" for erreur in ligne["erreurs"])
     lignes.append(resume_tri(bilan["tri"]))
     lignes.extend(resume_scoring(bilan["scoring"]))
+    lignes.extend(notifications.resume(bilan.get("mails", [])))
     return lignes
 
 

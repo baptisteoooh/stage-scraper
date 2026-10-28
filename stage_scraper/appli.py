@@ -9,7 +9,8 @@ from datetime import date
 import pandas as pd
 import streamlit as st
 
-from stage_scraper import collecte, db, export, lettre, notifications, pipeline, reglages, requetes, traitement
+from stage_scraper import (collecte, db, export, lettre, notifications, pipeline, reglages, requetes, style,
+                           suivi, traitement)
 from stage_scraper import config as parametres
 from stage_scraper.config import chemin_projet, secret
 
@@ -34,12 +35,12 @@ def tableau_offres(offres: list[dict]) -> pd.DataFrame:
             "Note": o["score"],
             "Nouveau": "🆕" if not o["vue"] else "",
             "Titre": o["titre"],
-            "Entreprise": o["entreprise"],
+            "Entreprise": o["entreprise"] or "",
             "Contrat": "CDD" if o["type_contrat"] == "cdd" else "Stage",
-            "Lieu": o["lieu"],
-            "Durée": o["duree"] or o["duree_ia"],
-            "Début": o["date_debut"] or o["date_debut_ia"],
-            "Gratification": o["gratification"],
+            "Lieu": o["lieu"] or "",
+            "Durée": o["duree"] or o["duree_ia"] or "",
+            "Début": o["date_debut"] or o["date_debut_ia"] or "",
+            "Gratification": o["gratification"] or "",
             "Publiée le": (o["date_publication"] or "")[:10],
             "Lien": o["lien"],
         })
@@ -60,7 +61,7 @@ def fiche_offre(o: dict, cle: str) -> None:
         requetes.marquer_vue(CONN, o["id"])
         st.session_state.setdefault("ouvertes", set()).add(o["id"])
 
-    with st.container(border=True):
+    with st.container(border=True, key=f"carte_fiche_{o['id']}"):
         haut = st.columns([5, 1])
         haut[0].subheader(o["titre"])
         haut[0].markdown(f"**{o['entreprise'] or 'Entreprise inconnue'}** — {o['lieu'] or 'lieu inconnu'}")
@@ -155,7 +156,18 @@ def liste_avec_fiche(offres: list[dict], cle: str) -> None:
 # =========================================================================== pages
 
 def page_tableau_de_bord():
-    st.title("🩺 Offres de stage")
+    entete = st.columns([4, 1.1, 0.5], vertical_alignment="bottom")
+    entete[0].title("🩺 Offres de stage")
+    lancer = entete[1].button("Lancer le scrap", type="primary", width="stretch")
+    with entete[2].popover("⋯", help="Choisir les sources", width="stretch"):
+        actives = [n for n, r in CONFIG["sources"].items() if r.get("actif") and n in collecte.SOURCES]
+        choix = st.multiselect(
+            "Sources (vide = toutes les sources actives, sauf Google Jobs réservé au passage de 8 h)",
+            list(collecte.SOURCES), placeholder="Toutes les sources actives", key="sources_choisies")
+        st.caption("Actives : " + ", ".join(actives))
+    if lancer:
+        lancer_scrap(choix or None)
+
     stats = requetes.statistiques(CONN)
     m = st.columns(4)
     m[0].metric("Offres gardées", stats["visibles"])
@@ -167,16 +179,7 @@ def page_tableau_de_bord():
         st.info(f"{stats['a_noter']} offre(s) attendent la note de l'IA : ajoute ANTHROPIC_API_KEY dans le "
                 "fichier .env, puis relance un scrap (ou `python run.py --noter`).")
 
-    with st.expander("🚀 Lancer le scrap", expanded=False):
-        actives = [n for n, r in CONFIG["sources"].items() if r.get("actif") and n in collecte.SOURCES]
-        choix = st.multiselect(
-            "Sources (laisser vide = toutes les sources actives, sauf Google Jobs réservé au passage de 8 h)",
-            list(collecte.SOURCES), placeholder="Toutes les sources actives")
-        st.caption("Actives : " + ", ".join(actives))
-        if st.button("Lancer le scrap", type="primary"):
-            lancer_scrap(choix or None)
-
-    st.divider()
+    st.markdown("")
     filtre = st.segmented_control("Afficher", ["Nouvelles", "Dernier passage", "Toutes"], default="Nouvelles",
                                   key="filtre_offres") or "Nouvelles"
     if filtre == "Dernier passage":
@@ -244,44 +247,7 @@ def lancer_scrap(sources: list[str] | None) -> None:
 
 
 def page_candidatures():
-    st.title("📋 Candidatures")
-    st.caption("Modifie directement le tableau : statut, dates, notes. Ajoute une ligne en bas pour une "
-               "candidature faite hors de l'outil ; sélectionne une ligne puis la corbeille pour la supprimer. "
-               "Clique ensuite sur **Enregistrer**.")
-    lignes = requetes.candidatures(CONN)
-    colonnes = ["id", "entreprise", "poste", "statut", "date_candidature", "date_relance", "lien", "notes"]
-    tableau = pd.DataFrame(lignes, columns=colonnes + ["date_creation"])
-    for c in ("date_candidature", "date_relance"):
-        tableau[c] = pd.to_datetime(tableau[c], errors="coerce").dt.date
-    tableau["date_creation"] = tableau["date_creation"].fillna("").astype(str).str[:10]
-
-    modifie = st.data_editor(
-        tableau, key="editeur_candidatures", num_rows="dynamic", hide_index=True, width="stretch",
-        disabled=["id", "date_creation"],
-        column_order=["entreprise", "poste", "statut", "date_candidature", "date_relance", "lien", "notes",
-                      "date_creation"],
-        column_config={
-            "entreprise": st.column_config.TextColumn("Entreprise"),
-            "poste": st.column_config.TextColumn("Poste", width="large"),
-            "statut": st.column_config.SelectboxColumn("Statut", options=requetes.STATUTS, required=True,
-                                                       default="à postuler"),
-            "date_candidature": st.column_config.DateColumn("Envoyée le", format="DD/MM/YYYY"),
-            "date_relance": st.column_config.DateColumn("Relance le", format="DD/MM/YYYY"),
-            "lien": st.column_config.LinkColumn("Lien"),
-            "notes": st.column_config.TextColumn("Notes", width="large"),
-            "date_creation": st.column_config.TextColumn("Créée le"),
-        })
-    if st.button("Enregistrer", type="primary"):
-        bilan = requetes.enregistrer_candidatures(CONN, modifie.to_dict("records"))
-        st.toast(f"{bilan['ajoutees']} ajoutée(s), {bilan['modifiees']} modifiée(s), "
-                 f"{bilan['supprimees']} supprimée(s).")
-        st.session_state.pop("editeur_candidatures", None)
-        st.rerun()
-
-    a_relancer = [c for c in lignes if c["date_relance"] and c["date_relance"] <= date.today().isoformat()
-                  and c["statut"] in ("postulé", "relancé")]
-    if a_relancer:
-        st.warning("À relancer aujourd'hui : " + ", ".join(f"{c['entreprise']} ({c['poste']})" for c in a_relancer))
+    suivi.afficher(CONN, CONFIG)
 
 
 def page_reglages():
@@ -504,6 +470,7 @@ def main(page: str | None = None):
     """Affiche l'appli. `page` = afficher directement une seule page (utilisé par les tests)."""
     global CONFIG, CONN
     st.set_page_config(page_title="Stage Scraper", page_icon="🩺", layout="wide")
+    style.appliquer()
     CONFIG = parametres.charger_config()
     CONN = db.connecter(chemin_projet(CONFIG["general"]["base_de_donnees"]))
     try:

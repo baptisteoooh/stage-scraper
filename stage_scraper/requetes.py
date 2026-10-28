@@ -136,6 +136,59 @@ def enregistrer_candidatures(conn, lignes: list[dict]) -> dict:
     return bilan
 
 
+def candidature(conn, candidature_id: int) -> dict | None:
+    ligne = conn.execute("SELECT * FROM candidatures WHERE id = ?", (candidature_id,)).fetchone()
+    return dict(ligne) if ligne else None
+
+
+def modifier_candidature(conn, candidature_id: int, **champs) -> None:
+    """Met à jour les champs donnés (entreprise, poste, lien, statut, dates, notes, lettre)."""
+    valeurs = {c: _vide_en_none(v) for c, v in champs.items() if c in (*CHAMPS_CANDIDATURE, "lettre")}
+    if "statut" in valeurs and valeurs["statut"] not in STATUTS:
+        raise ValueError(f"statut inconnu : {valeurs['statut']}")
+    if not valeurs:
+        return
+    conn.execute(f"UPDATE candidatures SET {', '.join(f'{c} = ?' for c in valeurs)}, date_maj = ? WHERE id = ?",
+                 [*valeurs.values(), maintenant(), candidature_id])
+    conn.commit()
+
+
+def changer_statut(conn, candidature_id: int, statut: str, relance_jours: int = 7, aujourd_hui=None) -> dict:
+    """Passe une candidature à l'étape suivante et remplit les dates utiles.
+
+    Renvoie l'état d'avant, pour pouvoir annuler.
+    """
+    from datetime import date, timedelta
+    avant = candidature(conn, candidature_id)
+    jour = aujourd_hui or date.today()
+    champs = {"statut": statut}
+    if statut == "postulé":
+        champs["date_candidature"] = avant["date_candidature"] or jour.isoformat()
+        champs["date_relance"] = (jour + timedelta(days=relance_jours)).isoformat()
+    elif statut == "relancé":
+        champs["date_relance"] = (jour + timedelta(days=relance_jours)).isoformat()  # prochain rappel
+    elif statut in ("entretien", "refus", "accepté"):
+        champs["date_relance"] = None
+    modifier_candidature(conn, candidature_id, **champs)
+    return avant
+
+
+def supprimer_candidature(conn, candidature_id: int) -> dict | None:
+    """Supprime une candidature et la renvoie (pour pouvoir l'annuler)."""
+    avant = candidature(conn, candidature_id)
+    conn.execute("DELETE FROM candidatures WHERE id = ?", (candidature_id,))
+    conn.commit()
+    return avant
+
+
+def restaurer_candidature(conn, ligne: dict) -> None:
+    """Annule une modification ou une suppression : remet la candidature telle qu'elle était."""
+    colonnes = [c for c in ligne if c != "id"]
+    conn.execute(f"INSERT OR REPLACE INTO candidatures (id, {', '.join(colonnes)}) VALUES "
+                 f"(?, {', '.join('?' for _ in colonnes)})", [ligne["id"], *(ligne[c] for c in colonnes)])
+    conn.commit()
+
+
 def _vide_en_none(valeur):
     if valeur is None:
         return None

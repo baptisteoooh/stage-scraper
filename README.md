@@ -134,6 +134,7 @@ Les tests utilisent une vraie réponse enregistrée (`tests/donnees/`) : ils ne 
 ```
 
 L'appli s'ouvre dans le navigateur (http://localhost:8501). Elle n'est visible que depuis ce PC.
+Elle suit le mode clair ou sombre de Windows (thème dans `.streamlit/config.toml`, styles dans `stage_scraper/style.py`).
 Pour l'arrêter : `Ctrl + C` dans le terminal.
 
 - **Tableau de bord** : bouton **Lancer le scrap**, puis les offres triées par note, en onglets
@@ -141,11 +142,11 @@ Pour l'arrêter : `Ctrl + C` dans le terminal.
   Clique sur une ligne pour voir la fiche : résumé, explication de la note, infos, liens, boutons
   **Postuler** (crée une candidature) et **Pas intéressé** (avec une raison facultative, réutilisée par l'IA).
   En bas, la liste des offres écartées par le tri, pour vérifier qu'il ne se trompe pas.
-- **Candidatures** : tableau modifiable (statut, dates, notes) ; ajoute une ligne pour une candidature faite
-  hors de l'outil, puis **Enregistrer**.
-- **Réglages** : ancienneté max, seuil d'alerte, mots-clés, exclusions, entreprises suivies. Ils sont écrits
-  dans `config.yaml` (ancienne version gardée dans `config.yaml.bak`). Bouton **Refaire le tri** pour les
-  appliquer aux offres déjà collectées.
+- **Candidatures** : une colonne par étape (À postuler, Postulé, Relancé, Entretien, Terminé), une carte par
+  candidature. Le bouton bleu de la carte passe à l'étape suivante et remplit les dates (envoi, rappel de relance
+  7 jours après, réglable dans `config.yaml` > `candidatures.relance_jours`). **Détails** ouvre une fenêtre pour tout
+  modifier ou supprimer ; chaque action peut être annulée juste après. **＋ Nouvelle candidature** pour une
+  candidature faite hors de l'outil. Une vue tableau reste disponible en bas de page.
 - **Lettre de motivation** : choisis une offre (ou clique **Lettre de motivation** sur sa fiche), ajoute des
   consignes si tu veux, puis **Rédiger le brouillon**. Claude s'appuie sur l'offre, ton profil et ton CV, sans rien
   inventer : les repères [à compléter : …] sont pour toi. Le brouillon se modifie, se télécharge en .txt ou se garde
@@ -193,6 +194,8 @@ stage_scraper/
   scoring.py           note de chaque offre par Claude
   pipeline.py          un passage complet : collecte, tri, scoring
   appli.py             pages de l'appli Streamlit
+  suivi.py             page Candidatures (colonnes par étape, cartes, fenêtres)
+  style.py             habillage de l'appli (typographie, cartes, accessibilité)
   requetes.py          lectures et écritures en base pour l'appli
   reglages.py          modification de config.yaml depuis l'appli
   export.py            export Excel

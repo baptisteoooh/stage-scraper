@@ -167,3 +167,65 @@ def test_postuler_depuis_la_fiche(appli):
     with closing(db.connecter(appli)) as conn:
         assert [c["entreprise"] for c in requetes.candidatures(conn)] == ["Gleamer"]
         assert conn.execute("SELECT vue FROM offres WHERE source_id = '1'").fetchone()[0] == 1
+
+
+# --------------------------------------------------------------------------- suivi des candidatures
+
+def test_changer_statut_remplit_les_dates(tmp_path):
+    with closing(base(tmp_path / "t.db")) as conn:
+        identifiant = requetes.creer_candidature(conn, offre_id=1)
+        avant = requetes.changer_statut(conn, identifiant, "postulé", relance_jours=7, aujourd_hui=date(2026, 10, 28))
+        c = requetes.candidature(conn, identifiant)
+        assert (c["statut"], c["date_candidature"], c["date_relance"]) == ("postulé", "2026-10-28", "2026-11-04")
+        requetes.changer_statut(conn, identifiant, "relancé", relance_jours=7, aujourd_hui=date(2026, 11, 5))
+        c = requetes.candidature(conn, identifiant)
+        assert (c["date_candidature"], c["date_relance"]) == ("2026-10-28", "2026-11-12")  # date d'envoi gardée
+        requetes.changer_statut(conn, identifiant, "entretien")
+        assert requetes.candidature(conn, identifiant)["date_relance"] is None
+        # annuler = revenir à l'état d'avant le premier changement
+        requetes.restaurer_candidature(conn, avant)
+        c = requetes.candidature(conn, identifiant)
+        assert (c["statut"], c["date_candidature"]) == ("à postuler", None)
+
+
+def test_supprimer_puis_annuler(tmp_path):
+    with closing(base(tmp_path / "t.db")) as conn:
+        identifiant = requetes.creer_candidature(conn, offre_id=1, notes="appel prévu")
+        avant = requetes.supprimer_candidature(conn, identifiant)
+        assert requetes.candidatures(conn) == []
+        requetes.restaurer_candidature(conn, avant)
+        assert requetes.candidature(conn, identifiant)["notes"] == "appel prévu"
+        with pytest.raises(ValueError):
+            requetes.modifier_candidature(conn, identifiant, statut="n'importe quoi")
+
+
+def test_relance_due_et_recherche():
+    from stage_scraper import suivi
+    c = {"statut": "postulé", "date_relance": "2026-11-04", "entreprise": "Doctolib", "poste": "ML", "notes": None}
+    assert not suivi.relance_due(c, date(2026, 11, 3)) and suivi.relance_due(c, date(2026, 11, 4))
+    assert not suivi.relance_due(dict(c, statut="entretien"), date(2026, 12, 1))
+    assert suivi.correspond(c, "docto") and not suivi.correspond(c, "withings")
+    assert suivi.etape(dict(c, statut="refus")) == "terminé"
+
+
+def test_page_candidatures_en_cartes(appli):
+    with closing(db.connecter(appli)) as conn:
+        identifiant = requetes.creer_candidature(conn, offre_id=1)
+    at = AppTest.from_function(une_page, args=("candidatures",), default_timeout=30).run()
+    assert not at.exception, at.exception
+    assert any("Gleamer" in m.value for m in at.markdown)
+    at.button(key=f"avancer_{identifiant}").click().run()  # « J'ai postulé »
+    assert not at.exception, at.exception
+    with closing(db.connecter(appli)) as conn:
+        c = requetes.candidature(conn, identifiant)
+        assert c["statut"] == "postulé" and c["date_candidature"] == date.today().isoformat()
+    bouton_annuler = next(b for b in at.button if "Annuler" in b.label)
+    bouton_annuler.click().run()
+    with closing(db.connecter(appli)) as conn:
+        assert requetes.candidature(conn, identifiant)["statut"] == "à postuler"
+
+
+def test_page_candidatures_vide(appli):
+    at = AppTest.from_function(une_page, args=("candidatures",), default_timeout=30).run()
+    assert not at.exception, at.exception
+    assert any("Aucune candidature" in m.value for m in at.markdown)

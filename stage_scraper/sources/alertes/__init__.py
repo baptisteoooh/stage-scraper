@@ -8,4 +8,6 @@ Chaque module expose :
 Pour ajouter un site : créer son module ici et l'ajouter à PARSEURS.
 """
 
-PARSEURS: list = []
+from . import linkedin
+
+PARSEURS: list = [linkedin]

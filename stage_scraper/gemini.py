@@ -16,6 +16,7 @@ log = logging.getLogger(__name__)
 
 URL = "https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent"
 ATTENTES_SURCHARGE = (5, 20)  # secondes d'attente avant chaque nouvel essai après une erreur 503 / 500
+ATTENTE_429_MAX = 60          # au-delà, une erreur 429 n'est pas retentée (quota du jour)
 
 
 class ErreurGemini(Exception):
@@ -37,15 +38,26 @@ class ClientGemini:
 
     def generer(self, modele: str, systeme: str, parties: list[dict], schema: dict | None = None,
                 reflexion: str | None = None) -> tuple[str, dict]:
-        """Un appel. Renvoie (texte de la réponse, compteur de tokens)."""
+        """Un appel simple (un seul message). Renvoie (texte de la réponse, compteur de tokens)."""
+        contenu, usage = self.appeler(modele, systeme, [{"role": "user", "parts": parties}], schema, reflexion)
+        return texte_de(contenu), usage
+
+    def appeler(self, modele: str, systeme: str, contents: list[dict], schema: dict | None = None,
+                reflexion: str | None = None, outils: list[dict] | None = None) -> tuple[dict, dict]:
+        """Un appel avec toute la conversation (`contents`) et d'éventuels outils.
+
+        Renvoie (contenu de la réponse : {role: 'model', parts: [...]}, compteur de tokens). Les
+        parts peuvent être du texte ou des appels d'outils ({functionCall: {name, args}}).
+        """
         config = {}
         if schema:
             config.update(responseMimeType="application/json", responseJsonSchema=schema)
         if reflexion:
             config["thinkingConfig"] = {"thinkingLevel": reflexion}
-        corps = {"systemInstruction": {"parts": [{"text": systeme}]},
-                 "contents": [{"role": "user", "parts": parties}],
+        corps = {"systemInstruction": {"parts": [{"text": systeme}]}, "contents": contents,
                  "generationConfig": config}
+        if outils:
+            corps["tools"] = [{"functionDeclarations": outils}]
 
         for essai in range(len(ATTENTES_SURCHARGE) + 1):
             self._patienter()
@@ -59,23 +71,43 @@ class ClientGemini:
                 log.info("Gemini surchargé (%s), nouvel essai dans %s s", r.status_code, ATTENTES_SURCHARGE[essai])
                 time.sleep(ATTENTES_SURCHARGE[essai])
                 continue
+            # 429 avec une courte attente proposée par Google : limite par minute, on patiente.
+            # (Le quota du jour, lui, ne propose pas d'attente courte : on s'arrête.)
+            attente = attente_proposee(r) if r.status_code == 429 else None
+            if attente is not None and attente <= ATTENTE_429_MAX and essai < len(ATTENTES_SURCHARGE):
+                log.info("Limite de Gemini par minute atteinte, nouvel essai dans %.0f s", attente)
+                time.sleep(attente + 1)
+                continue
             break
 
         if not r.ok:
             raise _erreur_http(r, modele)
         donnees = r.json()
         candidat = (donnees.get("candidates") or [{}])[0]
-        texte = "".join(p.get("text", "") for p in candidat.get("content", {}).get("parts", [])
-                        if not p.get("thought"))
-        if not texte:
+        contenu = candidat.get("content") or {}
+        if not contenu.get("parts"):
             raise ErreurGemini(f"réponse vide (raison : {candidat.get('finishReason') or 'inconnue'})")
-        return texte, donnees.get("usageMetadata", {})
+        contenu.setdefault("role", "model")
+        return contenu, donnees.get("usageMetadata", {})
 
     def _patienter(self) -> None:
         attente = self._dernier_appel + self.delai - time.monotonic()
         if attente > 0:
             time.sleep(attente)
         self._dernier_appel = time.monotonic()
+
+
+def texte_de(contenu: dict) -> str:
+    """Le texte d'une réponse (sans les pensées du modèle ni les appels d'outils)."""
+    texte = "".join(p.get("text", "") for p in contenu.get("parts", []) if not p.get("thought"))
+    if not texte:
+        raise ErreurGemini("réponse vide")
+    return texte
+
+
+def appels_outils(contenu: dict) -> list[dict]:
+    """Les appels d'outils demandés par le modèle : [{name, args}]."""
+    return [p["functionCall"] for p in contenu.get("parts", []) if "functionCall" in p]
 
 
 def partie_texte(texte: str) -> dict:
@@ -86,6 +118,21 @@ def partie_pdf(contenu: bytes) -> dict:
     return {"inlineData": {"mimeType": "application/pdf", "data": base64.standard_b64encode(contenu).decode("ascii")}}
 
 
+def attente_proposee(r: requests.Response) -> float | None:
+    """Secondes d'attente indiquées par Google dans une erreur 429 (RetryInfo), ou None."""
+    try:
+        details = r.json().get("error", {}).get("details", [])
+    except ValueError:
+        return None
+    for d in details:
+        if str(d.get("@type", "")).endswith("RetryInfo"):
+            try:
+                return float(str(d.get("retryDelay", "")).rstrip("s"))
+            except ValueError:
+                return None
+    return None
+
+
 def _erreur_http(r: requests.Response, modele: str) -> ErreurGemini:
     try:
         detail = r.json().get("error", {}).get("message", "")
@@ -94,8 +141,8 @@ def _erreur_http(r: requests.Response, modele: str) -> ErreurGemini:
     if r.status_code in (401, 403) or "API key" in detail:
         return ErreurGemini("clé GEMINI_API_KEY refusée : vérifie-la dans .env", bloquante=True)
     if r.status_code == 429:
-        return ErreurGemini("quota gratuit de Gemini atteint (429) : le reste sera noté au prochain passage",
-                            bloquante=True)
+        return ErreurGemini("quota gratuit de Gemini atteint (429) : réessaie plus tard (le reste sera noté "
+                            "au prochain passage)", bloquante=True)
     if r.status_code == 404:
         return ErreurGemini(f"modèle « {modele} » introuvable : change scoring.modele dans config.yaml",
                             bloquante=True)

@@ -150,3 +150,13 @@ def test_client_gemini_reseau_coupe(monkeypatch):
     monkeypatch.setattr(gemini.requests, "post", coupe)
     with pytest.raises(gemini.ErreurGemini, match="injoignable"):
         gemini.ClientGemini(cle="test", delai_entre_appels=0).generer("m", "s", [gemini.partie_texte("x")])
+
+
+def test_client_gemini_patiente_sur_limite_par_minute(monkeypatch):
+    limite = {"error": {"message": "quota", "details": [
+        {"@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "0s"}]}}
+    reponses = [FausseReponse(429, limite),
+                FausseReponse(200, {"candidates": [{"content": {"parts": [{"text": "ok"}]}}], "usageMetadata": {}})]
+    monkeypatch.setattr(gemini.time, "sleep", lambda s: None)
+    monkeypatch.setattr(gemini.requests, "post", lambda *a, **k: reponses.pop(0))
+    assert gemini.ClientGemini(cle="test", delai_entre_appels=0).generer("m", "s", [gemini.partie_texte("x")])[0] == "ok"

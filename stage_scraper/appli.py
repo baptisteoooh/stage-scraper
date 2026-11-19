@@ -1,14 +1,16 @@
 """Appli locale, lancée par app.py (streamlit run app.py).
 
-Pages (menu en haut) : offres en vignettes (+ bouton de scrap), candidatures, lettres, réglages, journal.
+Pages (menu en haut) : offres en vignettes (+ bouton de scrap), chat sur les offres, candidatures, lettres,
+réglages, journal.
 L'export Excel est dans le menu « ⋯ » de la page Offres et en haut de la page Candidatures.
 """
 import logging
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
-from stage_scraper import (collecte, db, expiration, lettre, notifications, pipeline, reglages, requetes,
+from stage_scraper import (chat_offres, collecte, db, expiration, lettre, notifications, pipeline, reglages, requetes,
                            style, suivi, vignettes)
 from stage_scraper import config as parametres
 from stage_scraper.config import chemin_projet, secret
@@ -267,6 +269,78 @@ def section_mails():
             st.html(page)
 
 
+def page_chat():
+    st.title("💬 Assistant stage")
+    st.caption("Demande-lui des offres (« un stage en computer vision sur l'imagerie médicale »), ou pose une "
+               "question sur une offre (« quelles compétences pour le stage deep learning de GE ? », « compare "
+               "ces deux offres »), ou sur tes candidatures. Il lit les annonces en entier avant de répondre.")
+    messages = st.session_state.setdefault("chat_offres", [])
+    if messages and st.button("🧹 Nouvelle conversation"):
+        messages.clear()
+        st.rerun()
+
+    for i, m in enumerate(messages):
+        with st.chat_message("user" if m["role"] == "user" else "assistant"):
+            if m.get("lues"):
+                st.caption("📖 Lu : " + " · ".join(m["lues"]))
+            st.markdown(m["texte"])
+            if m.get("ids"):
+                liste_offres_chat(m, cle=f"chat_{i}", ouverte=(i == len(messages) - 1))
+
+    question = st.chat_input("Écris ta demande…")
+    if question:
+        with st.chat_message("user"):
+            st.markdown(question)
+        with st.chat_message("assistant"):
+            defiler_en_bas(len(messages))
+            with st.spinner("Je réfléchis…"):
+                try:
+                    r = chat_offres.demander(CONN, CONFIG, question, messages)
+                except chat_offres.ChatImpossible as e:
+                    st.error(f"Pas de réponse : {e}")
+                    return
+        messages.append({"role": "user", "texte": question})
+        messages.append({"role": "assistant", "texte": r["reponse"] or "…", "lues": r["lues"],
+                         "ids": [o["id"] for o in r["offres"]], "raisons": {o["id"]: o["raison"] for o in r["offres"]}})
+        st.session_state["chat_defiler"] = True
+        st.rerun()
+    if st.session_state.pop("chat_defiler", False):
+        defiler_en_bas(len(messages))
+
+
+def liste_offres_chat(message: dict, cle: str, ouverte: bool) -> None:
+    """Offres proposées par l'assistant : une ligne chacune, dans un bloc repliable."""
+    offres = [o for oid in message["ids"] if (o := requetes.offre(CONN, oid))]
+    a_ouvrir = None
+    with st.expander(f"📋 {len(offres)} offre{'s' if len(offres) > 1 else ''} proposée{'s' if len(offres) > 1 else ''}",
+                     expanded=ouverte):
+        for o in offres:
+            ligne = st.columns([8, 1.3, 0.6], vertical_alignment="center")
+            note = f"**{o['score']}/10**" if o["score"] is not None else "—"
+            lieu = vignettes.lieu_court(o["lieu"])
+            ligne[0].markdown(f"{note} · **{o['titre']}** — {o['entreprise'] or '?'}" + (f" · {lieu}" if lieu else "")
+                              + f"  \n<span class='chat-raison'>{vignettes._e(message['raisons'].get(o['id'], ''))}</span>",
+                              unsafe_allow_html=True)
+            if ligne[1].button("Fiche", key=f"{cle}_fiche_{o['id']}", width="stretch"):
+                a_ouvrir = o["id"]
+            vignettes.bouton_favori(CONN, o, f"{cle}_favori_{o['id']}", ligne[2], compact=True)
+    if a_ouvrir is not None:
+        vignettes.fenetre_fiche(CONFIG, a_ouvrir, cle, PAGES_OBJETS.get("lettre"))
+
+
+def defiler_en_bas(repere: int) -> None:
+    """Fait défiler la page jusqu'en bas (dernier message du chat)."""
+    components.html(f"""<script>/* {repere} */
+      const d = window.parent.document;
+      const bas = () => {{
+        d.querySelectorAll('[data-testid="stMain"], [data-testid="stAppViewContainer"], section.main')
+          .forEach(e => e.scrollTo({{top: e.scrollHeight, behavior: "smooth"}}));
+        window.parent.scrollTo({{top: d.body.scrollHeight, behavior: "smooth"}});
+      }};
+      setTimeout(bas, 50); setTimeout(bas, 400); setTimeout(bas, 1200);
+    </script>""", height=0)
+
+
 def page_lettre():
     st.title("✍️ Lettre de motivation")
     st.caption("Claude rédige un brouillon à partir de l'offre, de ton profil et de ton CV (profil/cv.pdf, s'il "
@@ -354,6 +428,7 @@ def page_journal():
 
 PAGES = {
     "tableau_de_bord": dict(titre="Offres", icone="🩺"),
+    "chat": dict(titre="Chercher", icone="💬"),
     "candidatures": dict(titre="Candidatures", icone="📋"),
     "lettre": dict(titre="Lettres", icone="✍️"),
     "reglages": dict(titre="Réglages", icone="⚙️"),

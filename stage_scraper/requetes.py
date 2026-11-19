@@ -251,7 +251,7 @@ def journal(conn, limite: int = 200) -> list[dict]:
 
 
 def couts_ia(conn) -> dict:
-    ia = "source IN ('scoring', 'lettre')"
+    ia = "source IN ('scoring', 'lettre', 'chat')"
     total = conn.execute(f"SELECT COALESCE(SUM(cout_usd), 0) FROM runs WHERE {ia}").fetchone()[0]
     mois = conn.execute(f"SELECT COALESCE(SUM(cout_usd), 0) FROM runs WHERE {ia} AND date_debut >= ?",
                         (datetime.now().strftime("%Y-%m-01"),)).fetchone()[0]

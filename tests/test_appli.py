@@ -168,7 +168,7 @@ def une_page(page):
     main(page)
 
 
-@pytest.mark.parametrize("page", ["tableau_de_bord", "candidatures", "lettre", "reglages", "journal"])
+@pytest.mark.parametrize("page", ["tableau_de_bord", "chat", "candidatures", "lettre", "reglages", "journal"])
 def test_chaque_page_s_affiche(appli, page):
     at = AppTest.from_function(une_page, args=(page,), default_timeout=30).run()
     assert not at.exception, at.exception
@@ -341,3 +341,22 @@ def test_page_candidatures_vide(appli):
     at = AppTest.from_function(une_page, args=("candidatures",), default_timeout=30).run()
     assert not at.exception, at.exception
     assert any("Aucune candidature" in m.value for m in at.markdown)
+
+
+def test_chat_affiche_les_offres_proposees(appli, monkeypatch):
+    from stage_scraper import chat_offres
+
+    def faux_demander(conn, config, question, historique, client=None):
+        o = requetes.offres_visibles(conn)[0]
+        return {"reponse": "Une offre correspond.", "offres": [{**o, "raison": "Imagerie et deep learning."}],
+                "ignores": 0, "lues": ["Stage ML — Gleamer"]}
+    monkeypatch.setattr(chat_offres, "demander", faux_demander)
+    at = AppTest.from_function(une_page, args=("chat",), default_timeout=30).run()
+    at.chat_input[0].set_value("un stage en imagerie").run()
+    assert not at.exception, at.exception
+    assert any("Une offre correspond." in m.value for m in at.markdown)
+    assert any("Imagerie et deep learning." in m.value for m in at.markdown)
+    assert at.expander[0].label == "📋 1 offre proposée"
+    assert any("Lu : Stage ML — Gleamer" in c.value for c in at.caption)
+    assert any(b.label == "Fiche" for b in at.button)
+    assert not any('class="vignette"' in m.value for m in at.markdown)   # plus de grandes vignettes

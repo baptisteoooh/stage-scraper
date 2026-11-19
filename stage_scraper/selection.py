@@ -145,3 +145,40 @@ def compter(conn) -> dict[str, int]:
     toutes = fiches(conn)
     return {**{nom: sum(1 for f in toutes if f["etape"] == nom) for nom in ETAPES},
             "actions": sum(1 for f in toutes if f["action"])}
+
+
+def retirer(conn, candidature_id: int) -> dict | None:
+    """Retire l'offre de la sélection (elle revient dans À trier, sauf une offre trouvée ailleurs).
+
+    Le dossier (analyse, lettre, conversation) est gardé. Renvoie l'état d'avant, pour annuler.
+    """
+    return requetes.supprimer_candidature(conn, candidature_id)
+
+
+def _jour_mois(texte: str | None) -> str:
+    try:
+        return date.fromisoformat(str(texte)[:10]).strftime("%d/%m") if texte else ""
+    except ValueError:
+        return str(texte)
+
+
+def situation(f: dict, aujourd_hui: date | None = None) -> str:
+    """Une phrase sur où en est l'offre : « Envoyée le 11/11 · relance le 18/11 », « Entretien le 26/11 à 14h00 »…"""
+    etape = etape_de(f["statut"])
+    if etape == "preparation":
+        if f.get("version_courante"):
+            return f"Lettre prête (version {f['version_courante']}), pas encore envoyée"
+        return "Analyse faite, pas encore de lettre" if f.get("analyse_faite") else "Rien de préparé pour l'instant"
+    if etape == "envoyee":
+        debut = (f"Relancée, envoyée le {_jour_mois(f['date_candidature'])}" if f["statut"] == "relancé"
+                 else f"Envoyée le {_jour_mois(f['date_candidature'])}" if f["date_candidature"] else "Envoyée")
+        if not f["date_relance"]:
+            return debut
+        quand = "relance à faire depuis le" if relance_due(f, aujourd_hui) else "relance le"
+        return f"{debut} · {quand} {_jour_mois(f['date_relance'])}"
+    if etape == "entretien":
+        if not f.get("date_entretien"):
+            return "Entretien : date à noter"
+        heure = f["date_entretien"][11:16].replace(":", "h")
+        return f"Entretien le {_jour_mois(f['date_entretien'])}" + (f" à {heure}" if heure else "")
+    return "Accepté 🎉" if f["statut"] == "accepté" else "Refus"

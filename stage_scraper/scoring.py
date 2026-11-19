@@ -55,7 +55,8 @@ def noter_nouvelles(conn, config: dict, passage_id: int, auto: bool, client=None
 
     offres = conn.execute(
         "SELECT * FROM offres WHERE score IS NULL AND exclusion_ia IS NULL AND doublon_de IS NULL "
-        "AND exclusion_prefiltre IS NULL AND pas_interesse = 0 AND expiration IS NULL ORDER BY id LIMIT ?",
+        "AND exclusion_prefiltre IS NULL AND pas_interesse = 0 AND expiration IS NULL AND source != 'manuel' "
+        "ORDER BY id LIMIT ?",
         (reglages.get("max_offres_par_passage", 150),),
     ).fetchall()
     if not offres:

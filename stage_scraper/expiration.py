@@ -65,7 +65,7 @@ def trop_anciennes(conn, config: dict, aujourd_hui: date | None = None) -> int:
     # c'est elle qui dit si l'offre est encore en ligne.
     curseur = conn.execute(
         f"UPDATE offres SET expiration = 'ancienne', date_expiration = ? "
-        f"WHERE expiration IS NULL AND {jour} < ? AND source NOT IN ({exclues}) "
+        f"WHERE expiration IS NULL AND {jour} < ? AND source NOT IN ({exclues}) AND source != 'manuel' "
         f"AND id NOT IN (SELECT doublon_de FROM offres WHERE doublon_de IS NOT NULL AND source IN ({exclues}))",
         (_maintenant(), limite, *SOURCES_VERIFIEES, *SOURCES_VERIFIEES))
     conn.commit()

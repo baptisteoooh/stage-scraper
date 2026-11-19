@@ -1,4 +1,4 @@
-"""Client Claude (API Anthropic) de la page Candidater, et suivi du crédit prépayé.
+"""Client Claude (API Anthropic) des fiches de Ma sélection (analyse, lettre), et suivi du crédit prépayé.
 
 Répartition (config.yaml > dossier) : Sonnet pour l'analyse de l'offre et le premier jet de la
 lettre, Haiku pour les retouches. Gemini (gratuit) prend le relais si Claude échoue ou si un

@@ -1,6 +1,5 @@
 """Tests du dossier de candidature (diagnostic, lettre, versions) avec un faux client Gemini et un faux CV."""
 import json
-from contextlib import closing
 
 import pytest
 

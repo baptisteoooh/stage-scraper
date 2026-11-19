@@ -43,7 +43,7 @@ def offres_a_trier(conn) -> list[dict]:
     Les offres rangées « plus tard » (colonne favori) en font partie : la page À trier les met à part.
     """
     lignes = conn.execute(
-        f"SELECT * FROM offres WHERE {VISIBLE} AND id NOT IN "
+        f"SELECT * FROM offres WHERE {VISIBLE} AND source != 'manuel' AND id NOT IN "
         "(SELECT offre_id FROM candidatures WHERE offre_id IS NOT NULL)").fetchall()
     return [dict(l) for l in lignes]
 
@@ -113,8 +113,15 @@ def annuler_pas_interesse(conn, offre_id: int) -> None:
 
 def offres_pas_interesse(conn) -> list[dict]:
     return [dict(l) for l in conn.execute(
-        "SELECT o.id, o.titre, o.entreprise, f.raison, f.date FROM feedback f JOIN offres o ON o.id = f.offre_id "
-        "ORDER BY f.id DESC")]
+        "SELECT o.id, o.titre, o.entreprise, o.lieu, o.score, o.lien, f.raison, f.date "
+        "FROM feedback f JOIN offres o ON o.id = f.offre_id ORDER BY f.id DESC")]
+
+
+def completer_annonce(conn, offre_id: int, description: str | None) -> None:
+    """Texte de l'annonce d'une offre trouvée ailleurs, collé par BAP (l'IA en a besoin pour l'analyse)."""
+    conn.execute("UPDATE offres SET description = ? WHERE id = ? AND source = 'manuel'",
+                 ((description or "").strip() or None, offre_id))
+    conn.commit()
 
 
 def basculer_favori(conn, offre_id: int) -> bool:
@@ -190,32 +197,6 @@ def candidatures(conn) -> list[dict]:
 CHAMPS_CANDIDATURE = ("entreprise", "poste", "lien", "statut", "date_candidature", "date_relance", "notes")
 
 
-def enregistrer_candidatures(conn, lignes: list[dict]) -> dict:
-    """Applique le tableau modifié dans l'appli : ajouts, modifications, suppressions."""
-    existantes = {c["id"]: c for c in candidatures(conn)}
-    vues, bilan = set(), {"ajoutees": 0, "modifiees": 0, "supprimees": 0}
-    for ligne in lignes:
-        valeurs = {c: _vide_en_none(ligne.get(c)) for c in CHAMPS_CANDIDATURE}
-        if valeurs["statut"] not in STATUTS:
-            valeurs["statut"] = "à postuler"
-        identifiant = ligne.get("id")
-        if identifiant in existantes:
-            vues.add(identifiant)
-            if any(valeurs[c] != _vide_en_none(existantes[identifiant][c]) for c in CHAMPS_CANDIDATURE):
-                conn.execute(f"UPDATE candidatures SET {', '.join(f'{c} = ?' for c in valeurs)}, date_maj = ? "
-                             "WHERE id = ?", [*valeurs.values(), maintenant(), identifiant])
-                bilan["modifiees"] += 1
-        elif valeurs["entreprise"] or valeurs["poste"]:
-            conn.execute(f"INSERT INTO candidatures ({', '.join(valeurs)}, date_maj) VALUES "
-                         f"({', '.join('?' for _ in valeurs)}, ?)", [*valeurs.values(), maintenant()])
-            bilan["ajoutees"] += 1
-    for identifiant in set(existantes) - vues:
-        conn.execute("DELETE FROM candidatures WHERE id = ?", (identifiant,))
-        bilan["supprimees"] += 1
-    conn.commit()
-    return bilan
-
-
 def candidature(conn, candidature_id: int) -> dict | None:
     ligne = conn.execute("SELECT * FROM candidatures WHERE id = ?", (candidature_id,)).fetchone()
     return dict(ligne) if ligne else None
@@ -232,8 +213,8 @@ def ajouter_a_la_main(conn, entreprise: str | None, poste: str | None, lien: str
     import uuid
     from datetime import date, timedelta
     curseur = conn.execute(
-        "INSERT INTO offres (source, source_id, titre, entreprise, lien, lieu, description, vue, notifiee) "
-        "VALUES ('manuel', ?, ?, ?, ?, ?, ?, 1, 1)",
+        "INSERT INTO offres (source, source_id, titre, entreprise, lien, lieu, description, vue, notifiee, empreinte) "
+        "VALUES ('manuel', ?, ?, ?, ?, ?, ?, 1, 1, 'manuel')",
         (f"manuel-{uuid.uuid4().hex[:12]}", poste or entreprise or "Candidature", entreprise, lien, lieu,
          (description or "").strip() or None))
     identifiant = creer_candidature(conn, offre_id=curseur.lastrowid, entreprise=entreprise, poste=poste, lien=lien,
@@ -314,6 +295,46 @@ def _vide_en_none(valeur):
 
 def journal(conn, limite: int = 200) -> list[dict]:
     return [dict(l) for l in conn.execute("SELECT * FROM runs ORDER BY id DESC LIMIT ?", (limite,))]
+
+
+APPELS_IA = ("dossier", "chat", "lettre")   # appels d'IA faits depuis l'appli (pas pendant un scrap)
+
+
+def passages(conn, limite: int = 60) -> list[dict]:
+    """Une ligne par passage (scrap et notation) : sources, offres, erreurs, coût de la notation."""
+    marques = ", ".join("?" * len(APPELS_IA))
+    lignes = [dict(l) for l in conn.execute(
+        f"SELECT * FROM runs WHERE source NOT IN ({marques}) AND passage_id IN (SELECT DISTINCT passage_id FROM runs "
+        f"WHERE source NOT IN ({marques}) ORDER BY passage_id DESC LIMIT ?) ORDER BY id",
+        (*APPELS_IA, *APPELS_IA, limite))]
+    par_passage: dict[int, list[dict]] = {}
+    for l in lignes:
+        par_passage.setdefault(l["passage_id"], []).append(l)
+    resultat = []
+    for passage_id, runs in sorted(par_passage.items(), reverse=True):
+        collecte = [r for r in runs if r["source"] != "scoring"]
+        compte = lambda condition: conn.execute(  # noqa: E731
+            f"SELECT COUNT(*) FROM offres WHERE passage_id = ? AND {VISIBLE}{condition}", (passage_id,)).fetchone()[0]
+        resultat.append({
+            "passage_id": passage_id, "date": min(r["date_debut"] for r in runs),
+            "auto": any(r["declenchement"] == "auto" for r in runs),
+            "sources": len(collecte),
+            "trouvees": sum(r["nb_offres"] for r in collecte),
+            "nouvelles": sum(r["nb_nouvelles"] for r in collecte),
+            "gardees": compte(""), "top": compte(" AND score >= 8"),
+            "notees": sum(r["nb_offres"] for r in runs if r["source"] == "scoring"),
+            "cout_usd": sum(r["cout_usd"] for r in runs),
+            "en_erreur": [r["source"] for r in runs if r["erreurs"]],
+            "erreurs": {r["source"]: r["erreurs"] for r in runs if r["erreurs"]},
+        })
+    return resultat
+
+
+def appels_ia(conn, limite: int = 200) -> list[dict]:
+    """Appels d'IA faits depuis l'appli : fiches de Ma sélection (dossier, lettre) et Assistant (chat)."""
+    marques = ", ".join("?" * len(APPELS_IA))
+    return [dict(l) for l in conn.execute(
+        f"SELECT * FROM runs WHERE source IN ({marques}) ORDER BY id DESC LIMIT ?", (*APPELS_IA, limite))]
 
 
 def couts_ia(conn) -> dict:

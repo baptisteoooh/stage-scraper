@@ -117,7 +117,7 @@ Chaque offre gardée par le tri est notée par Gemini (`gemini-3.5-flash-lite`, 
   `EMAIL_DESTINATAIRE` dans `.env` (vide = `GMAIL_ADRESSE`).
 - **Désactivé au départ** (`notifications.envoi_actif: false`) : chaque mail est écrit en aperçu dans
   `data/mails/apercu_alerte.html` et `apercu_recap.html`, et les offres restent à envoyer. Pour l'activer :
-  vérifie l'aperçu (page Réglages > Mails), lance `run.py --test-mail`, puis active l'interrupteur dans Réglages.
+  vérifie l'aperçu (Plus › Réglages › Mails), lance `run.py --test-mail`, puis active l'interrupteur au même endroit.
 
 ## Tests
 
@@ -135,7 +135,8 @@ Les tests utilisent une vraie réponse enregistrée (`tests/donnees/`) : ils ne 
 
 L'appli s'ouvre dans le navigateur (http://localhost:8501). Elle n'est visible que depuis ce PC.
 Elle suit le mode clair ou sombre de Windows (thème dans `.streamlit/config.toml`, styles dans `stage_scraper/style.py`).
-Pour l'arrêter : `Ctrl + C` dans le terminal. Les pages sont dans le menu en haut.
+Pour l'arrêter : `Ctrl + C` dans le terminal. Le menu en haut : **À trier · Ma sélection · Assistant · Plus**
+(Plus = Réglages, Journal, Corbeille). Le style des pages sera revu plus tard : pour l'instant, elles sont simples.
 
 - **À trier** : les offres sur lesquelles tu n'as pas encore décidé, comme une boîte de réception à vider.
   En haut : **🔄 Lancer le scrap** (le menu **⋯** choisit les sources) et une phrase sur le dernier scrap
@@ -143,37 +144,49 @@ Pour l'arrêter : `Ctrl + C` dans le terminal. Les pages sont dans le menu en ha
   **Meilleure note**) et les filtres Toutes / Santé / Hors santé / À négocier / ⏳ Plus tard, avec leur nombre.
   Les offres « Bof » (note < 5) sont masquées : l'interrupteur **Voir les « Bof »** les affiche.
   Chaque vignette (note, entreprise, poste, lieu, durée, début, résumé de l'IA, badge « Nouvelle » pour le
-  dernier scrap) a trois décisions en un clic : **✅ Je candidate** (l'offre part dans Candidatures, aucune IA ne se
+  dernier scrap) a trois décisions en un clic : **✅ Je candidate** (l'offre part dans Ma sélection, aucune IA ne se
   lance), **👎 Pas pour moi** (raison facultative en un clic, réutilisée par l'IA), **⏳ Plus tard** (rangée à part).
-  Un bandeau permet d'**annuler** la dernière décision, ou d'**ouvrir le dossier** de candidature. **🔍 Détails**
-  ouvre la fiche complète (pourquoi cette note, description, contact, **Voir l'annonce ↗**) avec les mêmes boutons.
-  En bas, les offres écartées automatiquement et les offres expirées, pour vérifier que le tri ne se trompe pas.
-- **Candidatures** : une colonne par étape (À postuler, Postulé, Relancé, Entretien), une carte par
-  candidature ; les candidatures terminées (acceptées ou refusées) sont rangées dans le volet **Terminées**. Le bouton bleu de la carte passe à l'étape suivante et remplit les dates (envoi, rappel de relance
-  7 jours après, réglable dans `config.yaml` > `candidatures.relance_jours`). **Détails** ouvre une fenêtre pour tout
-  modifier ou supprimer ; chaque action peut être annulée juste après. **＋ Nouvelle candidature** pour une
-  candidature faite hors de l'outil. Une vue tableau reste disponible en bas de page.
+  Un bandeau permet d'**annuler** la dernière décision, ou d'**ouvrir la fiche** de l'offre. **🔍 Détails**
+  ouvre le détail complet (pourquoi cette note, description, contact, **Voir l'annonce ↗**) avec les mêmes boutons.
+- **Ma sélection** : les offres gardées, rangées par étape : **En préparation**, **Envoyées**, **Entretien**,
+  **Terminées** (avec leur nombre et le nombre d'actions à faire). Dans chaque étape, les offres qui demandent une
+  action passent en premier, avec le bouton pour la faire : ✨ Préparer, 📨 Finir et envoyer, 🔔 J'ai relancé
+  (la relance est due 7 jours après l'envoi, réglable dans `config.yaml` > `candidatures.relance_jours`),
+  💬 Préparer l'entretien. Chaque action peut être annulée juste après. **＋ Offre trouvée ailleurs** ajoute une
+  offre vue hors de l'outil (colle le texte de l'annonce pour que l'IA puisse l'analyser) ; **📥 Exporter en Excel**
+  donne un fichier avec deux feuilles, Offres et Candidatures.
+- **La fiche d'une offre** (bouton **Ouvrir**) : en haut, la barre **Où en est cette offre ?** (cliquer change
+  l'étape et remplit les dates ; à l'étape Entretien, la date et l'heure ; à l'étape Terminée, refus ou accepté),
+  **📨 C'est envoyé** et **Voir l'annonce ↗**. Rien ne part tout seul vers l'IA : le bouton **✨ Préparer avec l'IA**
+  (prix affiché) lance l'analyse de l'offre face à ton CV puis un premier jet de lettre (à l'étape Entretien :
+  l'analyse seule). Les onglets :
+  - **L'offre** : résumé, pourquoi cette note, infos clés, description (modifiable pour une offre trouvée ailleurs) ;
+  - **Lettre** : modifiable, tes modifications sont gardées toutes seules ; **Annuler**, historique des versions,
+    export **Word** signé de ton nom ; une fois la candidature envoyée, la lettre gardée dans la candidature est figée ;
+  - **Conseils CV** (avant / après, avec les mots de l'offre) et **Analyse** (exigences couvertes ou non, alertes et
+    questions à poser au recruteur) ;
+  - **Notes** : dates d'envoi et de relance, notes libres (gardées toutes seules), **Retirer de ma sélection**.
+
+  À droite : la conversation avec l'IA pour demander des retouches (« plus court », « insiste sur mon projet
+  Parkinson »), gardée pour reprendre plus tard. L'IA ne s'appuie que sur ton CV et l'offre : le code vérifie chaque
+  citation, écarte les conseils qui citent une ligne absente du CV et signale sous la lettre toute affirmation qu'il
+  ne retrouve pas dans ton CV. Modèles : Claude Sonnet pour l'analyse et le premier jet, Claude Haiku pour les
+  retouches (clé `ANTHROPIC_API_KEY`, crédit prépayé), Gemini gratuit en secours. Un dossier complet coûte environ
+  5 à 8 centimes ; le coût de chaque réponse s'affiche sous elle. Plafonds dans `config.yaml > claude` (1 $ par mois,
+  4,50 $ au total) : au-delà, Gemini prend le relais.
 - **Assistant** : un chat sur les offres collectées (« un stage en computer vision sur l'imagerie médicale »,
   « compare ces deux offres », « où en sont mes candidatures ? »). Il lit les annonces avant de répondre. La
   conversation est gardée ; **Nouvelle conversation** l'efface.
-- **Candidater** : le dossier d'une offre, ouvert par **📝 Préparer ma candidature** (fiche de l'offre) ou **📝 Dossier**
-  (carte de candidature). Rien ne part tout seul : le bouton **✨ Préparer avec l'IA** (prix affiché) lance l'analyse de
-  l'offre face à ton CV puis un premier jet de lettre. À gauche : la lettre (modifiable, tes modifications sont gardées
-  toutes seules ; une fois la candidature envoyée, la lettre gardée dans la candidature est figée ;
-  **Annuler**, historique des versions, export **Word** signé
-  de ton nom), les **conseils CV** (avant / après, avec les mots de l'offre) et l'**analyse** (exigences couvertes ou
-  non, alertes et questions à poser au recruteur). À droite : la conversation pour demander des retouches
-  (« plus court », « insiste sur mon projet Parkinson »), gardée pour reprendre plus tard.
-  L'IA ne s'appuie que sur ton CV et l'offre : le code vérifie chaque citation, écarte les conseils qui citent une ligne
-  absente du CV et signale sous la lettre toute affirmation qu'il ne retrouve pas dans ton CV.
-  Modèles : Claude Sonnet pour l'analyse et le premier jet, Claude Haiku pour les retouches (clé `ANTHROPIC_API_KEY`,
-  crédit prépayé), Gemini gratuit en secours. Un dossier complet coûte environ 5 à 8 centimes ; le coût de chaque
-  réponse s'affiche sous elle. Plafonds dans `config.yaml > claude` (1 $ par mois, 4,50 $ au total) : au-delà,
-  Gemini prend le relais. Le Journal affiche le crédit restant estimé ; le solde exact est dans la console Anthropic.
-- **Réglages › Mes documents** : dépose ton CV (PDF) et une lettre modèle (.txt ou .docx). Ils restent dans `profil/`
-  (jamais sur Git) ; l'aperçu montre exactement le texte envoyé aux IA, sans coordonnées ni nom.
-- **Journal** : historique des passages et coût IA (mois en cours et cumulé).
-- **Exporter en Excel** (en haut de la page Candidatures) : un fichier avec deux feuilles, Offres et Candidatures.
+- **Plus › Réglages** : quatre onglets. **Critères** (ancienneté max, exclusions, entreprises suivies),
+  **Mes documents** (ton CV en PDF et une lettre modèle ; ils restent dans `profil/`, jamais sur Git, et l'aperçu
+  montre exactement le texte envoyé aux IA, sans coordonnées ni nom), **Mails** (seuil de l'alerte, envoi, aperçus,
+  mail de test) et **Avancé** (refaire le tri des offres déjà collectées). Les domaines, secteurs, sources et
+  modèles d'IA se règlent dans `config.yaml`.
+- **Plus › Journal** : une ligne par passage (sources, offres trouvées, nouvelles, gardées, notées 8+, coût,
+  erreurs), le crédit Claude restant estimé (le solde exact est dans la console Anthropic) et, en dessous, les appels
+  d'IA faits depuis l'appli et le détail source par source.
+- **Plus › Corbeille** : les offres écartées par toi (**Remettre à trier**), écartées par le tri automatique (pour
+  vérifier qu'il ne se trompe pas) et expirées. Rien n'y est supprimé.
 
 ## Tâche planifiée
 
@@ -198,7 +211,7 @@ Autre heure : ajoute `-Heure 07:30` à la fin.
 ## Organisation des fichiers
 
 ```
-config.yaml            paramètres (critères, mots-clés, entreprises suivies, sources)
+config.yaml            paramètres (critères, domaines, entreprises suivies, sources, modèles d'IA)
 .env                   secrets (jamais sur Git) ; modèle dans .env.example
 run.py                 lancement d'un passage
 app.py                 lancement de l'appli (streamlit run app.py)
@@ -218,14 +231,18 @@ stage_scraper/
   chat_offres.py       assistant : chat sur les offres (agent qui lit les annonces)
   cv.py                texte anonymisé du CV et de la lettre modèle
   pipeline.py          un passage complet : collecte, tri, scoring
-  appli.py             pages de l'appli Streamlit
-  suivi.py             page Candidatures (colonnes par étape, cartes, fenêtres)
+  appli.py             menu de l'appli Streamlit et page Assistant
+  page_a_trier.py      page À trier (décisions, bouton de scrap)
+  vignettes.py         vignettes d'offres, détail d'une offre, décisions
+  selection.py         Ma sélection : étapes, prochaine action, changements d'étape (sans affichage)
+  page_selection.py    pages Ma sélection et fiche d'une offre
+  page_plus.py         pages Réglages, Journal et Corbeille
   style.py             habillage de l'appli (typographie, cartes, accessibilité)
   requetes.py          lectures et écritures en base pour l'appli
   reglages.py          modification de config.yaml depuis l'appli
   export.py            export Excel
   dossier.py           dossier d'une offre : analyse, conseils CV, lettre, vérification des citations
-  page_dossier.py      page Candidater
+  page_dossier.py      dossier dans la fiche : lettre, conseils CV, analyse, conversation
   notifications.py     mails d'alerte et de récap
 planification/         tâche planifiée Windows (installer_tache.ps1, lancer_auto.cmd, desinstaller_tache.ps1)
 tests/                 tests automatiques

@@ -34,8 +34,9 @@ MIGRATIONS = {
         "ALTER TABLE candidatures ADD COLUMN date_entretien TEXT",
         # Candidatures ajoutées à la main avant la v9 : chacune reçoit son offre (source « manuel »),
         # pour avoir une fiche comme les autres. vue = notifiee = 1 : jamais dans À trier ni dans les mails.
-        "INSERT INTO offres (source, source_id, titre, entreprise, lien, vue, notifiee) "
-        "SELECT 'manuel', 'candidature-' || id, COALESCE(poste, entreprise, 'Candidature'), entreprise, lien, 1, 1 "
+        "INSERT INTO offres (source, source_id, titre, entreprise, lien, vue, notifiee, empreinte) "
+        "SELECT 'manuel', 'candidature-' || id, COALESCE(poste, entreprise, 'Candidature'), entreprise, lien, 1, 1, "
+        "'manuel' "
         "FROM candidatures WHERE offre_id IS NULL",
         "UPDATE candidatures SET offre_id = (SELECT o.id FROM offres o WHERE o.source = 'manuel' "
         "AND o.source_id = 'candidature-' || candidatures.id) WHERE offre_id IS NULL",
@@ -60,7 +61,7 @@ CREATE TABLE IF NOT EXISTS runs (
     tokens_entree   INTEGER NOT NULL DEFAULT 0,
     tokens_sortie   INTEGER NOT NULL DEFAULT 0,
     cout_usd        REAL    NOT NULL DEFAULT 0,
-    modele          TEXT                         -- modèle d'IA de l'appel (page Candidater)
+    modele          TEXT                         -- modèle d'IA de l'appel (fiche d'une offre de Ma sélection)
 );
 
 -- Toutes les offres collectées, normalisées puis notées.
@@ -154,7 +155,7 @@ CREATE TABLE IF NOT EXISTS feedback (
     date        TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 
--- Dossier de candidature d'une offre (page « Candidater ») : diagnostic de l'IA,
+-- Dossier de candidature d'une offre (fiche de Ma sélection) : diagnostic de l'IA,
 -- conseils CV, versions de la lettre et conversation.
 CREATE TABLE IF NOT EXISTS dossiers (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,

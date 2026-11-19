@@ -7,10 +7,9 @@ Le but de chaque visite : « Tout est trié ».
 import logging
 from datetime import datetime
 
-import pandas as pd
 import streamlit as st
 
-from . import collecte, expiration, pipeline, requetes, vignettes
+from . import collecte, pipeline, requetes, vignettes
 from .config import secret
 
 FILTRES = {"Toutes": None, "Santé": "Santé", "Hors santé": "Hors santé mais intéressant", "À négocier": "À négocier"}
@@ -52,7 +51,7 @@ def phrase_scrap(s: dict | None, maintenant: datetime | None = None) -> str:
 
 # =========================================================================== page
 
-def afficher(conn, config: dict, page_candidater=None) -> None:
+def afficher(conn, config: dict, page_fiche=None) -> None:
     entete = st.columns([4, 1.2, 0.5], vertical_alignment="bottom")
     entete[0].title("📥 À trier")
     lancer = entete[1].button("🔄 Lancer le scrap", type="primary", width="stretch")
@@ -67,7 +66,7 @@ def afficher(conn, config: dict, page_candidater=None) -> None:
 
     scrap = requetes.dernier_scrap(conn)
     st.caption(phrase_scrap(scrap))
-    vignettes.bandeau_decision(conn, page_candidater)
+    vignettes.bandeau_decision(conn, page_fiche)
 
     toutes = requetes.offres_a_trier(conn)
     if any(o["score"] is None for o in toutes) and not secret("GEMINI_API_KEY"):
@@ -110,13 +109,12 @@ def afficher(conn, config: dict, page_candidater=None) -> None:
     nouveau = scrap["passage_id"] if scrap else None
     grille(conn, config, requetes.trier_offres(liste, "Plus récentes" if tri == TRIS[0] else "Meilleure note"),
            cle=choix, nouveau=nouveau, vide=vide, avec_section=(choix in ("Toutes", PLUS_TARD)),
-           page_candidater=page_candidater)
+           page_fiche=page_fiche)
 
-    verifications(conn)
 
 
 def grille(conn, config: dict, offres: list[dict], cle: str, nouveau: int | None, vide: str,
-           avec_section: bool, page_candidater=None) -> None:
+           avec_section: bool, page_fiche=None) -> None:
     """Vignettes (grille CSS : 3 ou 4 par rangée sur grand écran, 1 sur fenêtre étroite)."""
     if not offres:
         st.markdown(f'<div class="etape-vide">{vignettes._e(vide)}</div>', unsafe_allow_html=True)
@@ -134,36 +132,12 @@ def grille(conn, config: dict, offres: list[dict], cle: str, nouveau: int | None
                 if vignettes.boutons_decision(chemin_base, o, f"{cle}_{o['id']}"):
                     a_ouvrir = o["id"]
     if a_ouvrir is not None:   # fenêtre ouverte hors de la grille, pour ne pas y laisser une case vide
-        vignettes.fenetre_fiche(config, a_ouvrir, cle, page_candidater)
+        vignettes.fenetre_fiche(config, a_ouvrir, cle, page_fiche)
     if len(offres) > nb:
         reste = len(offres) - nb
         if st.button(f"Afficher plus ({reste} autre{'s' if reste > 1 else ''})", key=f"plus_{cle}", width="stretch"):
             st.session_state[f"nb_{cle}"] = nb + PAR_PAGE
             st.rerun()
-
-
-def verifications(conn) -> None:
-    """Offres écartées par le tri et expirées : à regarder de temps en temps (iront dans la Corbeille)."""
-    st.markdown("")
-    with st.expander("🔍 Offres écartées automatiquement (pour vérifier que le tri ne se trompe pas)"):
-        exclues = requetes.offres_exclues(conn)
-        st.dataframe(pd.DataFrame([{"Titre": o["titre"], "Entreprise": o["entreprise"], "Lieu": o["lieu"],
-                                    "Raison": o["exclusion_prefiltre"] or o["exclusion_ia"], "Lien": o["lien"]}
-                                   for o in exclues]),
-                     hide_index=True, width="stretch",
-                     column_config={"Lien": st.column_config.LinkColumn(display_text="Ouvrir")})
-    expirees = expiration.expirees(conn)
-    with st.expander(f"⌛ Offres expirées ({len(expirees)})"):
-        st.caption("Retirées du site de l'entreprise, trop anciennes ou signalées à la main. "
-                   "Elles restent en base mais n'apparaissent plus dans les offres ni dans les mails.")
-        for o in expirees[:100]:
-            c = st.columns([6, 1])
-            c[0].markdown(f"**{o['titre']}** — {o['entreprise'] or '?'}"
-                          + (f" · {o['score']}/10" if o["score"] is not None else "")
-                          + f" · _{expiration.raison(o)}_")
-            if o["expiration"] == "manuelle" and c[1].button("Remettre", key=f"remettre_expiree_{o['id']}"):
-                expiration.annuler(conn, o["id"])
-                st.rerun()
 
 
 # =========================================================================== scrap

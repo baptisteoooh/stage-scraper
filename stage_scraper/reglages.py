@@ -63,7 +63,7 @@ def appliquer(donnees, modifications: dict) -> list[str]:
 
     modifications : {'anciennete_max_jours': 90, 'alerte_seuil_score': 8, 'envoi_actif': False,
                      'contrats': [...], 'postes': [...], 'niveaux': [...],
-                     'mots_cles': {nom du domaine: [...]}, 'entreprises_suivies': [dict, ...]}
+                     'entreprises_suivies': [dict, ...]}
     """
     changements = []
     for cle, section in (("anciennete_max_jours", "general"), ("alerte_seuil_score", "notifications")):
@@ -78,10 +78,6 @@ def appliquer(donnees, modifications: dict) -> list[str]:
     for cle in ("contrats", "postes", "niveaux"):
         if cle in modifications and remplacer_liste(donnees["exclusions"][cle], modifications[cle]):
             changements.append(f"exclusions {cle}")
-    for domaine in donnees["domaines"]:
-        nouveaux = modifications.get("mots_cles", {}).get(domaine["nom"])
-        if nouveaux is not None and remplacer_liste(domaine["mots_cles"], nouveaux):
-            changements.append(f"mots-clés {domaine['nom']}")
     if "entreprises_suivies" in modifications:
         anciennes = {e["nom"]: e for e in donnees["entreprises_suivies"]}
         nouvelles = [_entreprise(e, anciennes.get((e.get("nom") or "").strip()))

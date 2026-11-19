@@ -90,18 +90,10 @@ def test_candidatures(tmp_path):
         c = requetes.candidatures(conn)[0]
         assert (c["entreprise"], c["poste"], c["statut"]) == ("Gleamer", "Stage Machine Learning imagerie",
                                                                "à postuler")
-
-        lignes = [dict(c, statut="postulé", date_candidature=date(2026, 10, 28), notes=float("nan")),
-                  {"id": float("nan"), "entreprise": "Sanofi", "poste": "Stage data", "statut": None},
-                  {"id": None, "entreprise": None, "poste": None}]  # ligne vide ignorée
-        bilan = requetes.enregistrer_candidatures(conn, lignes)
-        assert bilan == {"ajoutees": 1, "modifiees": 1, "supprimees": 0}
-        toutes = {c["entreprise"]: c for c in requetes.candidatures(conn)}
-        assert toutes["Gleamer"]["statut"] == "postulé" and toutes["Gleamer"]["date_candidature"] == "2026-10-28"
-        assert toutes["Sanofi"]["statut"] == "à postuler"
-
-        bilan = requetes.enregistrer_candidatures(conn, [toutes["Sanofi"]])
-        assert bilan == {"ajoutees": 0, "modifiees": 0, "supprimees": 1}
+        requetes.modifier_candidature(conn, premiere, statut="postulé", date_candidature=date(2026, 10, 28),
+                                      notes=float("nan"))                         # case vide : pas de note
+        c = requetes.candidature(conn, premiere)
+        assert (c["statut"], c["date_candidature"], c["notes"]) == ("postulé", "2026-10-28", None)
 
 
 # --------------------------------------------------------------------------- export
@@ -168,7 +160,7 @@ def une_page(page):
     main(page)
 
 
-@pytest.mark.parametrize("page", ["tableau_de_bord", "chat", "candidater", "candidatures", "reglages", "journal"])
+@pytest.mark.parametrize("page", ["a_trier", "selection", "fiche", "chat", "reglages", "journal", "corbeille"])
 def test_chaque_page_s_affiche(appli, page):
     at = AppTest.from_function(une_page, args=(page,), default_timeout=30).run()
     assert not at.exception, at.exception
@@ -186,7 +178,7 @@ def vignettes_affichees(at):
 
 
 def test_a_trier_en_vignettes(appli):
-    at = AppTest.from_function(une_page, args=("tableau_de_bord",), default_timeout=30).run()
+    at = AppTest.from_function(une_page, args=("a_trier",), default_timeout=30).run()
     assert not at.exception, at.exception
     vues = vignettes_affichees(at)
     assert len(vues) == 2 and any("Gleamer" in v and "<b>9</b>" in v for v in vues)
@@ -198,11 +190,11 @@ def test_a_trier_en_vignettes(appli):
 
 
 def test_je_candidate_puis_annuler(appli):
-    at = AppTest.from_function(une_page, args=("tableau_de_bord",), default_timeout=30).run()
+    at = AppTest.from_function(une_page, args=("a_trier",), default_timeout=30).run()
     at.button(key="candidate_toutes_1").click().run()
     assert not at.exception, at.exception
     assert not any("Gleamer" in v for v in vignettes_affichees(at))               # l'offre quitte la liste
-    assert any("ajoutée à tes candidatures" in m.value for m in at.markdown)
+    assert any("ajoutée à Ma sélection" in m.value for m in at.markdown)
     with closing(db.connecter(appli)) as conn:
         assert requetes.candidature_de(conn, 1)["statut"] == "à postuler"
     at.button(key="annuler_decision").click().run()
@@ -212,7 +204,7 @@ def test_je_candidate_puis_annuler(appli):
 
 
 def test_pas_pour_moi_avec_raison(appli):
-    at = AppTest.from_function(une_page, args=("tableau_de_bord",), default_timeout=30).run()
+    at = AppTest.from_function(une_page, args=("a_trier",), default_timeout=30).run()
     at.button(key="ecarte_toutes_1").click().run()
     assert not at.exception, at.exception
     assert len(vignettes_affichees(at)) == 1
@@ -224,7 +216,7 @@ def test_pas_pour_moi_avec_raison(appli):
 
 
 def test_plus_tard_puis_remettre(appli):
-    at = AppTest.from_function(une_page, args=("tableau_de_bord",), default_timeout=30).run()
+    at = AppTest.from_function(une_page, args=("a_trier",), default_timeout=30).run()
     at.button(key="plus_tard_toutes_1").click().run()
     assert not at.exception, at.exception
     assert len(vignettes_affichees(at)) == 1
@@ -241,7 +233,7 @@ def test_offres_bof_masquees_et_recherche(appli):
     with closing(db.connecter(appli)) as conn:
         conn.execute("UPDATE offres SET score = 3 WHERE source_id = '2'")
         conn.commit()
-    at = AppTest.from_function(une_page, args=("tableau_de_bord",), default_timeout=30).run()
+    at = AppTest.from_function(une_page, args=("a_trier",), default_timeout=30).run()
     assert len(vignettes_affichees(at)) == 1
     at.toggle(key="voir_bof").set_value(True).run()
     assert len(vignettes_affichees(at)) == 2
@@ -256,7 +248,7 @@ def test_tout_est_trie(appli):
     with closing(db.connecter(appli)) as conn:
         conn.execute("UPDATE offres SET pas_interesse = 1")
         conn.commit()
-    at = AppTest.from_function(une_page, args=("tableau_de_bord",), default_timeout=30).run()
+    at = AppTest.from_function(une_page, args=("a_trier",), default_timeout=30).run()
     assert any("Tout est trié" in m.value for m in at.markdown)
 
 
@@ -297,7 +289,7 @@ def test_je_candidate_depuis_la_fiche(appli):
     with closing(db.connecter(appli)) as conn:
         assert [c["entreprise"] for c in requetes.candidatures(conn)] == ["Gleamer"]
         assert conn.execute("SELECT vue FROM offres WHERE source_id = '1'").fetchone()[0] == 1
-    assert any(b.label == "📝 Ouvrir le dossier" for b in at.button)             # déjà dans les candidatures
+    assert any(b.label == "📝 Ouvrir la fiche" for b in at.button)               # déjà dans Ma sélection
 
 
 def test_contenu_d_une_vignette():
@@ -353,60 +345,137 @@ def test_supprimer_puis_annuler(tmp_path):
             requetes.modifier_candidature(conn, identifiant, statut="n'importe quoi")
 
 
-def test_relance_due_et_recherche():
-    from stage_scraper import suivi
-    c = {"statut": "postulé", "date_relance": "2026-11-04", "entreprise": "Doctolib", "poste": "ML", "notes": None}
-    assert not suivi.relance_due(c, date(2026, 11, 3)) and suivi.relance_due(c, date(2026, 11, 4))
-    assert not suivi.relance_due(dict(c, statut="entretien"), date(2026, 12, 1))
-    assert suivi.correspond(c, "docto") and not suivi.correspond(c, "withings")
-    assert suivi.etape(dict(c, statut="refus")) == "terminé"
+def une_fiche(offre_id):
+    """La fiche d'une offre, comme si on l'avait ouverte depuis Ma sélection."""
+    import streamlit as st
+    from stage_scraper.appli import main
+    st.session_state.setdefault("fiche_offre_id", offre_id)
+    main("fiche")
 
 
-def test_page_candidatures_en_cartes(appli):
+def test_ma_selection_par_etape(appli):
+    with closing(db.connecter(appli)) as conn:
+        requetes.creer_candidature(conn, offre_id=1)
+        withings = requetes.creer_candidature(conn, offre_id=2)
+        requetes.modifier_candidature(conn, withings, statut="postulé", date_candidature="2026-11-01",
+                                      date_relance="2026-11-08")                # relance en retard
+    at = AppTest.from_function(une_page, args=("selection",), default_timeout=30).run()
+    assert not at.exception, at.exception
+    etapes = at.segmented_control(key="etape_selection_bouton")
+    assert etapes.value == "preparation"
+    assert any("Gleamer" in m.value for m in at.markdown) and not any("Withings" in m.value for m in at.markdown)
+    assert any(b.label == "✨ Préparer" for b in at.button)                       # prochaine action
+    etapes.set_value("envoyee").run()
+    assert any("Withings" in m.value for m in at.markdown)
+    at.button(key=f"agir_{withings}").click().run()                              # « J'ai relancé »
+    assert not at.exception, at.exception
+    with closing(db.connecter(appli)) as conn:
+        c = requetes.candidature(conn, withings)
+        assert c["statut"] == "relancé" and c["date_relance"] > date.today().isoformat()
+    at.button(key="annuler_selection").click().run()
+    with closing(db.connecter(appli)) as conn:
+        assert requetes.candidature(conn, withings)["statut"] == "postulé"
+    assert at.session_state["etape_selection"] == "envoyee"                        # étape gardée
+
+
+def test_ma_selection_vide(appli):
+    at = AppTest.from_function(une_page, args=("selection",), default_timeout=30).run()
+    assert not at.exception, at.exception
+    assert any("Rien dans ta sélection" in i.value for i in at.info)
+
+
+def test_fiche_changer_d_etape_entretien_et_retirer(appli):
     with closing(db.connecter(appli)) as conn:
         identifiant = requetes.creer_candidature(conn, offre_id=1)
-    at = AppTest.from_function(une_page, args=("candidatures",), default_timeout=30).run()
+    at = AppTest.from_function(une_fiche, args=(1,), default_timeout=30).run()
     assert not at.exception, at.exception
-    assert any("Gleamer" in m.value for m in at.markdown)
-    at.button(key=f"avancer_{identifiant}").click().run()  # « J'ai postulé »
+    assert at.title[0].value == "Stage Machine Learning imagerie"
+    assert any("Segmentation" in m.value for m in at.markdown)                   # onglet L'offre
+    at.segmented_control(key=f"etape_fiche_{identifiant}_à postuler").set_value("entretien").run()
     assert not at.exception, at.exception
+    at.date_input[0].set_value(date(2026, 11, 26)).run()                          # date de l'entretien
     with closing(db.connecter(appli)) as conn:
         c = requetes.candidature(conn, identifiant)
-        assert c["statut"] == "postulé" and c["date_candidature"] == date.today().isoformat()
-    bouton_annuler = next(b for b in at.button if "Annuler" in b.label)
-    bouton_annuler.click().run()
+        assert (c["statut"], c["date_entretien"]) == ("entretien", "2026-11-26")
+    assert any("Entretien le 26/11" in x.value for x in at.caption)
+
+    next(b for b in at.button if b.label == "🗑️ Retirer de ma sélection").click().run()
+    assert not at.exception, at.exception
     with closing(db.connecter(appli)) as conn:
-        assert requetes.candidature(conn, identifiant)["statut"] == "à postuler"
+        assert requetes.candidature_de(conn, 1) is None
+        assert 1 in {o["id"] for o in requetes.offres_a_trier(conn)}             # revenue dans À trier
+    at.button(key="annuler_selection").click().run()
+    with closing(db.connecter(appli)) as conn:
+        assert requetes.candidature_de(conn, 1)["statut"] == "entretien"
 
 
-def contenu_fenetre_details(candidature_id):
-    """Contenu de la fenêtre « Détails », avec sa propre connexion comme dans l'appli."""
-    from stage_scraper import suivi
-    from stage_scraper.config import charger_config
-    with suivi._connexion(charger_config()) as conn:
-        suivi._bandeau_annulation(conn)
-        suivi._details(conn, candidature_id, 7)
-
-
-def test_supprimer_depuis_la_fenetre_details(appli):
-    # AppTest ne sait pas relancer une fenêtre seule : on affiche directement son contenu.
+def test_fiche_notes_gardees_toutes_seules(appli):
     with closing(db.connecter(appli)) as conn:
         identifiant = requetes.creer_candidature(conn, offre_id=1)
-    at = AppTest.from_function(contenu_fenetre_details, args=(identifiant,), default_timeout=30).run()
-    assert not at.exception, at.exception
-    next(b for b in at.button if b.label == "Supprimer").click().run()
+    at = AppTest.from_function(une_fiche, args=(1,), default_timeout=30).run()
+    zone = next(t for t in at.text_area if t.label == "Notes")
+    zone.set_value("Contact : Marie, responsable data").run()
     assert not at.exception, at.exception
     with closing(db.connecter(appli)) as conn:
-        assert requetes.candidatures(conn) == []
-    next(b for b in at.button if "Annuler" in b.label).click().run()
-    with closing(db.connecter(appli)) as conn:
-        assert requetes.candidature(conn, identifiant)["entreprise"] == "Gleamer"
+        assert requetes.candidature(conn, identifiant)["notes"] == "Contact : Marie, responsable data"
 
 
-def test_page_candidatures_vide(appli):
-    at = AppTest.from_function(une_page, args=("candidatures",), default_timeout=30).run()
+def contenu_fenetre_nouvelle():
+    from stage_scraper import page_selection
+    from stage_scraper.config import charger_config
+    config = charger_config()
+    with page_selection._connexion(config) as conn:
+        page_selection._nouvelle(conn, config)
+
+
+def test_offre_trouvee_ailleurs_avec_sa_fiche(appli):
+    # AppTest ne sait pas relancer une fenêtre seule : on affiche directement son contenu.
+    at = AppTest.from_function(contenu_fenetre_nouvelle, default_timeout=30).run()
+    at.text_input[0].set_value("Sanofi").run()
+    at.text_input[1].set_value("Stage data clinique").run()
+    at.text_area[0].set_value("Analyse de données cliniques en Python.").run()
+    next(b for b in at.button if b.label == "Ajouter à Ma sélection").click().run()
     assert not at.exception, at.exception
-    assert any("Aucune candidature" in m.value for m in at.markdown)
+    with closing(db.connecter(appli)) as conn:
+        c = requetes.candidatures(conn)[0]
+        o = requetes.offre(conn, c["offre_id"])
+        assert (c["entreprise"], c["statut"], o["source"]) == ("Sanofi", "à postuler", "manuel")
+        assert o["description"] == "Analyse de données cliniques en Python."
+    at = AppTest.from_function(une_fiche, args=(c["offre_id"],), default_timeout=30).run()
+    assert not at.exception, at.exception
+    zone = next(t for t in at.text_area if t.label == "Texte de l'annonce")         # modifiable
+    zone.set_value("Analyse de données cliniques en Python et SQL.").run()
+    with closing(db.connecter(appli)) as conn:
+        assert requetes.offre(conn, c["offre_id"])["description"].endswith("et SQL.")
+
+
+def test_corbeille_remettre_a_trier(appli):
+    with closing(db.connecter(appli)) as conn:
+        requetes.marquer_pas_interesse(conn, 1, "Pas mon domaine")
+    at = AppTest.from_function(une_page, args=("corbeille",), default_timeout=30).run()
+    assert not at.exception, at.exception
+    assert any("Pas mon domaine" in m.value for m in at.markdown)
+    at.button(key="retablir_1").click().run()
+    with closing(db.connecter(appli)) as conn:
+        assert requetes.offre(conn, 1)["pas_interesse"] == 0
+    at.segmented_control(key="choix_corbeille").set_value("tri").run()            # l'alternance exclue
+    assert not at.exception, at.exception
+    assert "Owkin" in at.dataframe[0].value["Entreprise"].tolist()
+
+
+def test_journal_une_ligne_par_passage(tmp_path):
+    with closing(base(tmp_path / "t.db")) as conn:
+        for source, nb, erreur in (("careerjet", 5, "403 : IP non autorisée"), ("google_jobs", 3, None),
+                                   ("scoring", 2, None)):
+            db.journaliser_run(conn, passage_id=1, date_debut="2026-11-19 08:00:00", declenchement="auto",
+                               source=source, nb_offres=nb, nb_nouvelles=nb if source != "scoring" else 0,
+                               erreurs=erreur, cout_usd=0.001 if source == "scoring" else 0)
+        db.journaliser_run(conn, passage_id=2, date_debut="2026-11-19 09:00:00", declenchement="manuel",
+                           source="dossier", modele="claude-sonnet-5-5", cout_usd=0.04)
+        (p,) = requetes.passages(conn)                                              # l'appel d'IA n'est pas un passage
+        assert (p["auto"], p["sources"], p["trouvees"], p["nouvelles"], p["notees"]) == (True, 2, 8, 8, 2)
+        assert p["gardees"] == 2 and p["top"] == 1 and p["en_erreur"] == ["careerjet"]
+        assert [a["modele"] for a in requetes.appels_ia(conn)] == ["claude-sonnet-5-5"]
 
 
 def test_chat_affiche_les_offres_proposees(appli, monkeypatch):
@@ -433,7 +502,7 @@ def test_chat_affiche_les_offres_proposees(appli, monkeypatch):
     assert not any("Une offre correspond." in m.value for m in at.markdown)
 
 
-# --------------------------------------------------------------------------- page Candidater
+# --------------------------------------------------------------------------- dossier dans la fiche
 
 DIAG_TEST = {"adequation": "partielle", "synthese": "Python oui, imagerie non.", "pour": ["Python"],
              "contre": ["Pas d'imagerie"], "alertes": [{"alerte": "Durée non précisée", "question_recruteur": "Combien ?"}],
@@ -484,7 +553,7 @@ def _preparer(at):
 
 def test_candidater_ia_seulement_sur_bouton(appli, candidater):
     appels, offre_id = candidater
-    at = AppTest.from_function(une_page, args=("candidater",), default_timeout=30).run()
+    at = AppTest.from_function(une_fiche, args=(offre_id,), default_timeout=30).run()
     assert not at.exception, at.exception
     assert appels == []                                                          # rien ne part tout seul
     bouton = next(b for b in at.button if b.label.startswith("✨ Préparer avec l'IA"))
@@ -506,7 +575,7 @@ def test_candidater_ia_seulement_sur_bouton(appli, candidater):
 
 def test_candidater_retouche_garde_les_modifs_et_annule(appli, candidater):
     appels, offre_id = candidater
-    at = _preparer(AppTest.from_function(une_page, args=("candidater",), default_timeout=30).run())
+    at = _preparer(AppTest.from_function(une_fiche, args=(offre_id,), default_timeout=30).run())
     at.text_area[0].set_value("Ma version").run()                               # gardée sans bouton…
     at.text_area[0].set_value("Ma version écrite à la main.").run()             # …et dans la même version
     at.chat_input[0].set_value("plus court").run()
@@ -527,8 +596,8 @@ def test_candidater_retouche_garde_les_modifs_et_annule(appli, candidater):
 
 def test_candidater_lettre_figee_apres_envoi(appli, candidater):
     appels, offre_id = candidater
-    at = _preparer(AppTest.from_function(une_page, args=("candidater",), default_timeout=30).run())
-    next(b for b in at.button if b.label == "📨 J'ai postulé").click().run()
+    at = _preparer(AppTest.from_function(une_fiche, args=(offre_id,), default_timeout=30).run())
+    next(b for b in at.button if b.label == "📨 C'est envoyé").click().run()
     with closing(db.connecter(appli)) as conn:
         envoyee = requetes.candidature_de(conn, offre_id)["lettre"]
     at.chat_input[0].set_value("plus court").run()

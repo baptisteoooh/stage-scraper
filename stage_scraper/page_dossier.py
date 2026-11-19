@@ -1,8 +1,7 @@
-"""Page « Candidater » : tout le dossier d'une offre sur un seul écran.
+"""Dossier d'une offre, affiché dans sa fiche (Ma sélection) : lettre, conseils CV, analyse, conversation.
 
-À gauche, trois onglets : la lettre (modifiable, versions, export Word), les conseils CV et
-l'analyse de l'offre (exigences, alertes). À droite, la conversation avec l'IA, gardée en base :
-on peut fermer l'appli et reprendre plus tard.
+La lettre est modifiable (versions, export Word) ; les conseils CV et l'analyse viennent de l'IA ;
+la conversation avec l'IA est gardée en base : on peut fermer l'appli et reprendre plus tard.
 
 Rien ne part tout seul vers l'IA payante : l'analyse et le premier jet se lancent avec le bouton
 « Préparer avec l'IA », qui affiche son prix. Les modifications faites à la main dans la lettre sont
@@ -15,7 +14,7 @@ import streamlit as st
 
 from . import claude
 from . import cv as module_cv
-from . import dossier, requetes
+from . import dossier
 
 COULEURS_ADEQUATION = {"forte": "green", "partielle": "orange", "faible": "red"}
 ICONES_COUVERTURE = {"couverte": "✅", "partielle": "🟡", "absente": "❌"}
@@ -49,76 +48,26 @@ def _e(texte) -> str:
     return html.escape(str(texte or ""))
 
 
-def ouvrir_depuis(conn, offre_id: int, page) -> None:
-    """Bouton « Préparer ma candidature » : crée le dossier (et la candidature) puis ouvre la page."""
+CLE_FICHE = "fiche_offre_id"   # offre dont la fiche est ouverte
+
+
+def ouvrir_fiche(conn, offre_id: int, page=None) -> None:
+    """Ouvre la fiche de l'offre dans Ma sélection (l'y ajoute si besoin, avec son dossier)."""
     dossier.ouvrir(conn, offre_id)
-    st.session_state["dossier_offre_id"] = offre_id
+    st.session_state[CLE_FICHE] = offre_id
     if page is not None:
-        st.switch_page(page)
+        st.switch_page(page, query_params={"offre": str(offre_id)})
 
 
-# =========================================================================== page
+# =========================================================================== préparation
 
-def afficher(conn, config: dict) -> None:
-    st.title("📝 Candidater")
-    existants = dossier.tous(conn)
-    choisi = st.session_state.get("dossier_offre_id")
-    if not existants:
-        st.info("Aucun dossier pour l'instant. Ouvre une offre (page Offres ou Assistant) et clique sur "
-                "**📝 Préparer ma candidature** : l'IA analyse l'offre face à ton CV, propose des retouches de CV "
-                "et rédige un premier jet de lettre, que tu ajustes ensuite en lui parlant.")
-        return
-    if not module_cv.texte_cv(config):
-        st.warning("Dépose d'abord ton CV dans **Réglages › Mes documents** : l'IA s'appuie uniquement dessus.")
-    blocage = claude.blocage(conn, config)
-    if blocage:
-        st.info(f"Claude en pause ({blocage}) : Gemini (gratuit) prend le relais.", icon="ℹ️")
+def preparer(conn, config: dict, d: dict, avec_lettre: bool = True) -> None:
+    """Bouton « Préparer avec l'IA » : analyse puis premier jet, seulement ce qui manque, sur demande.
 
-    ids = [d["offre_id"] for d in existants]
-    if choisi not in ids:
-        choisi = ids[0]
-    choisi = st.selectbox("Dossier", ids, index=ids.index(choisi), label_visibility="collapsed",
-                          format_func=lambda i: next(f"{d['titre']} — {d['entreprise'] or '?'}"
-                                                     for d in existants if d["offre_id"] == i))
-    st.session_state["dossier_offre_id"] = choisi
-
-    o = requetes.offre(conn, choisi)
-    d = dossier.ouvrir(conn, choisi)
-    entete(conn, config, o)
-    preparer(conn, config, d)
-
-    gauche, droite = st.columns([3, 2], gap="large")
-    with gauche:
-        lettre, conseils, analyse = st.tabs(["✉️ Lettre", "📄 Conseils CV", "🔎 Analyse de l'offre"])
-        with lettre:
-            onglet_lettre(conn, config, d, o)
-        with conseils:
-            onglet_conseils(d)
-        with analyse:
-            onglet_analyse(conn, config, d)
-    with droite:
-        conversation(conn, config, d)
-
-
-def entete(conn, config: dict, o: dict) -> None:
-    c = requetes.candidature_de(conn, o["id"])
-    ligne = st.columns([5, 1.3, 1.3], vertical_alignment="center")
-    ligne[0].markdown(f"**{_e(o['titre'])}** — {_e(o['entreprise'] or '?')}"
-                      + (f" · {o['score']}/10" if o["score"] is not None else "")
-                      + (f"  \n<span class='chat-raison'>Candidature : {_e(c['statut'])}</span>" if c else ""),
-                      unsafe_allow_html=True)
-    if o["lien"]:
-        ligne[1].link_button("Voir l'offre ↗", o["lien"], width="stretch")
-    if c and c["statut"] == "à postuler" and ligne[2].button("📨 J'ai postulé", width="stretch",
-                                                            help="Passe la candidature à « postulé » (relance proposée)"):
-        requetes.changer_statut(conn, c["id"], "postulé", int(config.get("candidatures", {}).get("relance_jours", 7)))
-        st.toast("Candidature passée à « postulé ».")
-        st.rerun()
-
-
-def preparer(conn, config: dict, d: dict) -> None:
-    """Bouton « Préparer avec l'IA » : analyse puis premier jet, seulement ce qui manque, sur demande."""
-    manque_analyse, manque_lettre = not d.get("diagnostic"), not dossier.version_courante(conn, d)
+    avec_lettre=False : analyse seule (avant un entretien, la lettre est déjà partie).
+    """
+    manque_analyse = not d.get("diagnostic")
+    manque_lettre = avec_lettre and not dossier.version_courante(conn, d)
     if not (manque_analyse or manque_lettre) or not module_cv.texte_cv(config):
         return
     centimes = CENTIMES_ANALYSE * manque_analyse + CENTIMES_PREMIER_JET * manque_lettre
@@ -126,7 +75,8 @@ def preparer(conn, config: dict, d: dict) -> None:
                                          ("rédige un premier jet de lettre", manque_lettre)) if m)
     with st.container(border=True):
         ligne = st.columns([3, 1.4], vertical_alignment="center")
-        ligne[0].markdown(f"L'IA {a_faire}. Ensuite, tu ajustes la lettre en lui parlant (≈ 0,1 c par retouche).")
+        ligne[0].markdown(f"L'IA {a_faire}. " + ("Ensuite, tu ajustes la lettre en lui parlant (≈ 0,1 c par retouche)."
+                                                 if manque_lettre else "Tu peux ensuite lui poser tes questions."))
         if not ligne[1].button(f"✨ Préparer avec l'IA ({prix(conn, config, centimes, 'modeles')})",
                                type="primary", width="stretch"):
             return
@@ -255,7 +205,8 @@ def onglet_analyse(conn, config: dict, d: dict) -> None:
                         unsafe_allow_html=True)
         st.caption(f"Analyse du {d['date_diagnostic'][:16]} ({d['modele_diagnostic']}).")
     else:
-        st.caption("Offre pas encore analysée : clique sur « Préparer avec l'IA » en haut.")
+        st.caption("Offre pas encore analysée : bouton « Préparer avec l'IA » en haut de la fiche "
+                   "(en préparation, ou à l'étape Entretien).")
         return
     with st.popover("🔄 Refaire l'analyse"):
         st.caption("Utile si ton CV ou l'offre a changé. L'analyse actuelle sera remplacée.")

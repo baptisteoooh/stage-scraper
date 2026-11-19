@@ -2,7 +2,7 @@
 
 Chaque vignette montre l'essentiel : note, entreprise, poste, lieu, durée, début, gratification,
 télétravail, résumé et date de publication. Trois décisions, en un clic, depuis la vignette ou la fiche :
-✅ Je candidate (l'offre part dans Candidatures), 👎 Pas pour moi (masquée ; la raison, facultative,
+✅ Je candidate (l'offre part dans Ma sélection), 👎 Pas pour moi (masquée ; la raison, facultative,
 sert d'exemple à l'IA), ⏳ Plus tard (rangée à part). Un bandeau permet d'annuler la dernière décision.
 """
 import html
@@ -13,7 +13,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from . import db, expiration, page_dossier, requetes
+from . import db, expiration, page_dossier, requetes, selection
 from .config import chemin_projet
 
 PAR_PAGE = 24      # vignettes affichées d'un coup ; le bouton « Afficher plus » ajoute les suivantes
@@ -162,7 +162,7 @@ def _slug(texte: str) -> str:
 
 RAISONS = ["Trop long (6 mois)", "Commercial / pas technique", "Pas mon domaine", "Dates incompatibles",
            "Hors Île-de-France", "Entreprise"]
-TEXTES_DECISION = {"candidate": "ajoutée à tes candidatures (« à postuler »)", "ecarte": "écartée",
+TEXTES_DECISION = {"candidate": "ajoutée à Ma sélection (en préparation)", "ecarte": "écartée",
                    "plus_tard": "rangée dans « Plus tard »", "remettre": "remise dans les offres à trier"}
 
 
@@ -196,8 +196,8 @@ def annuler_decision(conn, d: dict) -> None:
         requetes.basculer_favori(conn, d["offre_id"])
 
 
-def bandeau_decision(conn, page_candidater=None) -> None:
-    """Dernière décision : rappel, raison facultative (« pas pour moi »), Ouvrir le dossier, Annuler."""
+def bandeau_decision(conn, page_fiche=None) -> None:
+    """Dernière décision : rappel, raison facultative (« pas pour moi »), Ouvrir la fiche, Annuler."""
     d = st.session_state.get("derniere_decision")
     if not d:
         return
@@ -206,10 +206,10 @@ def bandeau_decision(conn, page_candidater=None) -> None:
     with st.container(border=True, key="bandeau_decision"):
         ligne = st.columns([6, 1.6, 1.1, 0.5], vertical_alignment="center")
         ligne[0].markdown(f"{icone} {nom} {TEXTES_DECISION[d['action']]}.", unsafe_allow_html=True)
-        if d["action"] == "candidate" and ligne[1].button("📝 Ouvrir le dossier", type="primary", width="stretch",
+        if d["action"] == "candidate" and ligne[1].button("📝 Ouvrir la fiche", type="primary", width="stretch",
                                                           help="Lettre de motivation, conseils CV, analyse de l'offre"):
             st.session_state.pop("derniere_decision", None)
-            page_dossier.ouvrir_depuis(conn, d["offre_id"], page_candidater)
+            page_dossier.ouvrir_fiche(conn, d["offre_id"], page_fiche)
         if ligne[2].button("↩️ Annuler", width="stretch", key="annuler_decision"):
             annuler_decision(conn, d)
             st.session_state.pop("derniere_decision", None)
@@ -231,7 +231,7 @@ def boutons_decision(chemin_base: str, o: dict, cle: str) -> bool:
     args = lambda action: (chemin_base, o["id"], action)  # noqa: E731
     haut[0].button("✅ Je candidate", key=f"candidate_{cle}", type="primary", width="stretch",
                    on_click=_decider_depuis_vignette, args=args("candidate"),
-                   help="L'offre part dans Candidatures (« à postuler ») ; aucune IA ne se lance")
+                   help="L'offre part dans Ma sélection (en préparation) ; aucune IA ne se lance")
     haut[1].button("👎 Pas pour moi", key=f"ecarte_{cle}", width="stretch",
                    on_click=_decider_depuis_vignette, args=args("ecarte"))
     if o["favori"]:
@@ -245,13 +245,13 @@ def boutons_decision(chemin_base: str, o: dict, cle: str) -> bool:
 
 
 @st.dialog("Offre", width="large")
-def fenetre_fiche(config: dict, offre_id: int, cle: str, page_candidater=None) -> None:
+def fenetre_fiche(config: dict, offre_id: int, cle: str, page_fiche=None) -> None:
     # Connexion propre à la fenêtre : Streamlit la relance seule, dans un autre fil d'exécution.
     with closing(db.connecter(chemin_projet(config["general"]["base_de_donnees"]))) as conn:
-        fiche(conn, offre_id, cle, page_candidater)
+        fiche(conn, offre_id, cle, page_fiche)
 
 
-def fiche(conn, offre_id: int, cle: str, page_candidater=None) -> None:
+def fiche(conn, offre_id: int, cle: str, page_fiche=None) -> None:
     """Détail complet d'une offre, avec les mêmes décisions que la vignette, en haut."""
     o = requetes.offre(conn, offre_id)
     if o is None:
@@ -275,8 +275,26 @@ def fiche(conn, offre_id: int, cle: str, page_candidater=None) -> None:
         badges.append(":violet-badge[IA / data]")
     if badges:
         st.markdown(" ".join(badges))
-    actions_fiche(conn, o, cle, page_candidater)
+    actions_fiche(conn, o, cle, page_fiche)
 
+    details_offre(conn, o)
+
+    if o["expiration"] not in (None, "manuelle"):
+        return
+    with st.popover("⋯ Autres actions"):
+        if o["expiration"] == "manuelle":
+            if st.button("Remettre en ligne", key=f"remettre_ligne_{cle}_{o['id']}"):
+                expiration.annuler(conn, o["id"])
+                st.rerun()
+        elif not o["expiration"] and st.button("⌛ Signaler l'offre comme expirée", key=f"expiree_{cle}_{o['id']}",
+                                               help="L'offre n'est plus en ligne ou n'accepte plus de candidatures"):
+            expiration.marquer_expiree(conn, o["id"])
+            st.toast("Offre masquée (expirée).")
+            st.rerun()
+
+
+def details_offre(conn, o: dict) -> None:
+    """Résumé, note, infos clés, autres annonces et description d'une offre."""
     if o["resume"]:
         st.markdown(f"**Résumé** : {o['resume']}")
     if o["pourquoi"]:
@@ -319,28 +337,16 @@ def fiche(conn, offre_id: int, cle: str, page_candidater=None) -> None:
             st.caption(f"{o['source'].capitalize()} ne transmet qu'un extrait de l'annonce : "
                        "le texte complet est sur le site (bouton **Voir l'annonce ↗**).")
 
-    if o["expiration"] not in (None, "manuelle"):
-        return
-    with st.popover("⋯ Autres actions"):
-        if o["expiration"] == "manuelle":
-            if st.button("Remettre en ligne", key=f"remettre_ligne_{cle}_{o['id']}"):
-                expiration.annuler(conn, o["id"])
-                st.rerun()
-        elif not o["expiration"] and st.button("⌛ Signaler l'offre comme expirée", key=f"expiree_{cle}_{o['id']}",
-                                               help="L'offre n'est plus en ligne ou n'accepte plus de candidatures"):
-            expiration.marquer_expiree(conn, o["id"])
-            st.toast("Offre masquée (expirée).")
-            st.rerun()
 
-
-def actions_fiche(conn, o: dict, cle: str, page_candidater=None) -> None:
-    """Décisions en haut de la fiche ; si une candidature existe déjà, accès direct au dossier."""
+def actions_fiche(conn, o: dict, cle: str, page_fiche=None) -> None:
+    """Décisions en haut de la fiche ; si l'offre est déjà dans Ma sélection, accès direct à sa fiche."""
     candidature = requetes.candidature_de(conn, o["id"])
     ligne = st.columns(4)
     if candidature:
-        ligne[0].success(f"Dans tes candidatures ({candidature['statut']}).")
-        if ligne[1].button("📝 Ouvrir le dossier", key=f"dossier_{cle}_{o['id']}", type="primary"):
-            page_dossier.ouvrir_depuis(conn, o["id"], page_candidater)
+        etape = selection.ETAPES[selection.etape_de(candidature["statut"])][0]
+        ligne[0].success(f"Dans Ma sélection ({etape.lower()}).")
+        if ligne[1].button("📝 Ouvrir la fiche", key=f"dossier_{cle}_{o['id']}", type="primary"):
+            page_dossier.ouvrir_fiche(conn, o["id"], page_fiche)
     elif o["pas_interesse"]:
         ligne[0].info("Écartée (pas pour moi).")
         if ligne[1].button("↩️ Remettre à trier", key=f"annuler_{cle}_{o['id']}"):

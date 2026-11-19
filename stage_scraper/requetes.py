@@ -182,6 +182,20 @@ def candidature(conn, candidature_id: int) -> dict | None:
     return dict(ligne) if ligne else None
 
 
+def ajouter_a_la_main(conn, entreprise: str | None, poste: str | None, lien: str | None, statut: str,
+                      notes: str | None, envoyee=None, relance_jours: int = 7) -> int:
+    """Candidature faite hors de l'outil. Déjà envoyée : date d'envoi et date de relance remplies."""
+    from datetime import date, timedelta
+    identifiant = creer_candidature(conn, entreprise=entreprise, poste=poste, lien=lien, statut=statut, notes=notes)
+    if statut != "à postuler":
+        envoyee = envoyee or date.today()
+        champs = {"date_candidature": envoyee.isoformat()}
+        if statut in ("postulé", "relancé"):
+            champs["date_relance"] = (envoyee + timedelta(days=relance_jours)).isoformat()
+        modifier_candidature(conn, identifiant, **champs)
+    return identifiant
+
+
 def modifier_candidature(conn, candidature_id: int, **champs) -> None:
     """Met à jour les champs donnés (entreprise, poste, lien, statut, dates, notes, lettre)."""
     valeurs = {c: _vide_en_none(v) for c, v in champs.items() if c in (*CHAMPS_CANDIDATURE, "lettre")}

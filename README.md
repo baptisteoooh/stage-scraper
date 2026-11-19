@@ -157,8 +157,10 @@ Pour l'arrêter : `Ctrl + C` dans le terminal. Les pages sont dans le menu en ha
   « compare ces deux offres », « où en sont mes candidatures ? »). Il lit les annonces avant de répondre. La
   conversation est gardée ; **Nouvelle conversation** l'efface.
 - **Candidater** : le dossier d'une offre, ouvert par **📝 Préparer ma candidature** (fiche de l'offre) ou **📝 Dossier**
-  (carte de candidature). La première fois, l'IA analyse l'offre face à ton CV (environ une minute), puis rédige un
-  premier jet de lettre. À gauche : la lettre (modifiable, **Annuler**, historique des versions, export **Word** signé
+  (carte de candidature). Rien ne part tout seul : le bouton **✨ Préparer avec l'IA** (prix affiché) lance l'analyse de
+  l'offre face à ton CV puis un premier jet de lettre. À gauche : la lettre (modifiable, tes modifications sont gardées
+  toutes seules ; une fois la candidature envoyée, la lettre gardée dans la candidature est figée ;
+  **Annuler**, historique des versions, export **Word** signé
   de ton nom), les **conseils CV** (avant / après, avec les mots de l'offre) et l'**analyse** (exigences couvertes ou
   non, alertes et questions à poser au recruteur). À droite : la conversation pour demander des retouches
   (« plus court », « insiste sur mon projet Parkinson »), gardée pour reprendre plus tard.

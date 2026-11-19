@@ -83,7 +83,7 @@ def afficher(conn, config: dict, page_candidater=None) -> None:
     recherche = haut[0].text_input("Rechercher", placeholder="Rechercher une entreprise, un poste ou une note…",
                                    label_visibility="collapsed", key="recherche_candidatures")
     if haut[1].button("＋ Nouvelle candidature", type="primary", width="stretch"):
-        fenetre_nouvelle(config)
+        fenetre_nouvelle(config, relance_jours)
     with haut[2]:
         bouton_export(conn)
 
@@ -201,12 +201,12 @@ def _connexion(config: dict):
 
 
 @st.dialog("Nouvelle candidature")
-def fenetre_nouvelle(config: dict) -> None:
+def fenetre_nouvelle(config: dict, relance_jours: int) -> None:
     with _connexion(config) as conn:
-        _nouvelle(conn)
+        _nouvelle(conn, relance_jours)
 
 
-def _nouvelle(conn) -> None:
+def _nouvelle(conn, relance_jours: int) -> None:
     entreprise = st.text_input("Entreprise")
     poste = st.text_input("Poste")
     lien = st.text_input("Lien de l'offre (facultatif)", placeholder="https://…")
@@ -219,11 +219,8 @@ def _nouvelle(conn) -> None:
         if not (entreprise.strip() or poste.strip()):
             st.error("Indique au moins l'entreprise ou le poste.")
             return
-        identifiant = requetes.creer_candidature(conn, entreprise=entreprise.strip() or None,
-                                                 poste=poste.strip() or None, lien=lien.strip() or None,
-                                                 statut=statut, notes=notes.strip() or None)
-        if envoyee:
-            requetes.modifier_candidature(conn, identifiant, date_candidature=envoyee)
+        requetes.ajouter_a_la_main(conn, entreprise.strip() or None, poste.strip() or None, lien.strip() or None,
+                                   statut, notes.strip() or None, envoyee, relance_jours)
         st.rerun()
 
 

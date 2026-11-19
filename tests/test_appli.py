@@ -411,11 +411,21 @@ def candidater(appli, monkeypatch):
     return appels, offre_id
 
 
-def test_candidater_analyse_et_premier_jet_automatiques(appli, candidater):
+def _preparer(at):
+    next(b for b in at.button if b.label.startswith("✨ Préparer avec l'IA")).click().run()
+    return at
+
+
+def test_candidater_ia_seulement_sur_bouton(appli, candidater):
     appels, offre_id = candidater
     at = AppTest.from_function(une_page, args=("candidater",), default_timeout=30).run()
     assert not at.exception, at.exception
-    assert appels == ["diagnostic", "Rédige une première version de la lettre."]   # une seule fois chacun
+    assert appels == []                                                          # rien ne part tout seul
+    bouton = next(b for b in at.button if b.label.startswith("✨ Préparer avec l'IA"))
+    assert "c)" in bouton.label or "gratuit" in bouton.label                     # le prix est affiché
+    _preparer(at)
+    assert not at.exception, at.exception
+    assert appels == ["diagnostic", "Rédige une première version de la lettre."]
     assert "Version pour" in at.text_area[0].value
     assert any("Phrase inventée." in w.value for w in at.warning)                # affirmation hors CV signalée
     assert any("nouvelle ligne" in m.value for m in at.markdown)                 # conseils CV
@@ -425,12 +435,14 @@ def test_candidater_analyse_et_premier_jet_automatiques(appli, candidater):
 
     at.run()                                                                     # pas de relance automatique
     assert len(appels) == 2
+    assert not any(b.label.startswith("✨ Préparer") for b in at.button)          # dossier complet : bouton parti
 
 
 def test_candidater_retouche_garde_les_modifs_et_annule(appli, candidater):
     appels, offre_id = candidater
-    at = AppTest.from_function(une_page, args=("candidater",), default_timeout=30).run()
-    at.text_area[0].set_value("Ma version écrite à la main.").run()
+    at = _preparer(AppTest.from_function(une_page, args=("candidater",), default_timeout=30).run())
+    at.text_area[0].set_value("Ma version").run()                               # gardée sans bouton…
+    at.text_area[0].set_value("Ma version écrite à la main.").run()             # …et dans la même version
     at.chat_input[0].set_value("plus court").run()
     assert not at.exception, at.exception
     assert appels[-1] == "plus court"
@@ -445,3 +457,16 @@ def test_candidater_retouche_garde_les_modifs_et_annule(appli, candidater):
     assert at.text_area[0].value == "Ma version écrite à la main."
     with closing(db.connecter(appli)) as conn:
         assert requetes.candidature_de(conn, offre_id)["lettre"] == "Ma version écrite à la main."
+
+
+def test_candidater_lettre_figee_apres_envoi(appli, candidater):
+    appels, offre_id = candidater
+    at = _preparer(AppTest.from_function(une_page, args=("candidater",), default_timeout=30).run())
+    next(b for b in at.button if b.label == "📨 J'ai postulé").click().run()
+    with closing(db.connecter(appli)) as conn:
+        envoyee = requetes.candidature_de(conn, offre_id)["lettre"]
+    at.chat_input[0].set_value("plus court").run()
+    assert not at.exception, at.exception
+    assert any("ne change plus" in c.value for c in at.caption)
+    with closing(db.connecter(appli)) as conn:
+        assert requetes.candidature_de(conn, offre_id)["lettre"] == envoyee      # celle que le recruteur a lue

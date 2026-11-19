@@ -294,3 +294,13 @@ def test_reponse_claude_coupee_est_facturee_puis_secours(conn):
     assert lignes[0]["modele"] == "claude-sonnet-5-5" and "coupée" in lignes[0]["erreurs"]
     assert lignes[0]["cout_usd"] == pytest.approx(COUT_SONNET)                         # payé même si raté
     assert lignes[1]["modele"] == "gemini-3.5-flash-lite" and lignes[1]["cout_usd"] == 0
+
+
+def test_candidature_a_la_main_deja_envoyee_a_une_relance(conn):
+    from datetime import date
+    i = requetes.ajouter_a_la_main(conn, "Withings", "Stage data", None, "postulé", None,
+                                   date(2026, 11, 10), relance_jours=7)
+    c = requetes.candidature(conn, i)
+    assert (c["date_candidature"], c["date_relance"]) == ("2026-11-10", "2026-11-17")
+    j = requetes.ajouter_a_la_main(conn, "Owkin", None, None, "à postuler", None)
+    assert requetes.candidature(conn, j)["date_relance"] is None

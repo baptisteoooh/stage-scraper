@@ -26,6 +26,7 @@ from . import claude, db, gemini, requetes
 from .scoring import LONGUEUR_DESCRIPTION_MAX, ajouter_usage
 
 MESSAGES_GARDES = 10      # derniers messages de la conversation renvoyés à l'IA
+DEMANDE_MAIN = "modification à la main"   # « demande » d'une version écrite par BAP
 LONGUEUR_CITATION_MIN = 8  # caractères (lettres et chiffres) pour qu'une citation compte
 SEUIL_CITATION_LONGUE = 0.8  # part du texte retrouvée pour une citation de 3 morceaux ou plus
 # Claude d'abord (s'il y a une clé et du budget), Gemini gratuit en secours.
@@ -210,13 +211,44 @@ def ajouter_version(conn, dossier: dict, texte: str, demande: str | None, modele
 
 
 def choisir_version(conn, dossier: dict, numero: int) -> None:
-    """Affiche cette version (Annuler, ou retour à une version précédente) et la recopie dans la candidature."""
+    """Affiche cette version (Annuler, ou retour à une version précédente).
+
+    Tant que la candidature est « à postuler », la version est recopiée dans la candidature. Une fois
+    la candidature envoyée, la lettre qui y est gardée est figée : c'est celle que le recruteur a lue.
+    """
     conn.execute("UPDATE dossiers SET version_courante = ? WHERE id = ?", (numero, dossier["id"]))
     dossier["version_courante"] = numero
     texte = conn.execute("SELECT texte FROM lettres_versions WHERE dossier_id = ? AND numero = ?",
                          (dossier["id"], numero)).fetchone()[0]
-    requetes.enregistrer_lettre(conn, dossier["offre_id"], texte)
+    if not lettre_figee(conn, dossier):
+        requetes.enregistrer_lettre(conn, dossier["offre_id"], texte)
     conn.commit()
+
+
+def lettre_figee(conn, dossier: dict) -> bool:
+    """Vrai si la candidature est déjà envoyée : la lettre gardée dans la candidature ne bouge plus."""
+    c = requetes.candidature_de(conn, dossier["offre_id"])
+    return bool(c) and c["statut"] != "à postuler"
+
+
+def modifier_a_la_main(conn, dossier: dict, texte: str) -> bool:
+    """Garde ce que BAP a tapé dans la lettre. Vrai si quelque chose a changé.
+
+    Plusieurs modifications à la main d'affilée restent une seule version (pas une par frappe).
+    """
+    courante = version_courante(conn, dossier)
+    texte = (texte or "").strip()
+    if not courante or not texte or texte == courante["texte"].strip():
+        return False
+    derniere = conn.execute("SELECT MAX(numero) FROM lettres_versions WHERE dossier_id = ?",
+                            (dossier["id"],)).fetchone()[0]
+    if courante["numero"] == derniere and courante["modele"] is None and courante["demande"] == DEMANDE_MAIN:
+        conn.execute("UPDATE lettres_versions SET texte = ?, alertes = '[]', date = ? WHERE dossier_id = ? "
+                     "AND numero = ?", (texte, requetes.maintenant(), dossier["id"], courante["numero"]))
+        choisir_version(conn, dossier, courante["numero"])
+    else:
+        ajouter_version(conn, dossier, texte, DEMANDE_MAIN, None)
+    return True
 
 
 def messages(conn, conversation: str) -> list[dict]:

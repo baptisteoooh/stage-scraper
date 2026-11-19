@@ -4,8 +4,9 @@
 l'analyse de l'offre (exigences, alertes). À droite, la conversation avec l'IA, gardée en base :
 on peut fermer l'appli et reprendre plus tard.
 
-À la première ouverture d'une offre, l'analyse puis le premier jet de la lettre se lancent seuls
-(une seule fois : en cas d'échec, un bouton permet de réessayer).
+Rien ne part tout seul vers l'IA payante : l'analyse et le premier jet se lancent avec le bouton
+« Préparer avec l'IA », qui affiche son prix. Les modifications faites à la main dans la lettre sont
+gardées automatiquement.
 """
 import html
 import re
@@ -20,6 +21,8 @@ COULEURS_ADEQUATION = {"forte": "green", "partielle": "orange", "faible": "red"}
 ICONES_COUVERTURE = {"couverte": "✅", "partielle": "🟡", "absente": "❌"}
 LIBELLES_ACTION = {"reformuler": "Reformuler", "deplacer": "Déplacer", "retirer": "Retirer", "ajouter": "Mettre en avant"}
 DEMANDE_PREMIER_JET = "Rédige une première version de la lettre."
+CENTIMES_ANALYSE = 4      # mesuré : ~3,6 c avec Sonnet (novembre 2026)
+CENTIMES_PREMIER_JET = 4  # estimation : même modèle, réponse de taille voisine
 NOMS_MODELES = {"claude-sonnet-5-5": "Claude Sonnet", "claude-haiku-5-5": "Claude Haiku"}
 
 
@@ -32,6 +35,14 @@ def libelle_appel(donnees: dict) -> str | None:
         return "Gemini (gratuit)"
     centimes = (donnees.get("cout") or 0) * 100
     return f"{NOMS_MODELES.get(modele, modele)} · {centimes:.2f} centime".replace(".", ",")
+
+
+def prix(conn, config: dict, centimes: int, cle_modeles: str) -> str:
+    """« ≈ 4 c » si Claude répondra, « gratuit » si Gemini prend le relais (plafond, pas de clé, config)."""
+    modeles = config.get("dossier", {}).get(cle_modeles) or dossier.MODELES_PAR_DEFAUT
+    if claude.blocage(conn, config) or not claude.est_claude(modeles[0]):
+        return "gratuit, Gemini"
+    return f"≈ {centimes} c"
 
 
 def _e(texte) -> str:
@@ -74,7 +85,7 @@ def afficher(conn, config: dict) -> None:
     o = requetes.offre(conn, choisi)
     d = dossier.ouvrir(conn, choisi)
     entete(conn, config, o)
-    lancement_automatique(conn, config, d)
+    preparer(conn, config, d)
 
     gauche, droite = st.columns([3, 2], gap="large")
     with gauche:
@@ -105,17 +116,25 @@ def entete(conn, config: dict, o: dict) -> None:
         st.rerun()
 
 
-def lancement_automatique(conn, config: dict, d: dict) -> None:
-    """Première ouverture : analyse puis premier jet, une seule fois par session et par offre."""
-    tentes = st.session_state.setdefault("dossiers_tentes", set())
-    if d["offre_id"] in tentes or not module_cv.texte_cv(config):
+def preparer(conn, config: dict, d: dict) -> None:
+    """Bouton « Préparer avec l'IA » : analyse puis premier jet, seulement ce qui manque, sur demande."""
+    manque_analyse, manque_lettre = not d.get("diagnostic"), not dossier.version_courante(conn, d)
+    if not (manque_analyse or manque_lettre) or not module_cv.texte_cv(config):
         return
-    tentes.add(d["offre_id"])
+    centimes = CENTIMES_ANALYSE * manque_analyse + CENTIMES_PREMIER_JET * manque_lettre
+    a_faire = " et ".join(t for t, m in (("analyse l'offre face à ton CV", manque_analyse),
+                                         ("rédige un premier jet de lettre", manque_lettre)) if m)
+    with st.container(border=True):
+        ligne = st.columns([3, 1.4], vertical_alignment="center")
+        ligne[0].markdown(f"L'IA {a_faire}. Ensuite, tu ajustes la lettre en lui parlant (≈ 0,1 c par retouche).")
+        if not ligne[1].button(f"✨ Préparer avec l'IA ({prix(conn, config, centimes, 'modeles')})",
+                               type="primary", width="stretch"):
+            return
     try:
-        if not d.get("diagnostic"):
-            with st.spinner("J'analyse l'offre face à ton CV (environ une minute)…"):
+        if manque_analyse:
+            with st.spinner("J'analyse l'offre face à ton CV (environ 20 secondes)…"):
                 dossier.diagnostiquer(conn, config, d)
-        if not dossier.version_courante(conn, d):
+        if manque_lettre:
             with st.spinner("Je rédige un premier jet de lettre…"):
                 dossier.discuter(conn, config, d, DEMANDE_PREMIER_JET)
     except dossier.DossierImpossible as e:
@@ -131,27 +150,17 @@ def _cle_zone(d: dict) -> str:
 
 
 def garder_modifs(conn, d: dict) -> bool:
-    """Enregistre comme nouvelle version ce que BAP a tapé dans la zone de texte. Vrai si c'est le cas."""
-    courante = dossier.version_courante(conn, d)
+    """Garde ce que BAP a tapé dans la zone de texte (sans bouton). Vrai si quelque chose a changé."""
     texte = st.session_state.get(_cle_zone(d))
-    if courante and texte is not None and texte.strip() and texte.strip() != courante["texte"].strip():
-        dossier.ajouter_version(conn, d, texte.strip(), "modification à la main", None)
-        return True
-    return False
+    return texte is not None and dossier.modifier_a_la_main(conn, d, texte)
 
 
 def onglet_lettre(conn, config: dict, d: dict, o: dict) -> None:
+    if garder_modifs(conn, d):   # ce que BAP a tapé depuis le dernier affichage
+        st.toast("Modifications de la lettre enregistrées.")
     courante = dossier.version_courante(conn, d)
     if not courante:
-        st.caption("Pas encore de lettre.")
-        if st.button("✍️ Rédiger la lettre", type="primary"):
-            with st.spinner("Rédaction…"):
-                try:
-                    dossier.discuter(conn, config, d, DEMANDE_PREMIER_JET)
-                except dossier.DossierImpossible as e:
-                    st.error(f"Lettre non rédigée : {e}")
-                    return
-            st.rerun()
+        st.caption("Pas encore de lettre : clique sur « Préparer avec l'IA » en haut, ou demande-la dans la conversation.")
         return
 
     toutes = dossier.versions(conn, d["id"])
@@ -159,26 +168,26 @@ def onglet_lettre(conn, config: dict, d: dict, o: dict) -> None:
     texte = st.text_area("Lettre (modifiable)", courante["texte"], height=480, key=_cle_zone(d),
                          label_visibility="collapsed")
     st.caption(f"Version {courante['numero']}/{len(toutes)} · écrite par {auteur} · {len(texte.split())} mots "
-               "(250 à 350 conseillés) · [Prénom Nom] est remplacé par ton nom dans le fichier Word.")
+               "(250 à 350 conseillés) · tes modifications sont gardées toutes seules · "
+               "[Prénom Nom] est remplacé par ton nom dans le fichier Word.")
+    if dossier.lettre_figee(conn, d):
+        st.caption("📨 Candidature envoyée : la lettre gardée dans ta candidature ne change plus, "
+                   "même si tu modifies celle-ci.")
     if courante["alertes"]:
         st.warning("**Non retrouvé dans ton CV** (à vérifier ou à retirer) :\n\n"
                    + "\n".join(f"- {a}" for a in courante["alertes"]))
 
-    modifiee = texte.strip() != courante["texte"].strip()
-    b = st.columns(4)
-    if b[0].button("💾 Garder mes modifs", disabled=not modifiee, width="stretch"):
-        garder_modifs(conn, d)
-        st.rerun()
-    if b[1].button("↩️ Annuler", disabled=courante["numero"] <= 1, width="stretch",
+    b = st.columns(3)
+    if b[0].button("↩️ Annuler", disabled=courante["numero"] <= 1, width="stretch",
                    help="Revenir à la version précédente"):
         dossier.choisir_version(conn, d, courante["numero"] - 1)
         st.rerun()
     nom = re.sub(r"\W+", "_", o["entreprise"] or "offre").strip("_")
     signee = module_cv.signer(texte, config)
-    b[2].download_button("📥 Word", dossier.exporter_docx(signee), file_name=f"Lettre_{nom}.docx",
+    b[1].download_button("📥 Word", dossier.exporter_docx(signee), file_name=f"Lettre_{nom}.docx",
                          mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                          width="stretch")
-    b[3].download_button("📥 Texte", signee, file_name=f"Lettre_{nom}.txt", mime="text/plain", width="stretch")
+    b[2].download_button("📥 Texte", signee, file_name=f"Lettre_{nom}.txt", mime="text/plain", width="stretch")
 
     if len(toutes) > 1:
         with st.expander("Historique des versions"):
@@ -246,9 +255,13 @@ def onglet_analyse(conn, config: dict, d: dict) -> None:
                         unsafe_allow_html=True)
         st.caption(f"Analyse du {d['date_diagnostic'][:16]} ({d['modele_diagnostic']}).")
     else:
-        st.caption("Offre pas encore analysée.")
-    if st.button("🔄 Refaire l'analyse" if diag else "🔎 Analyser l'offre", type="secondary" if diag else "primary"):
-        with st.spinner("J'analyse l'offre face à ton CV (environ une minute)…"):
+        st.caption("Offre pas encore analysée : clique sur « Préparer avec l'IA » en haut.")
+        return
+    with st.popover("🔄 Refaire l'analyse"):
+        st.caption("Utile si ton CV ou l'offre a changé. L'analyse actuelle sera remplacée.")
+        confirmer = st.button(f"Refaire ({prix(conn, config, CENTIMES_ANALYSE, 'modeles')})", type="primary")
+    if confirmer:
+        with st.spinner("J'analyse l'offre face à ton CV (environ 20 secondes)…"):
             try:
                 dossier.diagnostiquer(conn, config, d)
             except dossier.DossierImpossible as e:

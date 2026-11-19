@@ -4,12 +4,14 @@ from contextlib import closing
 
 import pytest
 
-from stage_scraper import cv, db, dossier, gemini, requetes
+from stage_scraper import claude, cv, db, dossier, gemini, requetes
 from stage_scraper.config import charger_config
 from stage_scraper.offre import nouvelle_offre
 
 CONFIG = charger_config()
-USAGE = {"promptTokenCount": 5000, "candidatesTokenCount": 800}
+USAGE = {"promptTokenCount": 5000, "candidatesTokenCount": 800}                        # Gemini
+USAGE_CLAUDE = {"input_tokens": 1000, "cache_read_input_tokens": 4000, "output_tokens": 800}  # Claude
+COUT_SONNET = (1000 * 2.00 + 4000 * 0.10 + 800 * 10.00) / 1e6
 
 FAUX_CV = """[Prénom Nom]
 [coordonnées retirées]
@@ -39,13 +41,14 @@ class FauxClient:
         r = self.reponses.pop(0) if len(self.reponses) > 1 else self.reponses[0]
         if isinstance(r, Exception):
             raise r
-        return r, USAGE
+        return r, (USAGE_CLAUDE if modele.startswith("claude") else USAGE)
 
 
 @pytest.fixture
 def conn(tmp_path, monkeypatch):
     monkeypatch.setattr(cv, "texte_cv", lambda config: FAUX_CV)
     monkeypatch.setattr(cv, "modele_lettre", lambda config: None)
+    monkeypatch.setattr(claude, "secret", lambda nom: "cle-de-test")   # Claude permis (budget vide)
     c = db.connecter(tmp_path / "t.db")
     db.initialiser(c)
     db.enregistrer_offres(c, [nouvelle_offre(source="test", source_id="1", titre="Stage segmentation",
@@ -128,9 +131,10 @@ def test_diagnostic_enregistre_journalise_et_ouvre_la_conversation(conn):
     assert relu["empreinte_cv"] == cv.empreinte(FAUX_CV) and not dossier.a_refaire(relu, CONFIG)
     systeme = client.appels[0]["systeme"]
     assert "<cv>" in systeme and "Validation croisée" in systeme and "segmentation" in systeme
-    assert client.appels[0]["reflexion"] == "high"             # « gemini-3.5-flash-lite:high » par défaut
-    run = conn.execute("SELECT source, tokens_entree, erreurs FROM runs").fetchone()
-    assert tuple(run) == ("dossier", 5000, None)
+    assert (client.appels[0]["modele"], client.appels[0]["reflexion"]) == ("claude-sonnet-5-5", "medium")
+    run = conn.execute("SELECT source, modele, tokens_entree, erreurs, cout_usd FROM runs").fetchone()
+    assert tuple(run)[:4] == ("dossier", "claude-sonnet-5-5", 5000, None)
+    assert run["cout_usd"] == pytest.approx(COUT_SONNET)
     premier = dossier.messages(conn, dossier.conversation_de(d))
     assert len(premier) == 1 and "partielle" in premier[0]["texte"]
 
@@ -146,7 +150,8 @@ def test_modele_suivant_si_le_premier_est_surcharge(conn):
     d = dossier.ouvrir(conn, offre_id(conn))
     client = FauxClient(gemini.ErreurGemini("Gemini surchargé (503)"), reponse(DIAG))
     dossier.diagnostiquer(conn, CONFIG, d, client=client)
-    assert [a["reflexion"] for a in client.appels] == ["high", None]
+    assert [(a["modele"], a["reflexion"]) for a in client.appels] == [
+        ("claude-sonnet-5-5", "medium"), ("gemini-3.5-flash-lite", "high")]
 
 
 def test_erreur_partout_message_lisible_et_journal(conn):
@@ -183,10 +188,13 @@ def test_lettre_versions_alertes_et_annulation(conn):
 
     r1 = dossier.discuter(conn, CONFIG, d, "Rédige la lettre.", client=client)
     assert r1["numero"] == 1 and r1["alertes"] == []
+    assert client.appels[0]["modele"] == "claude-sonnet-5-5"                          # premier jet soigné
     assert requetes.candidature_de(conn, o)["lettre"] == LETTRE_1      # recopiée dans la candidature
 
     r2 = dossier.discuter(conn, CONFIG, d, "Ajoute PyTorch.", client=client)
     assert r2["numero"] == 2 and r2["alertes"] == ["J'ai trois ans de PyTorch."]
+    assert (client.appels[1]["modele"], client.appels[1]["reflexion"]) == ("claude-haiku-5-5", "low")  # retouche
+    assert r2["cout"] == pytest.approx(claude.cout("claude-haiku-5-5", USAGE_CLAUDE))
     envoye = client.appels[1]["contents"]
     assert envoye[-1]["role"] == "user" and LETTRE_1 in envoye[-1]["parts"][0]["text"]   # lettre actuelle jointe
     assert [m["role"] for m in envoye[:-1]] == ["user", "model"]                           # historique gardé
@@ -226,3 +234,63 @@ def test_export_docx_et_signature(monkeypatch):
     assert paragraphes[0] == "Objet : Stage" and paragraphes[-1] == "[Prénom Nom]"
     monkeypatch.setattr(cv, "nom_reel", lambda config: "Alex Martin")
     assert cv.signer("Bien à vous,\n[Prénom Nom]", CONFIG).endswith("Alex Martin")
+
+
+# ---------------------------------------------------------------- Claude : coûts, plafonds, secours
+
+def test_cout_claude_avec_cache():
+    assert claude.cout("claude-haiku-5-5", {"input_tokens": 1_000_000}) == pytest.approx(0.10)
+    assert claude.cout("claude-sonnet-5-5", {"cache_creation_input_tokens": 1_000_000}) == pytest.approx(2.50)
+    assert claude.cout("claude-sonnet-5-5", {"cache_read_input_tokens": 1_000_000}) == pytest.approx(0.10)
+    assert claude.cout("claude-inconnu", {"output_tokens": 1_000_000}) == pytest.approx(10.0)   # on compte large
+
+
+def test_schema_strict_pour_claude():
+    s = claude.schema_strict(dossier.SCHEMA_DIAGNOSTIC)
+    assert s["additionalProperties"] is False
+    exigence = s["properties"]["exigences"]["items"]
+    assert exigence["additionalProperties"] is False
+    assert exigence["properties"]["preuve_cv"]["anyOf"] == [{"type": "string"}, {"type": "null"}]
+    assert "description" in exigence["properties"]["preuve_cv"]
+    assert dossier.SCHEMA_DIAGNOSTIC["properties"]["exigences"]["items"]["properties"]["preuve_cv"]["type"] == [
+        "string", "null"]                                                    # l'original n'est pas modifié
+
+
+def _depense(conn, cout, date="2026-11-20 10:00:00"):
+    db.journaliser_run(conn, passage_id=db.nouveau_passage_id(conn), date_debut=date, declenchement="manuel",
+                       source="dossier", cout_usd=cout, modele="claude-sonnet-5-5")
+
+
+def test_plafonds_du_credit_claude(conn, monkeypatch):
+    config = {**CONFIG, "claude": {"credit_depuis": "2026-11-19", "plafond_mensuel_usd": 1.0,
+                                   "plafond_total_usd": 4.5}}
+    _depense(conn, 3.0, "2026-11-18 10:00:00")            # avant l'achat du crédit : ne compte pas
+    assert claude.blocage(conn, config) is None
+    _depense(conn, 0.6)
+    _depense(conn, 0.5)
+    from datetime import datetime
+    if datetime.now().strftime("%Y-%m") == "2026-11":
+        assert "plafond du mois" in claude.blocage(conn, config)
+    _depense(conn, 3.5)
+    assert "plafond total" in claude.blocage(conn, config)
+    monkeypatch.setattr(claude, "secret", lambda nom: None)
+    assert "ANTHROPIC_API_KEY" in claude.blocage(conn, config)
+
+
+def test_plafond_atteint_gemini_prend_le_relais(conn):
+    _depense(conn, 10.0, "2099-01-01 00:00:00")
+    d = dossier.ouvrir(conn, offre_id(conn))
+    client = FauxClient(reponse(DIAG))
+    dossier.diagnostiquer(conn, CONFIG, d, client=client)
+    assert [a["modele"] for a in client.appels] == ["gemini-3.5-flash-lite"]           # Claude sauté
+    assert dossier.obtenir(conn, offre_id(conn))["modele_diagnostic"] == "gemini-3.5-flash-lite"
+
+
+def test_reponse_claude_coupee_est_facturee_puis_secours(conn):
+    d = dossier.ouvrir(conn, offre_id(conn))
+    client = FauxClient(claude.ErreurClaude("réponse de Claude coupée (trop longue)", USAGE_CLAUDE), reponse(DIAG))
+    dossier.diagnostiquer(conn, CONFIG, d, client=client)
+    lignes = conn.execute("SELECT modele, erreurs, cout_usd FROM runs ORDER BY id").fetchall()
+    assert lignes[0]["modele"] == "claude-sonnet-5-5" and "coupée" in lignes[0]["erreurs"]
+    assert lignes[0]["cout_usd"] == pytest.approx(COUT_SONNET)                         # payé même si raté
+    assert lignes[1]["modele"] == "gemini-3.5-flash-lite" and lignes[1]["cout_usd"] == 0

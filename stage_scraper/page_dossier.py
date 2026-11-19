@@ -12,6 +12,7 @@ import re
 
 import streamlit as st
 
+from . import claude
 from . import cv as module_cv
 from . import dossier, requetes
 
@@ -19,6 +20,18 @@ COULEURS_ADEQUATION = {"forte": "green", "partielle": "orange", "faible": "red"}
 ICONES_COUVERTURE = {"couverte": "✅", "partielle": "🟡", "absente": "❌"}
 LIBELLES_ACTION = {"reformuler": "Reformuler", "deplacer": "Déplacer", "retirer": "Retirer", "ajouter": "Mettre en avant"}
 DEMANDE_PREMIER_JET = "Rédige une première version de la lettre."
+NOMS_MODELES = {"claude-sonnet-5-5": "Claude Sonnet", "claude-haiku-5-5": "Claude Haiku"}
+
+
+def libelle_appel(donnees: dict) -> str | None:
+    """« Claude Sonnet · 0,61 centime » ou « Gemini (gratuit) » sous une réponse de l'IA."""
+    modele = donnees.get("modele")
+    if not modele:
+        return None
+    if not claude.est_claude(modele):
+        return "Gemini (gratuit)"
+    centimes = (donnees.get("cout") or 0) * 100
+    return f"{NOMS_MODELES.get(modele, modele)} · {centimes:.2f} centime".replace(".", ",")
 
 
 def _e(texte) -> str:
@@ -46,6 +59,9 @@ def afficher(conn, config: dict) -> None:
         return
     if not module_cv.texte_cv(config):
         st.warning("Dépose d'abord ton CV dans **Réglages › Mes documents** : l'IA s'appuie uniquement dessus.")
+    blocage = claude.blocage(conn, config)
+    if blocage:
+        st.info(f"Claude en pause ({blocage}) : Gemini (gratuit) prend le relais.", icon="ℹ️")
 
     ids = [d["offre_id"] for d in existants]
     if choisi not in ids:
@@ -253,8 +269,12 @@ def conversation(conn, config: dict, d: dict) -> None:
         for m in historique:
             with st.chat_message("user" if m["role"] == "user" else "assistant"):
                 st.markdown(m["texte"])
-                if m["donnees"].get("version"):
-                    st.caption(f"✉️ Lettre mise à jour (version {m['donnees']['version']})")
+                details = [f"✉️ Lettre mise à jour (version {m['donnees']['version']})"] if m["donnees"].get(
+                    "version") else []
+                if m["role"] == "assistant" and libelle_appel(m["donnees"]):
+                    details.append(libelle_appel(m["donnees"]))
+                if details:
+                    st.caption(" · ".join(details))
     demande = st.chat_input("Demande une retouche ou pose une question…", key=f"chat_dossier_{d['id']}")
     st.caption("Ex. « plus court », « insiste sur mon projet Parkinson », « que répondre sur la durée ? ». "
                "L'IA ne s'appuie que sur ton CV et l'offre.")

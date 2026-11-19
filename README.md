@@ -164,7 +164,10 @@ Pour l'arrêter : `Ctrl + C` dans le terminal. Les pages sont dans le menu en ha
   (« plus court », « insiste sur mon projet Parkinson »), gardée pour reprendre plus tard.
   L'IA ne s'appuie que sur ton CV et l'offre : le code vérifie chaque citation, écarte les conseils qui citent une ligne
   absente du CV et signale sous la lettre toute affirmation qu'il ne retrouve pas dans ton CV.
-  Modèles réglables dans `config.yaml > dossier`.
+  Modèles : Claude Sonnet pour l'analyse et le premier jet, Claude Haiku pour les retouches (clé `ANTHROPIC_API_KEY`,
+  crédit prépayé), Gemini gratuit en secours. Un dossier complet coûte environ 5 à 8 centimes ; le coût de chaque
+  réponse s'affiche sous elle. Plafonds dans `config.yaml > claude` (1 $ par mois, 4,50 $ au total) : au-delà,
+  Gemini prend le relais. Le Journal affiche le crédit restant estimé ; le solde exact est dans la console Anthropic.
 - **Réglages › Mes documents** : dépose ton CV (PDF) et une lettre modèle (.txt ou .docx). Ils restent dans `profil/`
   (jamais sur Git) ; l'aperçu montre exactement le texte envoyé aux IA, sans coordonnées ni nom.
 - **Journal** : historique des passages et coût IA (mois en cours et cumulé).
@@ -208,6 +211,7 @@ stage_scraper/
   dedoublonnage.py     repérage d'une même offre publiée sur plusieurs sites
   traitement.py        pré-filtre + doublons des nouvelles offres
   scoring.py           note de chaque offre par Gemini
+  claude.py            client Claude, prix, plafonds du crédit
   gemini.py            client de l'API Gemini
   chat_offres.py       assistant : chat sur les offres (agent qui lit les annonces)
   cv.py                texte anonymisé du CV et de la lettre modèle

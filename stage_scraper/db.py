@@ -5,7 +5,7 @@ from pathlib import Path
 
 # À augmenter quand on modifie la structure des tables, en ajoutant la
 # modification correspondante dans MIGRATIONS (pour mettre à jour les bases existantes).
-VERSION_SCHEMA = 7
+VERSION_SCHEMA = 8
 
 MIGRATIONS = {
     2: [
@@ -27,6 +27,9 @@ MIGRATIONS = {
         "ALTER TABLE offres ADD COLUMN date_favori TEXT",
     ],
     7: [],  # tables dossiers, lettres_versions et messages : créées par SCHEMA
+    8: [
+        "ALTER TABLE runs ADD COLUMN modele TEXT",
+    ],
 }
 
 SCHEMA = """
@@ -46,7 +49,8 @@ CREATE TABLE IF NOT EXISTS runs (
     erreurs         TEXT,
     tokens_entree   INTEGER NOT NULL DEFAULT 0,
     tokens_sortie   INTEGER NOT NULL DEFAULT 0,
-    cout_usd        REAL    NOT NULL DEFAULT 0
+    cout_usd        REAL    NOT NULL DEFAULT 0,
+    modele          TEXT                         -- modèle d'IA de l'appel (page Candidater)
 );
 
 -- Toutes les offres collectées, normalisées puis notées.

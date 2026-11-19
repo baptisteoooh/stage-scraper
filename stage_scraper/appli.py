@@ -10,7 +10,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-from stage_scraper import (chat_offres, collecte, db, dossier, expiration, notifications, page_dossier, pipeline,
+from stage_scraper import (chat_offres, claude, collecte, db, dossier, expiration, notifications, page_dossier, pipeline,
                            reglages, requetes, style, suivi, vignettes)
 from stage_scraper import cv as module_cv
 from stage_scraper import config as parametres
@@ -401,22 +401,30 @@ def defiler_en_bas(repere: int) -> None:
 
 def page_journal():
     st.title("📜 Journal des passages")
-    couts = requetes.couts_ia(CONN)
-    budget = CONFIG["scoring"]["budget_mensuel_usd"]
+    r, d = claude.reglages(CONFIG), claude.depenses(CONN, CONFIG)
+    restant = max(r["credit_usd"] - d["total"], 0)
+    dossiers_restants = int(restant / 0.08)   # ~8 centimes par dossier (analyse + lettre + 5 retouches)
     m = st.columns(3)
-    m[0].metric("Coût IA ce mois-ci", f"{couts['mois']:.3f} $", f"budget {budget:.2f} $", delta_color="off")
-    m[1].metric("Coût IA cumulé", f"{couts['total']:.3f} $")
+    m[0].metric("Crédit Claude restant (estimation)", f"{restant:.2f} $",
+                f"≈ {dossiers_restants} dossiers · {d['total']:.3f} $ dépensés sur {r['credit_usd']:.2f} $",
+                delta_color="off")
+    m[1].metric("Claude ce mois-ci", f"{d['mois']:.3f} $", f"plafond {r['plafond_mensuel_usd']:.2f} $",
+                delta_color="off")
     m[2].metric("Offres en base", requetes.statistiques(CONN)["total"])
+    st.caption(f"Claude ne sert qu'à la page Candidater ; le reste passe par Gemini (gratuit). Au-delà de "
+               f"{r['plafond_mensuel_usd']:.2f} $ par mois ou {r['plafond_total_usd']:.2f} $ au total, Gemini prend "
+               "le relais. Le solde exact est dans la console Anthropic (Billing).")
 
     runs = requetes.journal(CONN)
     if not runs:
         st.caption("Aucun passage pour l'instant.")
         return
-    tableau = pd.DataFrame(runs)[["passage_id", "date_debut", "declenchement", "source", "nb_offres",
+    tableau = pd.DataFrame(runs)[["passage_id", "date_debut", "declenchement", "source", "modele", "nb_offres",
                                   "nb_nouvelles", "nb_requetes", "tokens_entree", "tokens_sortie", "cout_usd",
                                   "erreurs"]]
     st.dataframe(tableau, hide_index=True, width="stretch", column_config={
         "passage_id": "Passage", "date_debut": "Date", "declenchement": "Lancement", "source": "Source",
+        "modele": "Modèle IA",
         "nb_offres": "Offres", "nb_nouvelles": "Nouvelles", "nb_requetes": "Requêtes",
         "tokens_entree": "Tokens entrée", "tokens_sortie": "Tokens sortie",
         "cout_usd": st.column_config.NumberColumn("Coût ($)", format="%.4f"),

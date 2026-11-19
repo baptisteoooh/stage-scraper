@@ -16,7 +16,7 @@ from typing import Literal, Optional
 from pydantic import BaseModel
 
 from . import cv as module_cv
-from . import db, gemini
+from . import claude, db, gemini
 from .config import secret
 from .prefiltre import entreprise_suivie
 
@@ -24,7 +24,7 @@ log = logging.getLogger(__name__)
 
 # Prix en dollars par million de tokens (entrée, sortie). Lecture du cache : 0,1 x l'entrée,
 # écriture du cache : 1,25 x l'entrée.
-PRIX = {"claude-haiku-5-5": (0.10, 0.50)}  # modèles absents de ce tableau (Gemini gratuit) : coût nul
+PRIX: dict = {}  # Gemini gratuit : coût nul (les prix de Claude sont dans claude.py)
 LONGUEUR_DESCRIPTION_MAX = 6000  # caractères envoyés à l'IA (les descriptions très longues sont coupées)
 
 
@@ -234,6 +234,14 @@ def categorie(score: int, config: dict) -> str:
 
 def ajouter_usage(bilan: dict, usage, modele: str) -> None:
     """Additionne les tokens d'un appel et son coût en dollars (usage Gemini en dict, ou usage Claude)."""
+    if not isinstance(usage, dict):   # objet usage du SDK Anthropic
+        usage = {k: getattr(usage, k, 0) or 0 for k in claude.CLES_USAGE}
+    if "input_tokens" in usage:        # Claude : tokens normaux, cache écrit, cache lu
+        bilan["tokens_entree"] += sum(usage.get(k, 0) or 0 for k in
+                                      ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"))
+        bilan["tokens_sortie"] += usage.get("output_tokens", 0) or 0
+        bilan["cout_usd"] += claude.cout(modele, usage)
+        return
     if isinstance(usage, dict):
         entree = usage.get("promptTokenCount", 0) or 0
         sortie = (usage.get("candidatesTokenCount", 0) or 0) + (usage.get("thoughtsTokenCount", 0) or 0)
@@ -242,15 +250,6 @@ def ajouter_usage(bilan: dict, usage, modele: str) -> None:
         bilan["tokens_sortie"] += sortie
         bilan["cout_usd"] += (entree * prix_entree + sortie * prix_sortie) / 1_000_000
         return
-    entree = getattr(usage, "input_tokens", 0) or 0
-    cache_lu = getattr(usage, "cache_read_input_tokens", 0) or 0
-    cache_ecrit = getattr(usage, "cache_creation_input_tokens", 0) or 0
-    sortie = getattr(usage, "output_tokens", 0) or 0
-    prix_entree, prix_sortie = PRIX.get(modele, PRIX["claude-haiku-5-5"])
-    bilan["tokens_entree"] += entree + cache_lu + cache_ecrit
-    bilan["tokens_sortie"] += sortie
-    bilan["cout_usd"] += (entree * prix_entree + cache_lu * prix_entree * 0.1
-                          + cache_ecrit * prix_entree * 1.25 + sortie * prix_sortie) / 1_000_000
 
 
 def cout_du_mois(conn) -> float:

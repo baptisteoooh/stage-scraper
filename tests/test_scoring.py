@@ -129,7 +129,7 @@ def test_client_gemini_reessaie_si_surcharge(monkeypatch):
     reponses = [FausseReponse(503, {"error": {"message": "high demand"}}),
                 FausseReponse(200, {"candidates": [{"content": {"parts": [{"text": '{"a": 1}'}]}}],
                                     "usageMetadata": USAGE})]
-    monkeypatch.setattr(gemini, "ATTENTES_SURCHARGE", (0, 0))
+    monkeypatch.setattr(gemini.time, "sleep", lambda s: None)
     monkeypatch.setattr(gemini.requests, "post", lambda *a, **k: reponses.pop(0))
     client = gemini.ClientGemini(cle="test", delai_entre_appels=0)
     assert client.generer("m", "consignes", [gemini.partie_texte("x")]) == ('{"a": 1}', USAGE)
@@ -137,7 +137,7 @@ def test_client_gemini_reessaie_si_surcharge(monkeypatch):
 
 @pytest.mark.parametrize("code, morceau", [(401, "GEMINI_API_KEY"), (429, "quota"), (404, "introuvable"), (503, "surchargé")])
 def test_client_gemini_erreurs_bloquantes(monkeypatch, code, morceau):
-    monkeypatch.setattr(gemini, "ATTENTES_SURCHARGE", (0, 0))
+    monkeypatch.setattr(gemini.time, "sleep", lambda s: None)
     monkeypatch.setattr(gemini.requests, "post", lambda *a, **k: FausseReponse(code, {"error": {"message": "x"}}))
     with pytest.raises(gemini.ErreurGemini, match=morceau) as e:
         gemini.ClientGemini(cle="test", delai_entre_appels=0).generer("m", "s", [gemini.partie_texte("x")])

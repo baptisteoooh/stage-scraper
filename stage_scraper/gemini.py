@@ -28,12 +28,14 @@ class ErreurGemini(Exception):
 
 
 class ClientGemini:
-    def __init__(self, cle: str | None = None, delai_entre_appels: float = 4.0, timeout: float = 120):
+    def __init__(self, cle: str | None = None, delai_entre_appels: float = 4.0, timeout: float = 120,
+                 attentes_surcharge: tuple = ATTENTES_SURCHARGE):
         self.cle = cle or secret("GEMINI_API_KEY")
         if not self.cle:
             raise ErreurGemini("ajoute GEMINI_API_KEY dans .env", bloquante=True)
         self.delai = delai_entre_appels
         self.timeout = timeout
+        self.attentes = tuple(attentes_surcharge)   # moins d'essais quand quelqu'un attend devant l'écran
         self._dernier_appel = 0.0
 
     def generer(self, modele: str, systeme: str, parties: list[dict], schema: dict | None = None,
@@ -59,7 +61,7 @@ class ClientGemini:
         if outils:
             corps["tools"] = [{"functionDeclarations": outils}]
 
-        for essai in range(len(ATTENTES_SURCHARGE) + 1):
+        for essai in range(len(self.attentes) + 1):
             self._patienter()
             try:
                 r = requests.post(URL.format(modele=modele), json=corps, timeout=self.timeout,
@@ -67,14 +69,14 @@ class ClientGemini:
             except requests.RequestException as e:
                 raise ErreurGemini(f"API Gemini injoignable ({type(e).__name__}) : "
                                    "le reste sera noté au prochain passage", bloquante=True) from e
-            if r.status_code in (500, 503) and essai < len(ATTENTES_SURCHARGE):
-                log.info("Gemini surchargé (%s), nouvel essai dans %s s", r.status_code, ATTENTES_SURCHARGE[essai])
-                time.sleep(ATTENTES_SURCHARGE[essai])
+            if r.status_code in (500, 503) and essai < len(self.attentes):
+                log.info("Gemini surchargé (%s), nouvel essai dans %s s", r.status_code, self.attentes[essai])
+                time.sleep(self.attentes[essai])
                 continue
             # 429 avec une courte attente proposée par Google : limite par minute, on patiente.
             # (Le quota du jour, lui, ne propose pas d'attente courte : on s'arrête.)
             attente = attente_proposee(r) if r.status_code == 429 else None
-            if attente is not None and attente <= ATTENTE_429_MAX and essai < len(ATTENTES_SURCHARGE):
+            if attente is not None and attente <= ATTENTE_429_MAX and essai < len(self.attentes):
                 log.info("Limite de Gemini par minute atteinte, nouvel essai dans %.0f s", attente)
                 time.sleep(attente + 1)
                 continue

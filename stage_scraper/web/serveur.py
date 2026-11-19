@@ -287,7 +287,7 @@ def _jeton(avant: dict | None) -> str | None:
 
 
 def relance_jours() -> int:
-    return int(charger_config().get("candidatures", {}).get("relance_jours", 7))
+    return int(config_courante().get("candidatures", {}).get("relance_jours", 7))
 
 
 def fiche_carte(f: dict) -> dict:
@@ -694,7 +694,7 @@ def _menu(conn) -> dict:
 
 @app.get("/api/journal")
 def api_journal():
-    config = charger_config()
+    config = config_courante()
     with connexion() as conn:
         r, d = claude.reglages(config), claude.depenses(conn, config)
         passages = requetes.passages(conn)
@@ -935,7 +935,7 @@ def _faire_scrap() -> None:
     racine.setLevel(logging.INFO)
     try:
         with connexion() as conn:
-            bilan = pipeline.passage_complet(conn, charger_config(), auto=False)
+            bilan = pipeline.passage_complet(conn, config_courante(), auto=False)
         _Scrap.bilan = pipeline.resume_texte(bilan)
     except Exception as e:   # le site doit le dire, pas planter
         logging.getLogger(__name__).exception("Le scrap a planté")

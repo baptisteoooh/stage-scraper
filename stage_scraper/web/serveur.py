@@ -18,6 +18,7 @@ API
 - GET  /api/selection/{id}/dossier            analyse face au CV, conseils, lettre (versions), conversation
 - POST /api/selection/{id}/dossier/preparer | /analyser | /message | /lettre | /version   (IA : Claude ou Gemini)
 - GET  /api/selection/{id}/dossier/lettre.docx | lettre.txt   la lettre signée, à télécharger
+- GET  /api/assistant  /  POST /api/assistant {question}  /  POST /api/assistant/effacer   chat sur les offres (Gemini)
 - GET  /api/journal            passages (scraps), coût de l'IA, crédit Claude restant
 - GET  /api/corbeille          offres écartées (par BAP, par le tri) et expirées
 - POST /api/corbeille/remettre {offre_id, liste} : remet une offre dans À trier
@@ -40,7 +41,7 @@ from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .. import claude, db, decisions, dossier, expiration, notifications, presentation, reglages, requetes, selection
+from .. import chat_offres, claude, db, decisions, dossier, expiration, notifications, presentation, reglages, requetes, selection
 from .. import cv as module_cv
 from ..config import CHEMIN_CONFIG, charger_config, chemin_projet, secret
 
@@ -117,6 +118,11 @@ def page_journal():
 @app.get("/corbeille", include_in_schema=False)
 def page_corbeille():
     return page_appli("corbeille")
+
+
+@app.get("/assistant", include_in_schema=False)
+def page_assistant():
+    return page_appli("assistant")
 
 
 @app.get("/reglages", include_in_schema=False)
@@ -596,6 +602,76 @@ def api_telecharger_lettre(candidature_id: int, format_: str):
         contenu, type_ = signee.encode("utf-8"), "text/plain; charset=utf-8"
     return Response(contenu, media_type=type_,
                     headers={"Content-Disposition": f'attachment; filename="Lettre_{nom}.{format_}"'})
+
+
+# =========================================================================== API : assistant
+
+CONVERSATION_ASSISTANT = "assistant"   # même conversation que l'appli Streamlit
+
+
+def _etat_offre(conn, o: dict) -> dict:
+    """Où en est l'offre pour BAP : dans Ma sélection (avec la fiche), écartée, ou encore à trier."""
+    c = requetes.candidature_de(conn, o["id"])
+    if c:
+        return {"etat": "selection", "candidature_id": c["id"]}
+    return {"etat": "ecartee" if o["pas_interesse"] else "a_trier", "candidature_id": None}
+
+
+def _messages_assistant(conn) -> list[dict]:
+    """La conversation gardée en base, avec les offres proposées (relues : leur état a pu changer)."""
+    sortie = []
+    for m in dossier.messages(conn, CONVERSATION_ASSISTANT):
+        donnees = m["donnees"]
+        raisons = donnees.get("raisons") or {}
+        offres = []
+        for oid in donnees.get("ids") or []:
+            o = requetes.offre(conn, oid)
+            if o:
+                offres.append({**carte(o), **_etat_offre(conn, o), "raison": raisons.get(str(oid), "")})
+        sortie.append({"role": m["role"], "texte": m["texte"], "lues": donnees.get("lues") or [], "offres": offres,
+                       "ids": donnees.get("ids") or []})
+    return sortie
+
+
+@app.get("/api/assistant")
+def api_assistant():
+    with connexion() as conn:
+        return {"messages": _messages_assistant(conn), "nb_offres": len(requetes.offres_visibles(conn)),
+                "menu": _menu(conn)}
+
+
+class Question(BaseModel):
+    question: str
+
+
+@app.post("/api/assistant")
+def api_assistant_demander(q: Question):
+    """Une question à l'assistant (Gemini, gratuit). Elle n'est gardée que s'il a répondu."""
+    question = q.question.strip()
+    if not question:
+        raise HTTPException(400, "Question vide")
+    if len(question) > 2000:
+        raise HTTPException(400, "Question trop longue (2 000 caractères au plus)")
+    config = config_courante()
+    with connexion() as conn:
+        historique = [{"role": m["role"], "texte": m["texte"], "ids": m["ids"]} for m in _messages_assistant(conn)]
+        try:
+            r = chat_offres.demander(conn, config, question, historique, client=CLIENT_IA)
+        except chat_offres.ChatImpossible as e:
+            raise HTTPException(400, f"Pas de réponse : {e}") from e
+        dossier.ajouter_message(conn, CONVERSATION_ASSISTANT, "user", question)
+        dossier.ajouter_message(conn, CONVERSATION_ASSISTANT, "assistant", r["reponse"] or "…", {
+            "lues": r["lues"], "ids": [o["id"] for o in r["offres"]],
+            "raisons": {str(o["id"]): o["raison"] for o in r["offres"]}})
+        return {"messages": _messages_assistant(conn), "nb_offres": len(requetes.offres_visibles(conn))}
+
+
+@app.post("/api/assistant/effacer")
+def api_assistant_effacer():
+    """Nouvelle conversation (les offres ne bougent pas)."""
+    with connexion() as conn:
+        dossier.effacer_conversation(conn, CONVERSATION_ASSISTANT)
+    return {"messages": []}
 
 
 # =========================================================================== API : journal et corbeille

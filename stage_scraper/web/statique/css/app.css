@@ -127,3 +127,21 @@
   .cote nav, .dernier { display: none; }
   .scrap { width: auto; padding: 9px 12px; font-size: 14px; }
 }
+
+/* ---------------------------------------------------------------- conversation avec l'IA (dossier, assistant) */
+.bulle { max-width: 88%; padding: 11px 14px; border-radius: 14px; font-size: 14.5px; line-height: 1.55; white-space: pre-line; overflow-wrap: anywhere; animation: entre .35s var(--sortie) both; }
+.bulle.ia { align-self: flex-start; background: rgba(255, 255, 255, .07); border-bottom-left-radius: 4px; }
+.bulle.moi { align-self: flex-end; background: var(--accent); color: var(--sur-accent); border-bottom-right-radius: 4px; }
+.bulle small { display: block; margin-top: 6px; font-size: 12px; opacity: .7; }
+.bulle.ecrit { display: flex; gap: 5px; padding: 14px 16px; }
+.bulle.ecrit i { width: 7px; height: 7px; border-radius: 50%; background: var(--doux); animation: point 1.2s ease-in-out infinite; }
+.bulle.ecrit i:nth-child(2) { animation-delay: .15s; }
+.bulle.ecrit i:nth-child(3) { animation-delay: .3s; }
+@keyframes point { 0%, 60%, 100% { opacity: .3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
+.erreur-fil { align-self: center; font-size: 13.5px; color: var(--non); text-align: center; }
+.saisie { display: flex; align-items: flex-end; gap: 8px; padding: 10px 16px 4px; }
+.saisie .bouton { width: 44px; height: 44px; padding: 0; font-size: 18px; flex: none; }
+.saisie .bouton[disabled] { opacity: .5; }
+.saisie textarea.champ { flex: 1; resize: none; padding: 11px 13px; font-size: 14.5px; min-height: 46px; max-height: 160px; field-sizing: content; }
+@media (prefers-reduced-motion: reduce) { .bulle, .bulle.ecrit i { animation: none; } }
+@keyframes entre { from { opacity: 0; transform: translateY(10px); } }

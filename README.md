@@ -153,6 +153,9 @@ Pour l'arrêter : `Ctrl + C` dans le terminal.
   des retouches de CV et rédige un premier jet de lettre (prix affiché avant, ≈ 8 c avec Claude, gratuit avec
   Gemini). Ensuite tu modifies la lettre toi-même (gardée toute seule) ou tu demandes des retouches dans la
   conversation à droite ; chaque version reste dans l'historique. « Télécharger (Word) » remet ton vrai nom.
+- **Assistant** : une conversation (Gemini, gratuit) sur tes offres et tes candidatures : « un stage en computer
+  vision », « compare ces deux offres »… Il lit les annonces avant de répondre ; clique une offre proposée pour sa
+  fiche (« Je candidate », « Pas pour moi »). « Nouvelle conversation » efface l'échange, pas les offres.
 - **Journal** : crédit Claude restant, dépense du mois, et chaque scrap (clique un passage pour le détail
   source par source, erreurs comprises).
 - **Corbeille** : offres écartées par toi, par le tri, ou expirées. Rien n'est supprimé : « Remettre à trier ».

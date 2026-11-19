@@ -272,3 +272,35 @@ def test_dossier_sans_cv(client, ia, monkeypatch):
     assert client.get(f"/api/selection/{cid}/dossier").json()["cv_present"] is False
     r = client.post(f"/api/selection/{cid}/dossier/preparer", json={})
     assert r.status_code == 400 and "CV" in r.json()["detail"] and ia.appels == []
+
+
+# ---------------------------------------------------------------- assistant (faux client d'IA)
+
+def test_assistant(client, ia):
+    from stage_scraper import gemini
+    assert client.get("/assistant").status_code == 200
+    d = client.get("/api/assistant").json()
+    assert d["messages"] == [] and d["nb_offres"] >= 1 and "a_trier" in d["menu"]
+
+    ia.reponses.append({"reponse": "Voici **une** offre.", "offres": [{"id": 1, "raison": "IA chez Doctolib"},
+                                                                      {"id": 999, "raison": "inventée"}]})
+    d = client.post("/api/assistant", json={"question": "Un stage IA ?"}).json()
+    assert [m["role"] for m in d["messages"]] == ["user", "assistant"]
+    propose = d["messages"][1]["offres"]
+    assert [o["id"] for o in propose] == [1] and propose[0]["raison"] == "IA chez Doctolib"   # id inventé ignoré
+    assert propose[0]["etat"] == "a_trier" and propose[0]["candidature_id"] is None
+
+    # l'état suit les décisions prises ailleurs
+    cid = client.post("/api/decision", json={"offre_id": 1, "action": "candidate"}).json()["candidature_id"]
+    o = client.get("/api/assistant").json()["messages"][1]["offres"][0]
+    assert (o["etat"], o["candidature_id"]) == ("selection", cid)
+
+    # l'historique part avec la question suivante ; une erreur ne garde pas la question
+    ia.reponses += [gemini.ErreurGemini("503")]
+    r = client.post("/api/assistant", json={"question": "Et chez Owkin ?"})
+    assert r.status_code == 400 and "Pas de réponse" in r.json()["detail"]
+    assert len(client.get("/api/assistant").json()["messages"]) == 2
+    assert client.post("/api/assistant", json={"question": " "}).status_code == 400
+
+    assert client.post("/api/assistant/effacer", json={}).json() == {"messages": []}
+    assert client.get("/api/assistant").json()["messages"] == []

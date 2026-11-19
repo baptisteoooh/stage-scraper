@@ -1,0 +1,46 @@
+/* Assistant : une conversation au centre, les offres proposées en lignes cliquables, la saisie en bas. */
+.barre { justify-content: space-between; }
+.conversation { flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 14px; padding: 8px max(24px, calc((100% - 780px) / 2)) 24px; }
+.conversation .bulle { max-width: 82%; }
+.bulle .lu { display: block; margin: 0 0 6px; font-size: 12.5px; color: var(--faible); opacity: 1; }
+
+/* Accueil vide : des exemples à cliquer */
+.accueil-chat { margin: auto 0; padding: 40px 0; text-align: center; animation: entre .45s var(--sortie) both; }
+.accueil-chat h2 { font-family: var(--titres); font-size: 28px; font-weight: 600; letter-spacing: -.03em; margin-bottom: 10px; }
+.accueil-chat p { color: var(--doux); line-height: 1.6; max-width: 520px; margin: 0 auto 24px; }
+.exemples { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.exemples .pastille { font-size: 14px; padding: 10px 14px; text-align: left; }
+
+/* Offres proposées par l'assistant */
+.propositions { align-self: stretch; display: flex; flex-direction: column; gap: 6px; margin: -4px 0 4px; animation: entre .4s var(--sortie) both; }
+.proposition {
+  display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 12px;
+  padding: 12px 14px; border-radius: var(--r-carte); text-align: left; width: 100%;
+  background: rgba(255, 255, 255, .04); box-shadow: inset 0 0 0 1px var(--ligne);
+  transition: background-color .2s, box-shadow .2s, transform .2s var(--sortie);
+}
+.proposition:hover { background: rgba(255, 255, 255, .07); box-shadow: inset 0 0 0 1px rgba(200, 182, 255, .45); }
+.proposition:active { transform: scale(.99); }
+.proposition .initiale { width: 40px; height: 40px; font-size: 16px; }
+.proposition b { display: block; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.proposition .ou { display: block; font-size: 13px; color: var(--doux); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.proposition .raison { display: block; margin-top: 4px; font-size: 13px; line-height: 1.45; color: #DCD3EA; }
+.proposition .droite { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.proposition .sur10 { font-family: var(--titres); font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; }
+.proposition .sur10 small { font-size: 11px; color: var(--faible); font-weight: 400; }
+.etat { font-size: 11.5px; padding: 3px 8px; border-radius: 999px; white-space: nowrap; color: var(--doux); box-shadow: inset 0 0 0 1px var(--ligne); }
+.etat.selection { color: var(--lavande); box-shadow: inset 0 0 0 1px rgba(200, 182, 255, .5); }
+.etat.ecartee { color: var(--faible); }
+
+/* Saisie en bas */
+.saisie.bas { width: min(780px, calc(100% - 48px)); margin: 0 auto; padding: 10px 0 0; }
+.mention { width: min(780px, calc(100% - 48px)); margin: 6px auto 16px; font-size: 12px; color: var(--faible); }
+.erreur-fil { padding: 4px 0; }
+
+@media (max-width: 700px) {
+  .conversation { padding: 8px 16px 20px; }
+  .conversation .bulle { max-width: 92%; }
+  .saisie.bas, .mention { width: calc(100% - 32px); }
+  .proposition { grid-template-columns: minmax(0, 1fr) auto; }
+  .proposition .initiale { display: none; }
+}

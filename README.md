@@ -149,6 +149,10 @@ Pour l'arrêter : `Ctrl + C` dans le terminal.
   Une fiche par offre : changer d'étape (« C'est envoyé », « J'ai relancé »), dates, notes (gardées toutes seules),
   « Retirer de ma sélection ». Chaque changement s'annule depuis le message en bas. **Offre trouvée ailleurs**
   ajoute une offre vue hors de l'outil.
+  **Dossier de candidature** (bouton « Préparer » d'une carte) : l'IA analyse l'offre face à ton CV, propose
+  des retouches de CV et rédige un premier jet de lettre (prix affiché avant, ≈ 8 c avec Claude, gratuit avec
+  Gemini). Ensuite tu modifies la lettre toi-même (gardée toute seule) ou tu demandes des retouches dans la
+  conversation à droite ; chaque version reste dans l'historique. « Télécharger (Word) » remet ton vrai nom.
 - **Journal** : crédit Claude restant, dépense du mois, et chaque scrap (clique un passage pour le détail
   source par source, erreurs comprises).
 - **Corbeille** : offres écartées par toi, par le tri, ou expirées. Rien n'est supprimé : « Remettre à trier ».

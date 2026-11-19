@@ -1,6 +1,7 @@
 // Page Ma sélection : les offres gardées depuis À trier, rangées par étape (En préparation → Envoyées →
 // Entretien → Terminées), leur fiche de suivi (étape, dates, notes) et les offres trouvées ailleurs.
 import { $, h, api, toast, afficherScrap, brancherScrap } from './commun.js';
+import { ouvrirDossier, fermerDossier, dossierOuvert } from './dossier.js';
 
 const etat = {
   fiches: [],
@@ -101,6 +102,7 @@ function memoriser() {
   const p = new URLSearchParams();
   if (etat.etape && etat.etape !== 'preparation') p.set('etape', etat.etape);
   if (etat.ouverte) p.set('fiche', etat.ouverte);
+  if (etat.ouverte && etat.dossier) p.set('dossier', '1');
   history.replaceState(null, '', `${location.pathname}${p.size ? `?${p}` : ''}`);
 }
 
@@ -158,7 +160,17 @@ async function noterRelance(f) {
 
 function agirSur(f) {
   if (f.action === 'relancer') noterRelance(f);
-  else ouvrirFiche(f.id);
+  else ouvrirFiche(f.id, { dossier: true });   // préparer, finir la lettre, préparer l'entretien
+}
+
+// Le dossier de candidature (lettre, conseils, analyse, conversation), dans le panneau élargi.
+function versDossier(f) {
+  etat.dossier = true;
+  memoriser();
+  ouvrirDossier(f, {
+    retour: () => { etat.dossier = false; ouvrirFiche(f.id); },
+    envoyee: () => { etat.dossier = false; changerEtape(f, 'envoyee'); },
+  });
 }
 
 // ======================================================================= fiche de suivi
@@ -177,8 +189,10 @@ function fermerFiche() {
   if (!fiche.classList.contains('ouverte')) return false;
   fiche.classList.remove('ouverte');
   fiche.setAttribute('aria-hidden', 'true');
+  fermerDossier();
   const id = etat.ouverte;
   etat.ouverte = null;
+  etat.dossier = false;
   memoriser();
   document.querySelector(`.dossier[data-id="${id}"]`)?.focus({ preventScroll: true });
   return true;
@@ -203,7 +217,11 @@ function champGarde(f, cle, el, temoin) {
   if (el.tagName === 'TEXTAREA') el.addEventListener('input', () => { clearTimeout(attente); attente = setTimeout(garder, 900); });
 }
 
-async function ouvrirFiche(id, { garderDefilement = false } = {}) {
+async function ouvrirFiche(id, { garderDefilement = false, dossier = false } = {}) {
+  if (dossierOuvert()) {
+    if (garderDefilement && etat.ouverte === id) return;   // rechargement de la liste : le dossier reste affiché
+    fermerDossier();
+  }
   const corps = $('#fiche-corps');
   const defilement = corps.scrollTop;
   if (!garderDefilement) corps.replaceChildren(h('p', { class: 'texte' }, 'Chargement…'));
@@ -282,9 +300,13 @@ async function ouvrirFiche(id, { garderDefilement = false } = {}) {
       f.etape === 'entretien' || f.date_entretien ? h('label', {}, h('span', {}, 'Entretien', tEntretien), entretien) : null),
     h('h4', {}, 'Notes', tNotes), notes,
     annonce,
-    h('div', { class: 'encart' }, f.etape === 'preparation'
-      ? "L'analyse face à ton CV, les conseils et la lettre se préparent encore dans l'appli Streamlit (Ma sélection). Ils arrivent bientôt ici."
-      : "La préparation d'entretien et la lettre restent dans l'appli Streamlit pour l'instant."),
+    h('div', { class: 'encart lien-dossier' },
+      h('div', {}, h('b', {}, 'Dossier de candidature'),
+        h('span', {}, f.lettre ? 'Lettre, conseils CV, analyse de l\'offre et conversation avec l\'IA.'
+          : f.analyse_faite ? 'Analyse faite. La lettre et la conversation avec l\'IA sont dans le dossier.'
+            : 'L\'IA analyse l\'offre face à ton CV, conseille ton CV et rédige la lettre avec toi.')),
+      h('button', { class: 'bouton principal', type: 'button', onclick: () => versDossier(f) },
+        f.analyse_faite || f.lettre ? 'Ouvrir le dossier' : 'Préparer')),
     f.lettre ? h('details', {}, h('summary', {}, f.etape === 'preparation' ? 'Lettre en cours' : 'Lettre envoyée'), h('p', { class: 'texte' }, f.lettre)) : null,
     !f.trouvee_ailleurs && (f.resume || f.description) ? h('details', {}, h('summary', {}, "L'offre"),
       f.resume ? h('p', { class: 'texte' }, f.resume) : null,
@@ -297,6 +319,7 @@ async function ouvrirFiche(id, { garderDefilement = false } = {}) {
     }, 'Retirer de ma sélection'),
   ].flat().filter(Boolean));
   if (garderDefilement) corps.scrollTop = defilement;
+  if (dossier) versDossier(f);
 }
 
 async function retirer(f) {
@@ -371,5 +394,5 @@ brancherScrap(async (s) => {
 
 charger().then(() => {
   const id = Number(new URLSearchParams(location.search).get('fiche'));
-  if (id && etat.fiches.some(f => f.id === id)) ouvrirFiche(id);
+  if (id && etat.fiches.some(f => f.id === id)) ouvrirFiche(id, { dossier: new URLSearchParams(location.search).has('dossier') });
 }).catch((e) => { console.error(e); toast('Impossible de charger ta sélection : le serveur tourne-t-il ?'); });

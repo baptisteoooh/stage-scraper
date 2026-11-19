@@ -187,3 +187,88 @@ def test_reglages_documents_et_tri(client, tmp_path, monkeypatch):
     assert (tmp_path / "profil" / "modele.txt").read_text(encoding="utf-8") == "Madame, Monsieur"
     assert client.get("/api/reglages/apercu/autre").status_code == 404
     assert "Tri des" in client.post("/api/reglages/retrier").json()["texte"]
+
+
+# ---------------------------------------------------------------- dossier de candidature (faux client d'IA)
+
+FAUX_CV_SITE = "[Prénom Nom]\nProjet de prédiction de la glycémie | Python, scikit-learn\nValidation croisée groupée par patient."
+
+
+class FauxIA:
+    """Remplace Claude et Gemini : renvoie les réponses données, dans l'ordre. Aucun appel réseau."""
+    def __init__(self, *reponses):
+        self.reponses, self.appels = list(reponses), []
+
+    def appeler(self, modele, systeme, contents, schema=None, reflexion=None, outils=None):
+        import json
+        self.appels.append(modele)
+        r = self.reponses.pop(0)
+        if isinstance(r, Exception):
+            raise r
+        return {"role": "model", "parts": [{"text": json.dumps(r, ensure_ascii=False)}]}, {"input_tokens": 100, "output_tokens": 50}
+
+
+@pytest.fixture
+def ia(monkeypatch):
+    from stage_scraper import claude, cv
+    from stage_scraper.web import serveur
+    monkeypatch.setattr(cv, "texte_cv", lambda config: FAUX_CV_SITE)
+    monkeypatch.setattr(cv, "modele_lettre", lambda config: None)
+    monkeypatch.setattr(cv, "nom_reel", lambda config: "Alex Martin")
+    monkeypatch.setattr(claude, "secret", lambda nom: None)   # pas de clé Claude : Gemini (gratuit)
+    faux = FauxIA()
+    monkeypatch.setattr(serveur, "CLIENT_IA", faux)
+    return faux
+
+
+def test_dossier_preparer_retoucher_telecharger(client, ia):
+    from stage_scraper import gemini
+    cid = client.post("/api/decision", json={"offre_id": 1, "action": "candidate"}).json()["candidature_id"]
+    d = client.get(f"/api/selection/{cid}/dossier").json()
+    assert d["cv_present"] and d["diagnostic"] is None and d["lettre"] is None and d["prix"]["analyse"] == "gratuit, Gemini"
+
+    ia.reponses += [
+        {"adequation": "forte", "synthese": "Python et projet santé.", "pour": ["Python"], "contre": [], "alertes": [],
+         "exigences": [], "conseils_cv": [], "a_apprendre": []},
+        {"reponse": "Voici un premier jet.", "lettre": "Madame, Monsieur,\nJe suis [Prénom Nom].", "affirmations": []},
+    ]
+    d = client.post(f"/api/selection/{cid}/dossier/preparer", json={}).json()
+    assert d["diagnostic"]["adequation"] == "forte"
+    assert d["lettre"]["numero"] == 1 and d["lettre"]["auteur"] == "l'IA"
+    assert [m["role"] for m in d["messages"]] == ["assistant", "user", "assistant"]
+    assert d["messages"][-1]["detail"] == "Gemini (gratuit)" and d["messages"][-1]["version"] == 1
+    assert len(ia.appels) == 2 and all(m.startswith("gemini") for m in ia.appels)
+
+    # rien ne manque : « préparer » ne rappelle pas l'IA
+    client.post(f"/api/selection/{cid}/dossier/preparer", json={})
+    assert len(ia.appels) == 2
+
+    # modification à la main, puis retouche par l'IA (la lettre tapée est gardée avant)
+    assert client.post(f"/api/selection/{cid}/dossier/lettre", json={"texte": "Madame,\nJe suis [Prénom Nom]."}).json()["change"]
+    ia.reponses.append({"reponse": "Plus court.", "lettre": "Madame,\n[Prénom Nom]", "affirmations": []})
+    d = client.post(f"/api/selection/{cid}/dossier/message",
+                    json={"texte": "Plus court", "lettre_actuelle": "Madame,\nJe suis [Prénom Nom] !"}).json()
+    assert d["lettre"]["numero"] == 3 and d["lettre"]["texte"] == "Madame,\n[Prénom Nom]"
+    assert [v["auteur"] for v in d["versions"]] == ["IA", "toi", "IA"]
+
+    # revenir à la version 1 ; téléchargement signé (vrai nom remis, en local)
+    assert client.post(f"/api/selection/{cid}/dossier/version", json={"numero": 1}).json()["lettre"]["numero"] == 1
+    assert client.post(f"/api/selection/{cid}/dossier/version", json={"numero": 9}).status_code == 404
+    txt = client.get(f"/api/selection/{cid}/dossier/lettre.txt")
+    assert txt.text == "Madame, Monsieur,\nJe suis Alex Martin." and "Lettre_Doctolib.txt" in txt.headers["content-disposition"]
+    assert client.get(f"/api/selection/{cid}/dossier/lettre.docx").content[:2] == b"PK"
+
+    # l'IA ne répond pas : message d'erreur lisible, rien n'est perdu
+    ia.reponses += [gemini.ErreurGemini("503")] * 3   # chaque modèle de secours échoue aussi
+    r = client.post(f"/api/selection/{cid}/dossier/message", json={"texte": "Encore"})
+    assert r.status_code == 400 and "L'IA n'a pas pu terminer" in r.json()["detail"]
+    assert client.post(f"/api/selection/{cid}/dossier/message", json={"texte": "  "}).status_code == 400
+
+
+def test_dossier_sans_cv(client, ia, monkeypatch):
+    from stage_scraper import cv
+    monkeypatch.setattr(cv, "texte_cv", lambda config: None)
+    cid = client.post("/api/decision", json={"offre_id": 1, "action": "candidate"}).json()["candidature_id"]
+    assert client.get(f"/api/selection/{cid}/dossier").json()["cv_present"] is False
+    r = client.post(f"/api/selection/{cid}/dossier/preparer", json={})
+    assert r.status_code == 400 and "CV" in r.json()["detail"] and ia.appels == []

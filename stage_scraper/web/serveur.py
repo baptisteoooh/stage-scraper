@@ -15,6 +15,9 @@ API
 - POST /api/selection/{id}/etape | /relance | /dates | /retirer   changements (renvoient un jeton d'annulation)
 - POST /api/selection/annuler  {jeton} : remet la candidature comme avant
 - POST /api/selection/nouvelle offre trouvée ailleurs
+- GET  /api/selection/{id}/dossier            analyse face au CV, conseils, lettre (versions), conversation
+- POST /api/selection/{id}/dossier/preparer | /analyser | /message | /lettre | /version   (IA : Claude ou Gemini)
+- GET  /api/selection/{id}/dossier/lettre.docx | lettre.txt   la lettre signée, à télécharger
 - GET  /api/journal            passages (scraps), coût de l'IA, crédit Claude restant
 - GET  /api/corbeille          offres écartées (par BAP, par le tri) et expirées
 - POST /api/corbeille/remettre {offre_id, liste} : remet une offre dans À trier
@@ -33,11 +36,11 @@ from datetime import date, datetime
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .. import claude, db, decisions, expiration, notifications, presentation, reglages, requetes, selection
+from .. import claude, db, decisions, dossier, expiration, notifications, presentation, reglages, requetes, selection
 from .. import cv as module_cv
 from ..config import CHEMIN_CONFIG, charger_config, chemin_projet, secret
 
@@ -420,6 +423,179 @@ def api_nouvelle(n: Nouvelle):
             "postulé" if envoyee else "à postuler", None, envoyee, relance_jours(),
             description=n.annonce, lieu=n.lieu.strip() or None)
     return {"id": identifiant}
+
+
+# =========================================================================== API : dossier de candidature
+
+# Client d'IA imposé (tests : un faux client, pour ne jamais appeler ni payer une vraie IA). None = les vrais.
+CLIENT_IA = None
+DEMANDE_PREMIER_JET = "Rédige une première version de la lettre."
+CENTIMES = {"modeles": 4, "modeles_premier_jet": 4}   # mesuré : ~3,6 c par appel Sonnet (novembre 2026)
+NOMS_MODELES = {"claude-sonnet-5-5": "Claude Sonnet", "claude-haiku-5-5": "Claude Haiku"}
+
+
+def libelle_appel(donnees: dict) -> str | None:
+    """« Claude Sonnet · 0,61 centime » ou « Gemini (gratuit) » sous une réponse de l'IA."""
+    modele = donnees.get("modele")
+    if not modele:
+        return None
+    if not claude.est_claude(modele):
+        return "Gemini (gratuit)"
+    centimes = (donnees.get("cout") or 0) * 100
+    return f"{NOMS_MODELES.get(modele, modele)} · {centimes:.2f} centime".replace(".", ",")
+
+
+def prix(conn, config: dict, cle_modeles: str, centimes: float) -> str:
+    """« ≈ 4 c » si Claude répondra, « gratuit, Gemini » s'il prend le relais (plafond, pas de clé, config)."""
+    modeles = config.get("dossier", {}).get(cle_modeles) or dossier.MODELES_PAR_DEFAUT
+    if claude.blocage(conn, config) or not claude.est_claude(modeles[0]):
+        return "gratuit, Gemini"
+    return f"≈ {centimes:g} c".replace(".", ",")
+
+
+def _dossier_de(conn, candidature_id: int) -> tuple[dict, dict]:
+    f = _fiche_ou_404(conn, candidature_id)
+    return f, dossier.ouvrir(conn, f["offre_id"])
+
+
+def _etat_dossier(conn, config: dict, f: dict, d: dict) -> dict:
+    courante = dossier.version_courante(conn, d)
+    toutes = dossier.versions(conn, d["id"])
+    blocage = claude.blocage(conn, config)
+    return {
+        "cv_present": bool(module_cv.texte_cv(config)),
+        "claude_en_pause": blocage,
+        "etape": f["etape"],
+        "prix": {"analyse": prix(conn, config, "modeles", CENTIMES["modeles"]),
+                 "premier_jet": prix(conn, config, "modeles_premier_jet", CENTIMES["modeles_premier_jet"]),
+                 "retouche": prix(conn, config, "modeles_retouche", 0.1)},
+        "diagnostic": d.get("diagnostic"),
+        "a_refaire": dossier.a_refaire(d, config),
+        "date_diagnostic": (d.get("date_diagnostic") or "")[:16],
+        "modele_diagnostic": d.get("modele_diagnostic"),
+        "lettre": None if not courante else {
+            "numero": courante["numero"], "total": len(toutes), "texte": courante["texte"],
+            "auteur": "toi" if courante["modele"] is None else "l'IA", "alertes": courante["alertes"],
+            "figee": dossier.lettre_figee(conn, d)},
+        "versions": [{"numero": v["numero"], "date": (v["date"] or "")[5:16], "auteur": "toi" if v["modele"] is None else "IA",
+                      "demande": (v["demande"] or "")[:120]} for v in reversed(toutes)],
+        "messages": [{"role": m["role"], "texte": m["texte"], "version": m["donnees"].get("version"),
+                      "detail": libelle_appel(m["donnees"]) if m["role"] == "assistant" else None}
+                     for m in dossier.messages(conn, dossier.conversation_de(d))],
+    }
+
+
+@app.get("/api/selection/{candidature_id}/dossier")
+def api_dossier(candidature_id: int):
+    config = config_courante()
+    with connexion() as conn:
+        f, d = _dossier_de(conn, candidature_id)
+        return _etat_dossier(conn, config, f, d)
+
+
+class Preparation(BaseModel):
+    analyse: bool = True
+    lettre: bool = True
+
+
+class Message(BaseModel):
+    texte: str
+    lettre_actuelle: str | None = None   # ce que BAP a tapé dans la lettre, gardé avant la retouche
+
+
+class Lettre(BaseModel):
+    texte: str
+
+
+class Version(BaseModel):
+    numero: int
+
+
+def _ia(action):
+    """Lance un appel d'IA ; une erreur affichable devient une réponse 400 avec son texte."""
+    try:
+        return action()
+    except dossier.DossierImpossible as e:
+        raise HTTPException(400, f"L'IA n'a pas pu terminer : {e}") from e
+
+
+@app.post("/api/selection/{candidature_id}/dossier/preparer")
+def api_preparer(candidature_id: int, p: Preparation):
+    """Analyse puis premier jet : seulement ce qui manque (et ce qui est demandé)."""
+    config = config_courante()
+    with connexion() as conn:
+        f, d = _dossier_de(conn, candidature_id)
+        if p.analyse and not d.get("diagnostic"):
+            _ia(lambda: dossier.diagnostiquer(conn, config, d, client=CLIENT_IA))
+        if p.lettre and not dossier.version_courante(conn, d):
+            _ia(lambda: dossier.discuter(conn, config, d, DEMANDE_PREMIER_JET, client=CLIENT_IA))
+        return _etat_dossier(conn, config, f, d)
+
+
+@app.post("/api/selection/{candidature_id}/dossier/analyser")
+def api_analyser(candidature_id: int):
+    """Refaire l'analyse (CV ou offre changés) : remplace l'ancienne."""
+    config = config_courante()
+    with connexion() as conn:
+        f, d = _dossier_de(conn, candidature_id)
+        _ia(lambda: dossier.diagnostiquer(conn, config, d, client=CLIENT_IA))
+        return _etat_dossier(conn, config, f, d)
+
+
+@app.post("/api/selection/{candidature_id}/dossier/message")
+def api_message(candidature_id: int, m: Message):
+    texte = m.texte.strip()
+    if not texte:
+        raise HTTPException(400, "Message vide")
+    config = config_courante()
+    with connexion() as conn:
+        f, d = _dossier_de(conn, candidature_id)
+        if m.lettre_actuelle is not None:
+            dossier.modifier_a_la_main(conn, d, m.lettre_actuelle)
+        _ia(lambda: dossier.discuter(conn, config, d, texte, client=CLIENT_IA))
+        return _etat_dossier(conn, config, f, d)
+
+
+@app.post("/api/selection/{candidature_id}/dossier/lettre")
+def api_lettre(candidature_id: int, lettre: Lettre):
+    """Ce que BAP a tapé dans la lettre (plusieurs modifications d'affilée restent une seule version)."""
+    config = config_courante()
+    with connexion() as conn:
+        f, d = _dossier_de(conn, candidature_id)
+        change = dossier.modifier_a_la_main(conn, d, lettre.texte)
+        return {"change": change, **_etat_dossier(conn, config, f, d)}
+
+
+@app.post("/api/selection/{candidature_id}/dossier/version")
+def api_version(candidature_id: int, v: Version):
+    config = config_courante()
+    with connexion() as conn:
+        f, d = _dossier_de(conn, candidature_id)
+        if not any(x["numero"] == v.numero for x in dossier.versions(conn, d["id"])):
+            raise HTTPException(404, "Version introuvable")
+        dossier.choisir_version(conn, d, v.numero)
+        return _etat_dossier(conn, config, f, d)
+
+
+@app.get("/api/selection/{candidature_id}/dossier/lettre.{format_}")
+def api_telecharger_lettre(candidature_id: int, format_: str):
+    """La lettre signée (ton vrai nom à la place de [Prénom Nom]) : elle ne quitte pas l'ordinateur."""
+    if format_ not in ("docx", "txt"):
+        raise HTTPException(404, "Format inconnu")
+    config = config_courante()
+    with connexion() as conn:
+        f, d = _dossier_de(conn, candidature_id)
+        courante = dossier.version_courante(conn, d)
+    if not courante:
+        raise HTTPException(404, "Pas encore de lettre")
+    signee = module_cv.signer(courante["texte"], config)
+    nom = "".join(c if c.isalnum() else "_" for c in (f["entreprise"] or "offre")).strip("_") or "offre"
+    if format_ == "docx":
+        contenu, type_ = dossier.exporter_docx(signee), "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    else:
+        contenu, type_ = signee.encode("utf-8"), "text/plain; charset=utf-8"
+    return Response(contenu, media_type=type_,
+                    headers={"Content-Disposition": f'attachment; filename="Lettre_{nom}.{format_}"'})
 
 
 # =========================================================================== API : journal et corbeille

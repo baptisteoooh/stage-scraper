@@ -51,7 +51,8 @@
 .principal { position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 
 @media (max-width: 900px) {
-  .fenetre { grid-template-columns: 1fr; inset: 0; border-radius: 0; }
+  .fenetre { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); inset: 0; border-radius: 0; }
+  .principal { overflow-y: auto; }
   .cote { flex-direction: row; align-items: center; gap: 12px; padding: 12px 16px; border-right: 0; border-bottom: 1px solid var(--ligne); }
   .cote .marque { padding: 0; margin-right: auto; font-size: 17px; }
   .cote nav, .dernier { display: none; }

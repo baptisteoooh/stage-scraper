@@ -2,16 +2,17 @@
 
 Chaque vignette montre l'essentiel : note, entreprise, poste, lieu, durée, début, gratification,
 télétravail, résumé en 2 lignes et date de publication. Le bouton « Voir la fiche » ouvre le détail
-complet dans une fenêtre (avec Postuler, Pas intéressé, Lettre de motivation).
+complet dans une fenêtre (avec Postuler, Pas intéressé, Lettre de motivation, Offre expirée).
 """
 import html
 import re
 from contextlib import closing
 from datetime import date
+from pathlib import Path
 
 import streamlit as st
 
-from . import db, requetes
+from . import db, expiration, requetes
 from .config import chemin_projet
 
 PAR_PAGE = 24      # vignettes affichées d'un coup ; le bouton « Afficher plus » ajoute les suivantes
@@ -96,6 +97,10 @@ def html_vignette(o: dict, suivie: bool = False, aujourd_hui: date | None = None
     note = (f'<b>{o["score"]}</b><span>/10</span>' if o["score"] is not None else "<b>—</b>")
 
     badges = []
+    if o.get("favori"):
+        badges.append('<span class="v-badge v-favori">★ Favori</span>')
+    if o.get("expiration"):
+        badges.append('<span class="v-badge v-expiree">Expirée</span>')
     if avec_section and o["section"]:
         badges.append(f'<span class="v-badge v-section">{_e(SECTIONS_COURTES.get(o["section"], o["section"]))}</span>')
     if not o["vue"]:
@@ -129,7 +134,7 @@ def html_vignette(o: dict, suivie: bool = False, aujourd_hui: date | None = None
                     if texte_annonce else "")
 
     return (
-        '<div class="vignette">'
+        f'<div class="vignette{" v-est-favori" if o.get("favori") else ""}">'
         '<div class="v-haut">'
         f'<div class="v-entreprise">{_e(o["entreprise"] or "Entreprise inconnue")}</div>'
         f'<div class="v-note v-note-{niveau}" title="{_e(o["categorie"] or "Note IA")}">{note}</div>'
@@ -169,11 +174,12 @@ def grille(conn, config: dict, offres: list[dict], cle: str, page_lettre=None, a
         for o in offres[:nb]:
             with st.container(border=True, key=f"carte_offre_{cle}_{o['id']}"):
                 st.markdown(html_vignette(o, o["id"] in suivies, avec_section=avec_section), unsafe_allow_html=True)
-                boutons = st.columns(2)
+                boutons = st.columns([1, 1, 0.42])
                 if boutons[0].button("Voir la fiche", key=f"fiche_{cle}_{o['id']}", width="stretch"):
                     a_ouvrir = o["id"]
                 if o["lien"]:
                     boutons[1].link_button("Ouvrir l'offre ↗", o["lien"], width="stretch")
+                bouton_favori(conn, o, f"favori_{cle}_{o['id']}", boutons[2], compact=True)
     if a_ouvrir is not None:  # fenêtre ouverte hors de la grille, pour ne pas y laisser une case vide
         fenetre_fiche(config, a_ouvrir, cle, page_lettre)
 
@@ -183,6 +189,27 @@ def grille(conn, config: dict, offres: list[dict], cle: str, page_lettre=None, a
                      width="stretch"):
             st.session_state[f"nb_{cle}"] = nb + PAR_PAGE
             st.rerun()
+
+
+def _basculer_favori(chemin_base: str, offre_id: int) -> None:
+    """Appelé par Streamlit juste après le clic, avant de réafficher la page : la vignette
+    et la fiche s'affichent donc tout de suite avec la nouvelle étoile, sans changer de place."""
+    with closing(db.connecter(Path(chemin_base))) as conn:
+        garde = requetes.basculer_favori(conn, offre_id)
+    if not garde:  # dans la vue Favoris, l'offre reste affichée jusqu'à la fin de la visite
+        st.session_state.setdefault("favoris_retires", set()).add(offre_id)
+    st.toast("Gardée dans tes favoris ★" if garde else "Retirée des favoris.")
+
+
+def bouton_favori(conn, o: dict, cle: str, zone=st, compact: bool = False) -> None:
+    """Bouton ★ / ☆ qui ajoute l'offre aux favoris ou l'en retire."""
+    chemin_base = conn.execute("PRAGMA database_list").fetchone()["file"]
+    if o.get("favori"):
+        libelle, aide = ("★" if compact else "★ Favori"), "Retirer des favoris"
+    else:
+        libelle, aide = ("☆" if compact else "☆ Garder"), "Garder en favori, pour la retrouver dans « Favoris »"
+    zone.button(libelle, key=cle, help=aide, width="stretch" if compact else "content",
+                on_click=_basculer_favori, args=(chemin_base, o["id"]))
 
 
 @st.dialog("Offre", width="large")
@@ -209,6 +236,8 @@ def fiche(conn, offre_id: int, cle: str, page_lettre=None) -> None:
         haut[1].metric("Note IA", f"{o['score']} / 10", o["categorie"], delta_color="off")
 
     badges = []
+    if o["favori"]:
+        badges.append(":orange-badge[★ Favori]")
     if o["type_contrat"] == "cdd":
         badges.append(":orange-badge[CDD]")
     if o["section"]:
@@ -226,6 +255,8 @@ def fiche(conn, offre_id: int, cle: str, page_lettre=None) -> None:
         st.info("Pas encore notée par l'IA.")
     if o["exclusion_prefiltre"] or o["exclusion_ia"]:
         st.warning(f"Écartée : {o['exclusion_prefiltre'] or o['exclusion_ia']}")
+    if o["expiration"]:
+        st.warning(f"Offre expirée : {expiration.raison(o)}.", icon="⌛")
 
     infos = {
         "Durée": o["duree"] or o["duree_ia"],
@@ -259,7 +290,7 @@ def fiche(conn, offre_id: int, cle: str, page_lettre=None) -> None:
             st.info(f"{(o['source'] or 'Ce site').capitalize()} ne transmet qu'un extrait de l'annonce. "
                     "Le texte complet est sur le site : bouton **Ouvrir l'offre ↗**.", icon="ℹ️")
 
-    actions = st.columns(3)
+    actions = st.columns(5)
     candidature = requetes.candidature_de(conn, o["id"])
     with actions[0]:
         if candidature:
@@ -281,6 +312,18 @@ def fiche(conn, offre_id: int, cle: str, page_lettre=None) -> None:
                     requetes.marquer_pas_interesse(conn, o["id"], raison)
                     st.toast("Offre masquée. L'IA s'en servira d'exemple pour les prochaines notes.")
                     st.rerun()
+    with actions[3]:
+        if o["expiration"] == "manuelle":
+            if st.button("Remettre en ligne", key=f"remettre_{cle}_{o['id']}"):
+                expiration.annuler(conn, o["id"])
+                st.rerun()
+        elif not o["expiration"] and st.button("⌛ Offre expirée", key=f"expiree_{cle}_{o['id']}",
+                                               help="L'offre n'est plus en ligne ou n'accepte plus de candidatures"):
+            expiration.marquer_expiree(conn, o["id"])
+            st.toast("Offre masquée (expirée).")
+            st.rerun()
+    with actions[4]:
+        bouton_favori(conn, o, f"favori_fiche_{cle}_{o['id']}")
     with actions[2]:
         if st.button("✍️ Lettre de motivation", key=f"lettre_{cle}_{o['id']}"):
             st.session_state["lettre_offre_id"] = o["id"]

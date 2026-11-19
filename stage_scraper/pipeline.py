@@ -4,7 +4,7 @@ Utilisé à l'identique par la ligne de commande (run.py) et par l'appli Streaml
 """
 import logging
 
-from . import collecte, notifications, scoring, traitement
+from . import collecte, expiration, notifications, scoring, traitement
 
 log = logging.getLogger(__name__)
 
@@ -14,6 +14,7 @@ def passage_complet(conn, config: dict, auto: bool = False, sources: list[str] |
     passage_id, bilan_sources = collecte.lancer_passage(conn, config, auto=auto, sources_demandees=sources,
                                                         max_requetes=max_requetes)
     bilan_tri = traitement.traiter(conn, config)
+    bilan_tri["anciennes"] = expiration.trop_anciennes(conn, config)
     bilan_scoring = scoring.noter_nouvelles(conn, config, passage_id, auto, client=client_ia)
     try:
         bilan_mails = notifications.apres_passage(conn, config, passage_id, auto)
@@ -22,6 +23,13 @@ def passage_complet(conn, config: dict, auto: bool = False, sources: list[str] |
         bilan_mails = [{"type": "alerte", "nb": 1, "envoye": False, "apercu": None, "erreur": type(e).__name__}]
     return {"passage_id": passage_id, "auto": auto, "sources": bilan_sources,
             "tri": bilan_tri, "scoring": bilan_scoring, "mails": bilan_mails}
+
+
+def retrier(conn, config: dict) -> dict:
+    """Refait le tri de toutes les offres (après un changement de réglages), ancienneté comprise."""
+    bilan = traitement.traiter(conn, config, tout=True)
+    bilan["anciennes"] = expiration.trop_anciennes(conn, config)
+    return bilan
 
 
 def resume_texte(bilan: dict) -> list[str]:
@@ -33,6 +41,9 @@ def resume_texte(bilan: dict) -> list[str]:
     for ligne in bilan["sources"]:
         lignes.append(f"  - {ligne['source']} : {ligne['nb_offres']} offre(s) dont {ligne['nb_nouvelles']} "
                       f"nouvelle(s), {ligne['nb_requetes']} requête(s)")
+        if ligne.get("nb_expirees") or ligne.get("nb_retablies"):
+            lignes.append(f"      {ligne.get('nb_expirees', 0)} offre(s) retirée(s) du site, marquée(s) expirée(s)"
+                          + (f" ; {ligne['nb_retablies']} revenue(s) en ligne" if ligne.get("nb_retablies") else ""))
         if ligne["message"]:
             lignes.append(f"      {ligne['message']}")
         lignes.extend(f"      ERREUR : {erreur}" for erreur in ligne["erreurs"])
@@ -43,8 +54,11 @@ def resume_texte(bilan: dict) -> list[str]:
 
 
 def resume_tri(bilan: dict) -> str:
-    return (f"  Tri des {bilan['traitees']} offre(s) à traiter : {bilan['gardees']} gardée(s), "
-            f"{bilan['exclues']} exclue(s) par le pré-filtre, {bilan['doublons']} doublon(s)")
+    texte = (f"  Tri des {bilan['traitees']} offre(s) à traiter : {bilan['gardees']} gardée(s), "
+             f"{bilan['exclues']} exclue(s) par le pré-filtre, {bilan['doublons']} doublon(s)")
+    if bilan.get("anciennes"):
+        texte += f"\n  {bilan['anciennes']} offre(s) trop ancienne(s), marquée(s) expirée(s)"
+    return texte
 
 
 def resume_scoring(bilan: dict) -> list[str]:

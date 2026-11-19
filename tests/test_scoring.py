@@ -1,12 +1,10 @@
-"""Tests du scoring IA avec un faux client Claude (aucun appel réel, aucun coût)."""
+"""Tests du scoring IA avec un faux client Gemini (aucun appel réel, aucun coût)."""
 from contextlib import closing
-from types import SimpleNamespace
 
-import anthropic
-import httpx2
 import pytest
+import requests
 
-from stage_scraper import db, scoring, traitement
+from stage_scraper import db, gemini, scoring, traitement
 from stage_scraper.config import charger_config
 from stage_scraper.offre import nouvelle_offre
 
@@ -20,25 +18,25 @@ def notation(**champs):
     return scoring.Notation(**valeurs)
 
 
-USAGE = SimpleNamespace(input_tokens=500, cache_read_input_tokens=1500, cache_creation_input_tokens=0, output_tokens=200)
+USAGE = {"promptTokenCount": 2000, "candidatesTokenCount": 150, "thoughtsTokenCount": 50}
 
 
 class FauxClient:
     def __init__(self, reponses):
         self.reponses = list(reponses)
         self.appels = []
-        self.messages = self
 
-    def parse(self, **parametres):
-        self.appels.append(parametres)
+    def generer(self, modele, systeme, parties, schema=None, reflexion=None):
+        self.appels.append(dict(modele=modele, systeme=systeme, parties=parties, schema=schema, reflexion=reflexion))
         reponse = self.reponses.pop(0)
         if isinstance(reponse, Exception):
             raise reponse
         return reponse
 
 
-def reponse(n=None, stop_reason="end_turn"):
-    return SimpleNamespace(parsed_output=n, stop_reason=stop_reason, usage=USAGE)
+def reponse(n=None):
+    """Réponse de Gemini : le JSON de la notation, ou un texte illisible si n est None."""
+    return (n.model_dump_json() if n else "désolé, je ne peux pas"), USAGE
 
 
 def base(tmp_path, nb=2):
@@ -60,10 +58,9 @@ def test_note_et_enregistre(tmp_path):
         lignes = conn.execute("SELECT score, categorie, section, poste_ia_data FROM offres ORDER BY id").fetchall()
         assert [tuple(l) for l in lignes] == [(9, "À postuler vite", "Santé", 1),
                                                (6, "À regarder", "Hors santé mais intéressant", 1)]
-        # Coût : 2 appels x (500 x 0,10 + 1500 x 0,01 + 200 x 0,50) / 1 000 000
-        assert bilan["cout_usd"] == pytest.approx(2 * (500 * 0.10 + 1500 * 0.01 + 200 * 0.50) / 1e6)
+        assert bilan["cout_usd"] == 0   # offre gratuite de Gemini
         run = conn.execute("SELECT * FROM runs WHERE source = 'scoring'").fetchone()
-        assert run["tokens_entree"] == 4000 and run["tokens_sortie"] == 400 and run["cout_usd"] > 0
+        assert run["tokens_entree"] == 4000 and run["tokens_sortie"] == 400
         # Les offres déjà notées ne sont pas renotées
         assert scoring.noter_nouvelles(conn, CONFIG, 2, False, client=FauxClient([]))["notees"] == 0
 
@@ -73,29 +70,26 @@ def test_parametres_envoyes(tmp_path):
         client = FauxClient([reponse(notation())])
         scoring.noter_nouvelles(conn, CONFIG, 1, False, client=client)
         appel = client.appels[0]
-        assert appel["model"] == "claude-haiku-5-5"
-        assert appel["output_format"] is scoring.Notation
-        assert "temperature" not in appel                     # refusé par Haiku 5.5
-        assert appel["system"][-1]["cache_control"] == {"type": "ephemeral"}
-        assert "Stage Machine Learning 0" in appel["messages"][0]["content"]
+        assert appel["modele"] == CONFIG["scoring"]["modele"]
+        assert appel["schema"]["properties"]["score"]["maximum"] == 10
+        assert "PROFIL" in appel["systeme"]
+        texte = appel["parties"][-1]["text"]
+        assert texte.startswith("<offre>") and "Stage Machine Learning 0" in texte
 
 
-def test_refus_et_erreur_ne_bloquent_pas(tmp_path):
+def test_reponse_illisible_et_erreur_ne_bloquent_pas(tmp_path):
     with closing(base(tmp_path, nb=3)) as conn:
-        erreur = anthropic.BadRequestError("requête invalide", response=httpx2.Response(
-            400, request=httpx2.Request("POST", "https://api.anthropic.com")), body=None)
-        client = FauxClient([reponse(None, "refusal"), erreur, reponse(notation())])
+        client = FauxClient([reponse(None), gemini.ErreurGemini("erreur 400 : requête invalide"), reponse(notation())])
         bilan = scoring.noter_nouvelles(conn, CONFIG, 1, False, client=client)
         assert bilan["notees"] == 1 and len(bilan["erreurs"]) == 2
 
 
 def test_cle_refusee_arrete_tout(tmp_path):
     with closing(base(tmp_path, nb=3)) as conn:
-        erreur = anthropic.AuthenticationError("clé invalide", response=httpx2.Response(
-            401, request=httpx2.Request("POST", "https://api.anthropic.com")), body=None)
+        erreur = gemini.ErreurGemini("clé GEMINI_API_KEY refusée : vérifie-la dans .env", bloquante=True)
         client = FauxClient([erreur])
         bilan = scoring.noter_nouvelles(conn, CONFIG, 1, False, client=client)
-        assert bilan["notees"] == 0 and "ANTHROPIC_API_KEY" in bilan["erreurs"][0]
+        assert bilan["notees"] == 0 and "GEMINI_API_KEY" in bilan["erreurs"][0]
         assert len(client.appels) == 1   # on n'insiste pas
 
 
@@ -113,7 +107,7 @@ def test_sans_cle(tmp_path, monkeypatch):
     monkeypatch.setattr(scoring, "secret", lambda nom: None)
     with closing(base(tmp_path, nb=1)) as conn:
         bilan = scoring.noter_nouvelles(conn, CONFIG, 1, False)
-        assert "ANTHROPIC_API_KEY" in bilan["message"]
+        assert "GEMINI_API_KEY" in bilan["message"]
 
 
 def test_exemples_pas_interesse_dans_le_prompt(tmp_path):
@@ -121,3 +115,38 @@ def test_exemples_pas_interesse_dans_le_prompt(tmp_path):
         conn.execute("INSERT INTO feedback (offre_id, raison) VALUES (1, 'trop orienté finance')")
         systeme = scoring.prompt_systeme(conn, CONFIG)[0]["text"]
         assert "PAS INTÉRESSÉ" in systeme and "trop orienté finance" in systeme
+
+
+class FausseReponse:
+    def __init__(self, code, donnees):
+        self.status_code, self._donnees, self.ok, self.text = code, donnees, code == 200, str(donnees)
+
+    def json(self):
+        return self._donnees
+
+
+def test_client_gemini_reessaie_si_surcharge(monkeypatch):
+    reponses = [FausseReponse(503, {"error": {"message": "high demand"}}),
+                FausseReponse(200, {"candidates": [{"content": {"parts": [{"text": '{"a": 1}'}]}}],
+                                    "usageMetadata": USAGE})]
+    monkeypatch.setattr(gemini, "ATTENTES_SURCHARGE", (0, 0))
+    monkeypatch.setattr(gemini.requests, "post", lambda *a, **k: reponses.pop(0))
+    client = gemini.ClientGemini(cle="test", delai_entre_appels=0)
+    assert client.generer("m", "consignes", [gemini.partie_texte("x")]) == ('{"a": 1}', USAGE)
+
+
+@pytest.mark.parametrize("code, morceau", [(401, "GEMINI_API_KEY"), (429, "quota"), (404, "introuvable"), (503, "surchargé")])
+def test_client_gemini_erreurs_bloquantes(monkeypatch, code, morceau):
+    monkeypatch.setattr(gemini, "ATTENTES_SURCHARGE", (0, 0))
+    monkeypatch.setattr(gemini.requests, "post", lambda *a, **k: FausseReponse(code, {"error": {"message": "x"}}))
+    with pytest.raises(gemini.ErreurGemini, match=morceau) as e:
+        gemini.ClientGemini(cle="test", delai_entre_appels=0).generer("m", "s", [gemini.partie_texte("x")])
+    assert e.value.bloquante
+
+
+def test_client_gemini_reseau_coupe(monkeypatch):
+    def coupe(*a, **k):
+        raise requests.ConnectionError("pas de réseau")
+    monkeypatch.setattr(gemini.requests, "post", coupe)
+    with pytest.raises(gemini.ErreurGemini, match="injoignable"):
+        gemini.ClientGemini(cle="test", delai_entre_appels=0).generer("m", "s", [gemini.partie_texte("x")])

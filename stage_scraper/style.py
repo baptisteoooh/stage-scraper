@@ -89,6 +89,10 @@ CSS = """
 .v-ia { background: rgba(175, 82, 222, 0.15); color: color-mix(in srgb, #af52de 70%, currentColor); }
 .v-cdd { background: rgba(255, 149, 0, 0.17); color: color-mix(in srgb, #ff9500 60%, currentColor); }
 .v-suivie { background: rgba(52, 199, 89, 0.15); color: color-mix(in srgb, #34c759 65%, currentColor); }
+.v-favori { background: rgba(255, 204, 0, 0.2); color: color-mix(in srgb, #d4a000 75%, currentColor); }
+.v-expiree { background: rgba(255, 59, 48, 0.13); color: color-mix(in srgb, #ff3b30 65%, currentColor); }
+/* Vignette d'une offre en favori : liseré doré */
+[class*="st-key-carte_offre_"]:has(.v-est-favori) { border-color: rgba(255, 204, 0, 0.65) !important; }
 .v-infos { display: flex; flex-wrap: wrap; gap: 0.4rem 0.45rem; }
 .v-info { font-size: 0.86rem; padding: 0.25rem 0.65rem; border-radius: 0.6rem;
   background: rgba(127, 127, 127, 0.09); white-space: nowrap; }

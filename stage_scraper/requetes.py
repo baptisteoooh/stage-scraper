@@ -4,9 +4,9 @@ from datetime import datetime
 STATUTS = ["à postuler", "postulé", "relancé", "entretien", "refus", "accepté"]
 SECTIONS = ["Santé", "Hors santé mais intéressant", "À négocier"]
 
-# Offre visible = ni doublon, ni exclue (pré-filtre ou IA), ni marquée « pas intéressé ».
+# Offre visible = ni doublon, ni exclue (pré-filtre ou IA), ni marquée « pas intéressé », ni expirée.
 VISIBLE = ("doublon_de IS NULL AND exclusion_prefiltre IS NULL AND exclusion_ia IS NULL "
-           "AND pas_interesse = 0")
+           "AND pas_interesse = 0 AND expiration IS NULL")
 
 
 def maintenant() -> str:
@@ -77,6 +77,47 @@ def offres_pas_interesse(conn) -> list[dict]:
     return [dict(l) for l in conn.execute(
         "SELECT o.id, o.titre, o.entreprise, f.raison, f.date FROM feedback f JOIN offres o ON o.id = f.offre_id "
         "ORDER BY f.id DESC")]
+
+
+def basculer_favori(conn, offre_id: int) -> bool:
+    """Ajoute l'offre aux favoris, ou l'en retire si elle y était. Renvoie le nouvel état."""
+    conn.execute("UPDATE offres SET favori = 1 - favori, "
+                 "date_favori = CASE WHEN favori = 0 THEN ? ELSE NULL END WHERE id = ?", (maintenant(), offre_id))
+    conn.commit()
+    ligne = conn.execute("SELECT favori FROM offres WHERE id = ?", (offre_id,)).fetchone()
+    return bool(ligne and ligne[0])
+
+
+def offres_favorites(conn, aussi: set[int] | frozenset = frozenset()) -> list[dict]:
+    """Offres gardées en favori, même déjà vues, expirées ou écartées par le tri (sauf « pas intéressé »).
+
+    `aussi` : offres retirées des favoris pendant la visite, gardées à l'écran pour pouvoir annuler.
+    """
+    marques = ", ".join("?" * len(aussi))
+    condition = f"(favori = 1 OR id IN ({marques}))" if aussi else "favori = 1"
+    lignes = conn.execute(
+        f"SELECT * FROM offres WHERE {condition} AND pas_interesse = 0 "
+        "ORDER BY score IS NULL, score DESC, date_publication DESC, id DESC", list(aussi)).fetchall()
+    return [dict(l) for l in lignes]
+
+
+TRIS = ["Meilleure note", "Plus récentes"]
+
+
+def trier_offres(offres: list[dict], tri: str = "Meilleure note") -> list[dict]:
+    """« Meilleure note » : note décroissante (non notées à la fin), puis les plus récentes.
+    « Plus récentes » : date de publication (ou, à défaut, de collecte) décroissante, puis la note."""
+    def jour(o):
+        return (o.get("date_publication") or o.get("date_collecte") or "")[:10]
+
+    def note(o):
+        return -1 if o.get("score") is None else o["score"]
+
+    if tri == "Plus récentes":
+        cle = lambda o: (jour(o), note(o), o["id"])  # noqa: E731
+    else:
+        cle = lambda o: (o.get("score") is not None, note(o), jour(o), o["id"])  # noqa: E731
+    return sorted(offres, key=cle, reverse=True)
 
 
 # --------------------------------------------------------------------------- candidatures

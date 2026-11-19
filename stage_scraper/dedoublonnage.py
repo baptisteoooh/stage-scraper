@@ -67,7 +67,8 @@ def trouver_original(conn, offre: dict, cle: str, config: dict) -> int | None:
         return None  # sans entreprise ni titre exploitable, on ne prend pas de risque
     candidates = conn.execute(
         "SELECT id, empreinte, departement, lieu FROM offres "
-        "WHERE empreinte LIKE ? ESCAPE '\\' AND doublon_de IS NULL AND id < ? ORDER BY id",
+        # une offre expirée ne sert pas d'original : si elle réapparaît ailleurs, c'est une nouvelle annonce
+        "WHERE empreinte LIKE ? ESCAPE '\\' AND doublon_de IS NULL AND expiration IS NULL AND id < ? ORDER BY id",
         (_echapper_like(entreprise) + "|%", offre["id"]),
     ).fetchall()
     lieu_offre = analyser_lieu(offre, config["criteres"]["lieu"])

@@ -2,7 +2,7 @@
 import logging
 from datetime import datetime
 
-from . import db
+from . import db, expiration
 from .sources import Contexte, Resultat, careerjet, carrieres, gmail, google_jobs
 
 # Sources disponibles. Pour en ajouter une : créer son module dans sources/ et l'ajouter ici.
@@ -39,6 +39,7 @@ def lancer_passage(conn, config: dict, auto: bool = False,
             resultat = Resultat(erreurs=[f"{type(e).__name__} : {e}"])
 
         nb_nouvelles = db.enregistrer_offres(conn, resultat.offres, passage_id)
+        retraits = expiration.retirees_du_site(conn, nom, resultat.listes_completes)
         db.journaliser_run(
             conn,
             passage_id=passage_id,
@@ -58,6 +59,8 @@ def lancer_passage(conn, config: dict, auto: bool = False,
             "nb_requetes": resultat.nb_requetes,
             "erreurs": resultat.erreurs,
             "message": resultat.message,
+            "nb_expirees": retraits["expirees"],
+            "nb_retablies": retraits["retablies"],
         })
 
     return passage_id, bilan

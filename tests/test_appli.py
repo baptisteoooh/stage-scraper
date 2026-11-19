@@ -9,7 +9,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 from stage_scraper import config as module_config
-from stage_scraper import db, export, reglages, requetes, traitement
+from stage_scraper import db, expiration, export, reglages, requetes, traitement
 from stage_scraper.config import CHEMIN_CONFIG, charger_config
 from stage_scraper.offre import nouvelle_offre
 
@@ -53,6 +53,34 @@ def test_pas_interesse_et_retour(tmp_path):
         assert requetes.offres_pas_interesse(conn)[0]["raison"] == "trop loin"
         requetes.annuler_pas_interesse(conn, 1)
         assert len(requetes.offres_visibles(conn)) == 2 and requetes.offres_pas_interesse(conn) == []
+
+
+def test_favori_aller_retour(tmp_path):
+    with closing(base(tmp_path / "t.db")) as conn:
+        assert requetes.offres_favorites(conn) == []
+        assert requetes.basculer_favori(conn, 2) is True
+        assert requetes.offre(conn, 2)["date_favori"]
+        # un favori reste dans « Favoris » même vu et expiré
+        requetes.marquer_vue(conn, 2)
+        expiration.marquer_expiree(conn, 2)
+        assert [o["id"] for o in requetes.offres_favorites(conn)] == [2]
+        assert requetes.basculer_favori(conn, 2) is False
+        assert requetes.offre(conn, 2)["date_favori"] is None and requetes.offres_favorites(conn) == []
+        # retiré pendant la visite : encore affiché pour pouvoir annuler
+        assert [o["id"] for o in requetes.offres_favorites(conn, {2})] == [2]
+
+
+def test_tri_par_note_ou_par_date():
+    offres = [
+        {"id": 1, "score": 9, "date_publication": "2026-10-01", "date_collecte": "2026-10-02 08:00:00"},
+        {"id": 2, "score": None, "date_publication": None, "date_collecte": "2026-11-10 08:00:00"},
+        {"id": 3, "score": 6, "date_publication": "2026-11-05T10:00:00", "date_collecte": "2026-11-06 08:00:00"},
+        {"id": 4, "score": 8, "date_publication": "2026-11-05", "date_collecte": "2026-11-05 08:00:00"},
+    ]
+    ids = lambda liste: [o["id"] for o in liste]  # noqa: E731
+    assert ids(requetes.trier_offres(offres)) == [1, 4, 3, 2]  # note décroissante, non notées à la fin
+    # date de publication, sinon de collecte ; à égalité, la meilleure note d'abord
+    assert ids(requetes.trier_offres(offres, "Plus récentes")) == [2, 4, 3, 1]
 
 
 def test_candidatures(tmp_path):
@@ -163,6 +191,20 @@ def test_page_offres_en_vignettes(appli):
     assert not at.dataframe or len(at.dataframe) == 1  # seul reste le tableau des offres écartées
 
 
+def test_garder_en_favori_depuis_une_vignette(appli):
+    at = AppTest.from_function(une_page, args=("tableau_de_bord",), default_timeout=30).run()
+    next(b for b in at.button if b.label == "☆").click().run()
+    assert not at.exception, at.exception
+    assert any(b.label == "★" for b in at.button)  # l'étoile change tout de suite
+    assert any("★ Favori" in m.value for m in at.markdown if 'class="vignette' in m.value)
+    at.segmented_control(key="filtre_offres").set_value("★ Favoris").run()
+    assert not at.exception, at.exception
+    vignettes = [m.value for m in at.markdown if 'class="vignette' in m.value]
+    assert len(vignettes) == 1 and "Gleamer" in vignettes[0]
+    at.segmented_control(key="tri_offres_bouton").set_value("Plus récentes").run()
+    assert not at.exception and at.session_state["tri_offres"] == "Plus récentes"
+
+
 def contenu_fiche(offre_id):
     """Contenu de la fenêtre « Voir la fiche », avec sa propre connexion comme dans l'appli."""
     from contextlib import closing
@@ -181,6 +223,15 @@ def test_postuler_depuis_la_fiche(appli):
     with closing(db.connecter(appli)) as conn:
         assert [c["entreprise"] for c in requetes.candidatures(conn)] == ["Gleamer"]
         assert conn.execute("SELECT vue FROM offres WHERE source_id = '1'").fetchone()[0] == 1
+
+
+def test_favori_depuis_la_fiche(appli):
+    at = AppTest.from_function(contenu_fiche, args=(1,), default_timeout=30).run()
+    next(b for b in at.button if b.label == "☆ Garder").click().run()
+    assert not at.exception, at.exception
+    assert any(b.label == "★ Favori" for b in at.button)
+    with closing(db.connecter(appli)) as conn:
+        assert [o["id"] for o in requetes.offres_favorites(conn)] == [1]
 
 
 def test_contenu_d_une_vignette():

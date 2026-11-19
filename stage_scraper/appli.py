@@ -8,8 +8,8 @@ import logging
 import pandas as pd
 import streamlit as st
 
-from stage_scraper import (collecte, db, lettre, notifications, pipeline, reglages, requetes, style,
-                           suivi, traitement, vignettes)
+from stage_scraper import (collecte, db, expiration, lettre, notifications, pipeline, reglages, requetes,
+                           style, suivi, vignettes)
 from stage_scraper import config as parametres
 from stage_scraper.config import chemin_projet, secret
 
@@ -19,6 +19,7 @@ CONN = None
 
 ONGLET_TOUTES = "Toutes sections"
 ONGLET_ATTENTE = "En attente de note IA"
+FILTRE_FAVORIS = "★ Favoris"
 
 
 # =========================================================================== pages
@@ -45,34 +46,49 @@ def page_tableau_de_bord():
     m[2].metric("À postuler vite", stats["a_postuler_vite"])
     m[3].metric("Candidatures", stats["candidatures"])
 
-    if stats["a_noter"] and not secret("ANTHROPIC_API_KEY"):
-        st.info(f"{stats['a_noter']} offre(s) attendent la note de l'IA : ajoute ANTHROPIC_API_KEY dans le "
+    if stats["a_noter"] and not secret("GEMINI_API_KEY"):
+        st.info(f"{stats['a_noter']} offre(s) attendent la note de l'IA : ajoute GEMINI_API_KEY dans le "
                 "fichier .env, puis relance un scrap (ou `python run.py --noter`).")
 
     st.markdown("")
     # « Toutes » par défaut : une offre ouverte une fois reste visible (l'étiquette « Nouvelle » repère les autres).
-    filtre = st.segmented_control("Afficher", ["Toutes", "Nouvelles", "Dernier passage"], default="Toutes",
-                                  key="filtre_offres") or "Toutes"
-    if filtre == "Dernier passage":
-        offres = requetes.offres_visibles(CONN, "passage", requetes.dernier_passage(CONN))
-    else:
-        offres = requetes.offres_visibles(CONN)
-        if filtre == "Nouvelles":  # les offres ouvertes pendant cette visite restent affichées
-            ouvertes = st.session_state.get("ouvertes", set())
-            offres = [o for o in offres if not o["vue"] or o["id"] in ouvertes]
+    choix = st.columns([3, 2], vertical_alignment="bottom")
+    filtre = choix[0].segmented_control("Afficher", ["Toutes", "Nouvelles", "Dernier passage", FILTRE_FAVORIS],
+                                        default="Toutes", key="filtre_offres") or "Toutes"
+    # Tri retenu pour toute la visite (la clé du bouton est oubliée quand on change de page).
+    tri = choix[1].segmented_control("Trier par", requetes.TRIS, key="tri_offres_bouton",
+                                     default=st.session_state.get("tri_offres", requetes.TRIS[0]))
+    tri = st.session_state["tri_offres"] = tri or st.session_state.get("tri_offres", requetes.TRIS[0])
 
-    # Premier onglet : toutes les offres notées, de la mieux notée à la moins bien notée.
-    par_section = {ONGLET_TOUTES: [o for o in offres if o["score"] is not None]}
-    par_section.update({s: [o for o in offres if o["score"] is not None and o["section"] == s]
-                        for s in requetes.SECTIONS})
-    par_section[ONGLET_ATTENTE] = [o for o in offres if o["score"] is None]
-    onglets = st.tabs([f"{nom} ({len(liste)})" for nom, liste in par_section.items()])
-    for onglet, (nom, liste) in zip(onglets, par_section.items()):
-        with onglet:
-            if nom == ONGLET_ATTENTE and liste:
-                st.caption("Offres qui ont passé le pré-filtre mais que l'IA n'a pas encore notées.")
-            vignettes.grille(CONN, CONFIG, liste, cle=f"{filtre}_{nom}", page_lettre=PAGES_OBJETS.get("lettre"),
-                             avec_section=(nom == ONGLET_TOUTES))
+    if filtre == FILTRE_FAVORIS:
+        favoris = requetes.trier_offres(
+            requetes.offres_favorites(CONN, st.session_state.get("favoris_retires", set())), tri)
+        st.caption("Les offres gardées avec ☆ restent ici, même déjà vues ou expirées.")
+        vignettes.grille(CONN, CONFIG, favoris, cle="favoris", page_lettre=PAGES_OBJETS.get("lettre"),
+                         avec_section=True)
+        offres = []
+    else:
+        if filtre == "Dernier passage":
+            offres = requetes.offres_visibles(CONN, "passage", requetes.dernier_passage(CONN))
+        else:
+            offres = requetes.offres_visibles(CONN)
+            if filtre == "Nouvelles":  # les offres ouvertes pendant cette visite restent affichées
+                ouvertes = st.session_state.get("ouvertes", set())
+                offres = [o for o in offres if not o["vue"] or o["id"] in ouvertes]
+        offres = requetes.trier_offres(offres, tri)
+
+        # Premier onglet : toutes les offres notées, dans l'ordre choisi (note ou date).
+        par_section = {ONGLET_TOUTES: [o for o in offres if o["score"] is not None]}
+        par_section.update({s: [o for o in offres if o["score"] is not None and o["section"] == s]
+                            for s in requetes.SECTIONS})
+        par_section[ONGLET_ATTENTE] = [o for o in offres if o["score"] is None]
+        onglets = st.tabs([f"{nom} ({len(liste)})" for nom, liste in par_section.items()])
+        for onglet, (nom, liste) in zip(onglets, par_section.items()):
+            with onglet:
+                if nom == ONGLET_ATTENTE and liste:
+                    st.caption("Offres qui ont passé le pré-filtre mais que l'IA n'a pas encore notées.")
+                vignettes.grille(CONN, CONFIG, liste, cle=f"{filtre}_{nom}",
+                                 page_lettre=PAGES_OBJETS.get("lettre"), avec_section=(nom == ONGLET_TOUTES))
 
     if filtre == "Nouvelles" and offres:
         if st.button("Tout marquer comme vu"):
@@ -88,6 +104,19 @@ def page_tableau_de_bord():
                                    for o in exclues]),
                      hide_index=True, width="stretch",
                      column_config={"Lien": st.column_config.LinkColumn(display_text="Ouvrir")})
+
+    expirees = expiration.expirees(CONN)
+    with st.expander(f"⌛ Offres expirées ({len(expirees)})"):
+        st.caption("Retirées du site de l'entreprise, trop anciennes ou signalées à la main. "
+                   "Elles restent en base mais n'apparaissent plus dans les offres ni dans les mails.")
+        for o in expirees[:100]:
+            c = st.columns([6, 1])
+            c[0].markdown(f"**{o['titre']}** — {o['entreprise'] or '?'}"
+                          + (f" · {o['score']}/10" if o["score"] is not None else "")
+                          + f" · _{expiration.raison(o)}_")
+            if o["expiration"] == "manuelle" and c[1].button("Remettre", key=f"remettre_{o['id']}"):
+                expiration.annuler(CONN, o["id"])
+                st.rerun()
 
 
 class JournalVersStreamlit(logging.Handler):
@@ -194,7 +223,7 @@ def page_reglages():
     st.caption("Applique les réglages actuels (pré-filtre et doublons) à toutes les offres déjà collectées. "
                "Les notes de l'IA déjà obtenues sont gardées.")
     if st.button("Refaire le tri de toutes les offres"):
-        bilan = traitement.traiter(CONN, parametres.charger_config(), tout=True)
+        bilan = pipeline.retrier(CONN, parametres.charger_config())
         st.success(pipeline.resume_tri(bilan).strip())
 
     st.subheader("Offres marquées « pas intéressé »")

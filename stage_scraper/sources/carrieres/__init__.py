@@ -7,7 +7,8 @@ JSON plutôt que la page HTML, c'est plus fiable et plus léger pour leurs serve
 Dans config.yaml, une entreprise suivie est collectée si elle a un bloc `carrieres` :
     - {nom: Doctolib, groupe: priorite_absolue, carrieres: {outil: ashby, id: doctolib}}
 
-Pour ajouter un outil : créer son module ici (même forme que ashby.py) et l'ajouter à OUTILS.
+Pour ajouter un outil : créer son module ici (même forme que ashby.py : `collecter` et `prefixe`)
+et l'ajouter à OUTILS.
 """
 import logging
 import time
@@ -50,6 +51,8 @@ def collecter(config: dict, contexte: Contexte) -> Resultat:
             continue
         log.info("  %s : %d offre(s) de stage ou CDD", entreprise["nom"], len(offres))
         resultat.offres.extend(offres)
+        if getattr(offres, "complete", True):  # liste entière : les offres absentes ont expiré
+            resultat.listes_completes[outil.prefixe(entreprise)] = {o.get("source_id") for o in offres}
 
     if not entreprises:
         resultat.message = "aucune entreprise suivie n'a de bloc `carrieres` dans config.yaml"

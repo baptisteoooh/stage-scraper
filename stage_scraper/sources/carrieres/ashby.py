@@ -34,6 +34,11 @@ def collecter(entreprise: dict) -> list[dict]:
     return offres
 
 
+def prefixe(entreprise: dict) -> str:
+    """Début commun des source_id de cette entreprise (sert à repérer les offres retirées)."""
+    return f"ashby:{entreprise['carrieres']['id']}:"
+
+
 def convertir(job: dict, entreprise: str, identifiant: str) -> dict:
     """Transforme une offre Ashby en offre au format commun."""
     titre = job["title"].strip()

@@ -14,7 +14,7 @@ import logging
 import sys
 from contextlib import closing
 
-from stage_scraper import collecte, db, notifications, pipeline, scoring, traitement
+from stage_scraper import collecte, db, notifications, pipeline, scoring
 from stage_scraper.config import SECRETS_ATTENDUS, charger_config, chemin_projet, secrets_manquants
 
 
@@ -54,7 +54,7 @@ def main(argv: list[str] | None = None) -> int:
             afficher_etat(conn, chemin_db)
             return 0
         if args.retraiter:
-            print(pipeline.resume_tri(traitement.traiter(conn, config, tout=True)))
+            print(pipeline.resume_tri(pipeline.retrier(conn, config)))
             return 0
         if args.noter:
             passage_id = db.nouveau_passage_id(conn)

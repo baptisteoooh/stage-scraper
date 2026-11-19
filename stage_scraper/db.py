@@ -1,10 +1,11 @@
 """Base de données SQLite : création des tables et connexion."""
+import re
 import sqlite3
 from pathlib import Path
 
 # À augmenter quand on modifie la structure des tables, en ajoutant la
 # modification correspondante dans MIGRATIONS (pour mettre à jour les bases existantes).
-VERSION_SCHEMA = 4
+VERSION_SCHEMA = 6
 
 MIGRATIONS = {
     2: [
@@ -16,6 +17,14 @@ MIGRATIONS = {
     ],
     4: [
         "ALTER TABLE candidatures ADD COLUMN lettre TEXT",
+    ],
+    5: [
+        "ALTER TABLE offres ADD COLUMN expiration TEXT",
+        "ALTER TABLE offres ADD COLUMN date_expiration TEXT",
+    ],
+    6: [
+        "ALTER TABLE offres ADD COLUMN favori INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE offres ADD COLUMN date_favori TEXT",
     ],
 }
 
@@ -89,6 +98,12 @@ CREATE TABLE IF NOT EXISTS offres (
     vue                 INTEGER NOT NULL DEFAULT 0,
     notifiee            INTEGER NOT NULL DEFAULT 0,
     pas_interesse       INTEGER NOT NULL DEFAULT 0,
+    favori              INTEGER NOT NULL DEFAULT 0,  -- offre gardée en favori (bouton ★ de l'appli)
+    date_favori         TEXT,
+
+    -- Expiration (voir expiration.py) : l'offre est masquée mais gardée en base
+    expiration          TEXT,               -- retiree, ancienne ou manuelle ; NULL si en ligne
+    date_expiration     TEXT,
 
     UNIQUE (source, source_id)
 );
@@ -142,10 +157,20 @@ def initialiser(conn: sqlite3.Connection) -> None:
     else:
         for numero in range(version + 1, VERSION_SCHEMA + 1):
             for instruction in MIGRATIONS.get(numero, []):
-                conn.execute(instruction)
+                if not _colonne_deja_la(conn, instruction):
+                    conn.execute(instruction)
         conn.executescript(SCHEMA)  # crée les éventuelles nouvelles tables ou index
     conn.execute(f"PRAGMA user_version = {VERSION_SCHEMA}")
     conn.commit()
+
+
+def _colonne_deja_la(conn: sqlite3.Connection, instruction: str) -> bool:
+    """Vrai si l'instruction ajoute une colonne qui existe déjà (migration relancée : on la saute)."""
+    trouve = re.match(r"ALTER TABLE (\w+) ADD COLUMN (\w+)", instruction)
+    if not trouve:
+        return False
+    table, colonne = trouve.groups()
+    return colonne in {ligne[1] for ligne in conn.execute(f"PRAGMA table_info({table})")}
 
 
 def nouveau_passage_id(conn: sqlite3.Connection) -> int:

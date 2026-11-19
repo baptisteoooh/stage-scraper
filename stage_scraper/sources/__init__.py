@@ -22,3 +22,11 @@ class Resultat:
     nb_requetes: int = 0
     erreurs: list[str] = field(default_factory=list)
     message: str | None = None      # info pour l'utilisateur (ex. "ignorée en passage manuel")
+    # Listes lues en entier : {préfixe de source_id: source_id vus}. Les offres connues de ce
+    # préfixe qui n'y sont plus sont marquées expirées (voir expiration.py).
+    listes_completes: dict[str, set[str]] = field(default_factory=dict)
+
+
+class ListeOffres(list):
+    """Liste d'offres qui sait si elle est complète (False si on a dû s'arrêter avant la fin)."""
+    complete: bool = True

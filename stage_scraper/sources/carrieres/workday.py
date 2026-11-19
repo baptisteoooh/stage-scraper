@@ -22,6 +22,7 @@ from urllib.parse import urlparse
 import requests
 
 from ...offre import nouvelle_offre
+from .. import ListeOffres
 from ..careerjet import html_en_texte
 from ..google_jobs import detecter_contrat
 
@@ -38,10 +39,14 @@ class ErreurWorkday(ValueError):
     """Adresse mal formée, trop de requêtes..."""
 
 
-def collecter(entreprise: dict) -> list[dict]:
+def collecter(entreprise: dict) -> ListeOffres:
+    """Les stages et CDD en France. La liste est marquée incomplète si une recherche a dépassé
+    PAGES_MAX pages ou si une fiche est illisible : on ne s'en sert alors pas pour repérer les
+    offres retirées du site."""
     api = adresse_api(entreprise["carrieres"]["url"])
     session = requests.Session()
     session.headers.update({"User-Agent": USER_AGENT, "Accept": "application/json"})
+    suivi = {"complete": True}
 
     filtres = rechercher(session, api, {}, limite=1)["facets"]
     recherches_france = recherches_en_france(filtres)
@@ -50,18 +55,18 @@ def collecter(entreprise: dict) -> list[dict]:
     contrat_par_offre = {}
     for type_contrat, valeurs in filtres_contrat(filtres).items():
         for filtre_france, mot_cle in recherches_france:
-            for job in toutes_les_offres(session, api, {**filtre_france, **valeurs}, mot_cle):
+            for job in toutes_les_offres(session, api, {**filtre_france, **valeurs}, mot_cle, suivi):
                 contrat_par_offre.setdefault(job["externalPath"], type_contrat)
 
     # Toutes les offres en France, pour rattraper les stages mal classés (repérés par leur titre).
     retenues = {}
     for filtre_france, mot_cle in recherches_france:
-        for job in toutes_les_offres(session, api, filtre_france, mot_cle):
+        for job in toutes_les_offres(session, api, filtre_france, mot_cle, suivi):
             type_contrat = contrat_par_offre.get(job["externalPath"]) or detecter_contrat(job["title"])
             if type_contrat:
                 retenues.setdefault(job["externalPath"], (job, type_contrat))
 
-    offres = []
+    offres = ListeOffres()
     for job, type_contrat in retenues.values():
         time.sleep(DELAI_SECONDES)
         try:
@@ -71,8 +76,16 @@ def collecter(entreprise: dict) -> list[dict]:
         except (requests.RequestException, ValueError, KeyError) as e:
             log.info("    fiche détaillée illisible (%s), offre gardée avec les infos de la liste", e)
             info = {}
+            suivi["complete"] = False  # son identifiant peut différer de celui des autres passages
         offres.append(convertir(job, info, type_contrat, entreprise["nom"], api))
+    offres.complete = suivi["complete"]
     return offres
+
+
+def prefixe(entreprise: dict) -> str:
+    """Début commun des source_id de cette entreprise (sert à repérer les offres retirées)."""
+    hote = urlparse(entreprise["carrieres"]["url"]).hostname or ""
+    return f"workday:{hote.split('.')[0]}:"
 
 
 def adresse_api(url: str) -> str:
@@ -96,7 +109,7 @@ def rechercher(session, api: str, filtres: dict, limite: int = PAR_PAGE, decalag
     return reponse.json()
 
 
-def toutes_les_offres(session, api: str, filtres: dict, mot_cle: str = "") -> list[dict]:
+def toutes_les_offres(session, api: str, filtres: dict, mot_cle: str = "", suivi: dict | None = None) -> list[dict]:
     offres = []
     for page in range(PAGES_MAX):
         time.sleep(DELAI_SECONDES)
@@ -104,6 +117,9 @@ def toutes_les_offres(session, api: str, filtres: dict, mot_cle: str = "") -> li
         offres.extend(donnees.get("jobPostings", []))
         if len(offres) >= (donnees.get("total") or 0) or not donnees.get("jobPostings"):
             break
+    else:  # arrêt à PAGES_MAX pages : il reste des offres non lues
+        if suivi is not None:
+            suivi["complete"] = False
     return offres
 
 

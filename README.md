@@ -13,7 +13,7 @@ Le cahier des charges complet est dans `CLAUDE.md`.
 - [ ] 5. Scraping direct LinkedIn et Indeed (mis de côté : LinkedIn l'interdit dans son robots.txt, Indeed bloque les robots avec un CAPTCHA ; on passe par leurs alertes email)
 - [x] 6. Pages carrières (Ashby et Workday ; quelques entreprises restent à brancher)
 - [x] 7. Dédoublonnage et pré-filtre
-- [x] 8. Scoring Claude (prêt ; il démarre dès que `ANTHROPIC_API_KEY` est dans `.env`)
+- [x] 8. Scoring IA (Gemini, offre gratuite ; il démarre dès que `GEMINI_API_KEY` est dans `.env`)
 - [x] 9. Appli Streamlit
 - [x] 10. Mails (prêts ; envoi désactivé tant que tu n'as pas validé l'aperçu)
 - [x] 11. Tâche planifiée Windows (scripts prêts ; à installer toi-même, une commande)
@@ -99,13 +99,13 @@ Après chaque collecte, les nouvelles offres sont triées, sans appel à l'IA :
 - **pré-filtre** : exclut d'après le titre les contrats refusés (alternance, CDI, VIE, fin d'études…), les postes non techniques et les niveaux senior ; puis les lieux hors Île-de-France, les offres trop anciennes, les durées et les dates de début hors critères (`criteres` et `exclusions` dans `config.yaml`). Une offre douteuse est gardée : l'IA tranchera. La raison de chaque exclusion est enregistrée (colonne `exclusion_prefiltre`) ;
 - **doublons** : même entreprise (alias compris), titres très proches et même région. La première offre vue reste l'originale.
 
-### Scoring IA (Claude)
+### Scoring IA (Gemini)
 
-Chaque offre gardée par le tri est notée par `claude-haiku-5-5` : note de 0 à 10, catégorie (À postuler vite ≥ 8, À regarder 5–7, Bof < 5), section (Santé, Hors santé mais intéressant, À négocier), résumé, explication, durée et date de début lues dans l'offre, raison d'exclusion éventuelle.
+Chaque offre gardée par le tri est notée par Gemini (`gemini-3.5-flash-lite`, offre gratuite de Google AI Studio ; modèle réglable dans `config.yaml > scoring.modele`) : note de 0 à 10, catégorie (À postuler vite ≥ 8, À regarder 5–7, Bof < 5), section (Santé, Hors santé mais intéressant, À négocier), résumé, explication, durée et date de début lues dans l'offre, raison d'exclusion éventuelle.
 
-- Clé : `ANTHROPIC_API_KEY` dans `.env` (à créer sur https://console.anthropic.com, rubrique API Keys). Sans clé, les offres restent en attente et seront notées au premier passage qui en dispose.
+- Clé : `GEMINI_API_KEY` dans `.env` (à créer gratuitement sur https://aistudio.google.com, bouton « Get API key », sans carte bancaire). Sans clé, les offres restent en attente et seront notées au premier passage qui en dispose.
 - Le CV (`profil/cv.pdf`) et les offres marquées « pas intéressé » (avec leur raison) sont utilisés automatiquement : l'IA note plus bas les offres qui leur ressemblent.
-- Coût : les consignes fixes sont mises en cache, seule l'offre change. Les tokens et le coût de chaque passage sont dans le journal ; le scoring s'arrête tout seul quand `scoring.budget_mensuel_usd` (2 $) est atteint dans le mois.
+- Coût : nul. L'offre gratuite limite le nombre de requêtes : les appels sont espacés (`scoring.delai_entre_appels_s`), et si le quota est atteint ou le modèle surchargé, le reste est noté au passage suivant. Les tokens de chaque passage sont dans le journal.
 
 ### Mails (alerte et récap)
 

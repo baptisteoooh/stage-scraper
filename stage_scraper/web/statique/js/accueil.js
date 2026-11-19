@@ -1,5 +1,6 @@
 // Accueil : une carte d'exemple qu'on peut vraiment glisser (offres inventées), pour comprendre le geste.
 import { Glisseur } from './swipe.js';
+import './commun.js';   // sélecteur FR · EN
 
 const EXEMPLES = [
   { entreprise: 'Aurore Santé', lieu: 'Paris 11e · Hybride', note: 9, titre: "Stage Data Scientist, détection d'anomalies sur ECG",

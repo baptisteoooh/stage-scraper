@@ -156,6 +156,10 @@ Pour l'arrêter : `Ctrl + C` dans le terminal.
 - **Assistant** : une conversation (Gemini, gratuit) sur tes offres et tes candidatures : « un stage en computer
   vision », « compare ces deux offres »… Il lit les annonces avant de répondre ; clique une offre proposée pour sa
   fiche (« Je candidate », « Pas pour moi »). « Nouvelle conversation » efface l'échange, pas les offres.
+- **FR · EN** (en bas du menu, ou en haut sur téléphone) : passe le site en anglais. Les offres, les textes de
+  l'IA et les mails restent dans leur langue. Les traductions sont dans `stage_scraper/web/statique/i18n/en.json`
+  (phrase française -> anglais ; `{}` = un morceau quelconque, `{n}` = un nombre) : ajoute-y une ligne si une phrase
+  reste en français.
 - **Journal** : crédit Claude restant, dépense du mois, et chaque scrap (clique un passage pour le détail
   source par source, erreurs comprises).
 - **Corbeille** : offres écartées par toi, par le tri, ou expirées. Rien n'est supprimé : « Remettre à trier ».

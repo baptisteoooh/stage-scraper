@@ -43,7 +43,7 @@ function dessiner({ defiler = true } = {}) {
 function message(m) {
   const bulle = h('div', { class: `bulle ${m.role === 'user' ? 'moi' : 'ia'}` },
     m.lues?.length ? h('small', { class: 'lu' }, `Lu : ${m.lues.join(' · ')}`) : null,
-    h('p', {}, texteRiche(m.texte)));
+    h('p', { translate: 'no' }, texteRiche(m.texte)));
   if (!m.offres?.length) return [bulle];
   return [bulle, h('div', { class: 'propositions' }, m.offres.map(proposition))];
 }

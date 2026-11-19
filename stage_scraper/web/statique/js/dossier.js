@@ -115,8 +115,8 @@ function panneauPreparer(manqueAnalyse, manqueLettre) {
   }, `Préparer avec l'IA (${total})`);
   return h('div', { class: 'preparer apparait' },
     h('h2', {}, manqueAnalyse ? 'Préparer la candidature' : 'Écrire la lettre'),
-    h('p', {}, `L'IA ${quoi}, à partir de ton CV et de l'offre seulement. `
-      + (manqueLettre ? 'Ensuite, tu ajustes la lettre en lui parlant (une retouche ≈ 0,1 c).' : 'Tu pourras ensuite lui poser tes questions.')),
+    h('p', {}, `L'IA ${quoi}, à partir de ton CV et de l'offre seulement.`, ' ',
+      (manqueLettre ? 'Ensuite, tu ajustes la lettre en lui parlant (une retouche ≈ 0,1 c).' : 'Tu pourras ensuite lui poser tes questions.')),
     d.claude_en_pause ? h('p', { class: 'note-ia' }, `Claude en pause (${d.claude_en_pause}) : Gemini, gratuit, prend le relais.`) : null,
     bouton, statut);
 }
@@ -155,7 +155,7 @@ function ongletLettre() {
     L.figee ? h('p', { class: 'note-ia' }, 'Candidature envoyée : la lettre gardée dans ta candidature ne change plus, même si tu modifies celle-ci.') : null,
     zone,
     L.alertes.length ? h('div', { class: 'alerte' }, h('b', {}, 'Non retrouvé dans ton CV'), ' (à vérifier ou à retirer) :',
-      h('ul', {}, L.alertes.map(a => h('li', {}, a)))) : null,
+      h('ul', { translate: 'no' }, L.alertes.map(a => h('li', {}, a)))) : null,
     h('div', { class: 'boutons-ligne' },
       h('button', { class: 'pastille', type: 'button', disabled: L.numero <= 1, onclick: () => choisirVersion(L.numero - 1) }, 'Version précédente'),
       lienTelechargement('docx', 'Télécharger (Word)'), lienTelechargement('txt', 'Texte')),
@@ -209,14 +209,14 @@ function ongletConseils() {
     (diag.conseils_cv || []).length ? h('div', { class: 'conseils' }, diag.conseils_cv.map(c => h('div', { class: 'conseil' },
       h('p', { class: 'conseil-tete' }, h('b', {}, ACTIONS_CONSEIL[c.action] || c.action), ` · ${c.section}`,
         c.a_verifier ? h('span', { class: 'a-verifier' }, 'à vérifier : source introuvable dans ton CV') : null),
-      c.avant ? h('p', { class: 'avant' }, h('span', {}, 'Avant'), h('s', {}, c.avant)) : null,
-      c.apres ? h('p', { class: 'apres' }, h('span', {}, 'Après'), h('b', {}, c.apres)) : null,
-      h('p', { class: 'pourquoi-conseil' }, c.justification || '',
+      c.avant ? h('p', { class: 'avant' }, h('span', {}, 'Avant'), h('s', { translate: 'no' }, c.avant)) : null,
+      c.apres ? h('p', { class: 'apres' }, h('span', {}, 'Après'), h('b', { translate: 'no' }, c.apres)) : null,
+      h('p', { class: 'pourquoi-conseil' }, h('span', { translate: 'no' }, c.justification || ''),
         (c.mots_cles || []).length ? ` · mots de l'offre : ${c.mots_cles.map(m => `« ${m} »`).join(', ')}` : '')))) : h('p', { class: 'aide-liste' }, 'Aucun conseil retenu.'),
     diag.conseils_ecartes ? h('p', { class: 'aide-liste' }, `${diag.conseils_ecartes} conseil(s) écarté(s) : ils citaient une ligne absente de ton CV.`) : null,
     (diag.a_apprendre || []).length ? [h('h4', {}, 'À travailler avant l\'entretien'),
       h('p', { class: 'aide-liste' }, 'Absent de ton CV : à ne pas y ajouter sans l\'avoir fait.'),
-      h('ul', { class: 'liste' }, diag.a_apprendre.map(a => h('li', {}, a)))] : null,
+      h('ul', { class: 'liste', translate: 'no' }, diag.a_apprendre.map(a => h('li', {}, a)))] : null,
   ];
 }
 
@@ -236,18 +236,18 @@ function ongletAnalyse() {
   }, "Refaire l'analyse");
   return [
     d.a_refaire ? h('p', { class: 'note-ia' }, 'Ton CV a changé depuis cette analyse : refais-la pour en tenir compte.') : null,
-    h('div', { class: 'synthese' }, h('span', { class: `adequation ${diag.adequation}` }, `Adéquation ${diag.adequation}`), h('p', {}, diag.synthese)),
+    h('div', { class: 'synthese' }, h('span', { class: `adequation ${diag.adequation}` }, `Adéquation ${diag.adequation}`), h('p', { translate: 'no' }, diag.synthese)),
     h('div', { class: 'pour-contre' },
-      h('div', {}, h('h4', {}, 'Pour'), h('ul', { class: 'liste' }, (diag.pour || []).map(p => h('li', {}, p)))),
-      h('div', {}, h('h4', {}, 'Contre'), h('ul', { class: 'liste' }, (diag.contre || []).map(p => h('li', {}, p))))),
-    (diag.alertes || []).map(a => h('div', { class: 'alerte' }, h('p', {}, a.alerte), h('p', {}, h('b', {}, 'Question à poser : '), a.question_recruteur))),
+      h('div', {}, h('h4', {}, 'Pour'), h('ul', { class: 'liste', translate: 'no' }, (diag.pour || []).map(p => h('li', {}, p)))),
+      h('div', {}, h('h4', {}, 'Contre'), h('ul', { class: 'liste', translate: 'no' }, (diag.contre || []).map(p => h('li', {}, p))))),
+    (diag.alertes || []).map(a => h('div', { class: 'alerte' }, h('p', { translate: 'no' }, a.alerte), h('p', {}, h('b', {}, 'Question à poser : '), h('span', { translate: 'no' }, a.question_recruteur)))),
     h('h4', {}, "Exigences de l'offre"),
     h('div', { class: 'exigences' }, (diag.exigences || []).map(e => {
       const [signe, cls] = COUVERTURE[e.couverture] || ['•', ''];
       return h('div', { class: 'exigence' }, h('span', { class: `signe ${cls}`, 'aria-label': e.couverture }, signe),
-        h('div', {}, h('b', {}, e.exigence), e.obligatoire ? null : h('small', {}, ' (souhaité)'),
+        h('div', {}, h('b', { translate: 'no' }, e.exigence), e.obligatoire ? null : h('small', {}, ' (souhaité)'),
           h('p', {}, e.preuve_cv ? `Ton CV : « ${e.preuve_cv} »` : `Absent de ton CV${e.preuve_retiree ? " (preuve proposée par l'IA introuvable)" : ''}`,
-            e.action && e.action !== '-' ? ` · ${e.action}` : '')));
+            e.action && e.action !== '-' ? h('span', { translate: 'no' }, ` · ${e.action}`) : '')));
     })),
     h('p', { class: 'aide-liste' }, `Analyse du ${d.date_diagnostic} (${d.modele_diagnostic}).`),
     refaire,
@@ -258,7 +258,7 @@ function ongletAnalyse() {
 
 function bulle(m) {
   return h('div', { class: `bulle ${m.role === 'user' ? 'moi' : 'ia'}` },
-    h('p', {}, texteRiche(m.texte)),
+    h('p', { translate: 'no' }, texteRiche(m.texte)),
     m.version || m.detail ? h('small', {}, [m.version ? `Lettre mise à jour (version ${m.version})` : null, m.detail].filter(Boolean).join(' · ')) : null);
 }
 

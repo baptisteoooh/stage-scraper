@@ -3,9 +3,6 @@
 body { overflow-x: hidden; overflow-y: auto; }
 
 .haut { position: fixed; top: 0; left: 0; right: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; padding: 30px clamp(16px, 4vw, 56px); }
-.langue { display: flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 999px; background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1px var(--ligne); font-size: 13px; }
-.langue button { padding: 2px 3px; color: var(--doux); }
-.langue button[aria-pressed="true"] { color: var(--texte); font-weight: 600; }
 
 .accueil {
   min-height: 100vh; max-width: 1440px; margin: 0 auto;

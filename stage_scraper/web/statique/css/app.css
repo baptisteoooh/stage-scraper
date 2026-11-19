@@ -145,3 +145,11 @@
 .saisie textarea.champ { flex: 1; resize: none; padding: 11px 13px; font-size: 14.5px; min-height: 46px; max-height: 160px; field-sizing: content; }
 @media (prefers-reduced-motion: reduce) { .bulle, .bulle.ecrit i { animation: none; } }
 @keyframes entre { from { opacity: 0; transform: translateY(10px); } }
+
+/* ---------------------------------------------------------------- langue (FR · EN) */
+.langue { display: flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 999px; background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1px var(--ligne); font-size: 13px; }
+.langue button { padding: 2px 3px; color: var(--doux); }
+.langue button[aria-pressed="true"] { color: var(--texte); font-weight: 600; }
+.langue button:hover { color: var(--texte); }
+.cote .langue { order: 10; align-self: flex-start; margin: 12px 0 0 6px; }
+@media (max-width: 900px) { .cote .langue { order: 0; margin: 0; } .cote .scrap { order: 1; } }

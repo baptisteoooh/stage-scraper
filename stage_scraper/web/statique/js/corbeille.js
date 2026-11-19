@@ -48,7 +48,7 @@ function ligne(o, i) {
   return h('div', { class: 'ligne-offre apparait', style: `--i:${Math.min(i, 14)}`, 'data-id': o.id },
     h('div', { class: 'quoi', onclick: () => ouvrir(o) },
       h('b', {}, o.titre),
-      h('span', {}, `${o.entreprise}${o.lieu ? ` · ${o.lieu}` : ''}${note} · `, h('em', {}, o.raison || ''))),
+      h('span', { translate: 'no' }, `${o.entreprise}${o.lieu ? ` · ${o.lieu}` : ''}${note} · `, h('em', {}, o.raison || ''))),
     h('div', { class: 'boutons' },
       o.remettre ? h('button', { class: 'pastille', type: 'button', onclick: (e) => remettre(o, e.currentTarget.closest('.ligne-offre')) },
         etat.cle === 'expirees' ? 'Remettre en ligne' : 'Remettre à trier') : null,

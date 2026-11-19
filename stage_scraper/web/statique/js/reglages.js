@@ -64,7 +64,7 @@ function bloc(titre, aide, ...contenu) {
 function listeMots(cle, placeholder) {
   const mots = h('div', { class: 'mots' });
   const champ = h('input', { class: 'champ ajout', type: 'text', placeholder, 'aria-label': placeholder });
-  const dessinerMots = () => mots.replaceChildren(...etat.courant[cle].map((m, i) => h('span', { class: 'mot' }, m,
+  const dessinerMots = () => mots.replaceChildren(...etat.courant[cle].map((m, i) => h('span', { class: 'mot', translate: 'no' }, m,
     h('button', {
       type: 'button', 'aria-label': `Retirer ${m}`,
       onclick: () => { changer(cle, etat.courant[cle].filter((_, j) => j !== i)); dessinerMots(); },

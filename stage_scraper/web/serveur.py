@@ -41,6 +41,7 @@ from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from . import langue
 from .. import chat_offres, claude, db, decisions, dossier, expiration, notifications, presentation, reglages, requetes, selection
 from .. import cv as module_cv
 from ..config import CHEMIN_CONFIG, charger_config, chemin_projet, secret
@@ -87,47 +88,49 @@ def connexion():
 # =========================================================================== pages
 
 @app.get("/", include_in_schema=False)
-def page_accueil():
-    return FileResponse(STATIQUE / "accueil.html")
+def page_accueil(request: Request):
+    page = (STATIQUE / "accueil.html").read_text(encoding="utf-8")
+    return HTMLResponse(langue.preparer_page(page, langue.langue_de(request)), headers={"Cache-Control": "no-cache"})
 
 
-def page_appli(nom: str) -> HTMLResponse:
+def page_appli(nom: str, request: Request | None = None) -> HTMLResponse:
     """Page de l'appli avec le menu de gauche (un seul fichier, _menu.html), la page en cours marquée."""
     page = (STATIQUE / f"{nom}.html").read_text(encoding="utf-8")
     menu = (STATIQUE / "_menu.html").read_text(encoding="utf-8")
     lien = f'<a href="/{nom}">'
     menu = menu.replace(lien, f'<a class="on" href="/{nom}" aria-current="page">')
-    return HTMLResponse(page.replace("<!-- menu -->", menu), headers={"Cache-Control": "no-cache"})
+    page = langue.preparer_page(page.replace("<!-- menu -->", menu), langue.langue_de(request))
+    return HTMLResponse(page, headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/a-trier", include_in_schema=False)
-def page_a_trier():
-    return page_appli("a-trier")
+def page_a_trier(request: Request):
+    return page_appli("a-trier", request)
 
 
 @app.get("/selection", include_in_schema=False)
-def page_selection():
-    return page_appli("selection")
+def page_selection(request: Request):
+    return page_appli("selection", request)
 
 
 @app.get("/journal", include_in_schema=False)
-def page_journal():
-    return page_appli("journal")
+def page_journal(request: Request):
+    return page_appli("journal", request)
 
 
 @app.get("/corbeille", include_in_schema=False)
-def page_corbeille():
-    return page_appli("corbeille")
+def page_corbeille(request: Request):
+    return page_appli("corbeille", request)
 
 
 @app.get("/assistant", include_in_schema=False)
-def page_assistant():
-    return page_appli("assistant")
+def page_assistant(request: Request):
+    return page_appli("assistant", request)
 
 
 @app.get("/reglages", include_in_schema=False)
-def page_reglages():
-    return page_appli("reglages")
+def page_reglages(request: Request):
+    return page_appli("reglages", request)
 
 
 # =========================================================================== mise en forme

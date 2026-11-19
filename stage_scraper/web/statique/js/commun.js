@@ -30,6 +30,18 @@ export async function api(chemin, corps) {
   return r.json();
 }
 
+// ======================================================================= langue (FR · EN)
+export const LANGUE = document.documentElement.lang === 'en' ? 'en' : 'fr';
+export const LOCALE = LANGUE === 'en' ? 'en-US' : 'fr-FR';
+document.querySelectorAll('[data-langue]').forEach((b) => {
+  b.setAttribute('aria-pressed', String(b.dataset.langue === LANGUE));
+  b.addEventListener('click', () => {
+    if (b.dataset.langue === LANGUE) return;
+    document.cookie = `langue=${b.dataset.langue}; path=/; max-age=31536000; samesite=lax`;
+    location.reload();
+  });
+});
+
 // ======================================================================= toast
 
 let minuteur = 0;
@@ -56,7 +68,7 @@ export function afficherScrap(s, ligne) {
       ligne ? h('span', { class: 'ligne' }, ligne) : '');
     return;
   }
-  zone.replaceChildren(...(s ? [h('b', {}, s.titre), s.texte] : [h('b', {}, 'Aucun scrap pour l\'instant'),
+  zone.replaceChildren(...(s ? [h('b', {}, s.titre), ...s.texte.split(/(?<=\.) (?=\p{Lu})/u).flatMap((p, i) => (i ? [' ', p] : [p]))] : [h('b', {}, 'Aucun scrap pour l\'instant'),
     'Clique sur « Lancer le scrap ».']));
 }
 
@@ -105,11 +117,11 @@ export function detailOffre(o, actions = null) {
     h('div', { class: 'puces' }, o.puces.map(p => h('span', { class: p.type }, p.texte))),
     actions,
     o.exclusion ? [h('h4', {}, "Écartée par l'IA"), h('p', { class: 'texte' }, o.exclusion)] : null,
-    o.resume ? [h('h4', {}, 'En bref'), h('p', { class: 'texte' }, o.resume)] : null,
-    o.pourquoi ? [h('h4', {}, `Pourquoi ${o.score}/10`), h('p', { class: 'texte' }, o.pourquoi)] : null,
-    o.contact ? [h('h4', {}, 'Contact'), h('p', { class: 'texte' }, o.contact)] : null,
+    o.resume ? [h('h4', {}, 'En bref'), h('p', { class: 'texte', translate: 'no' }, o.resume)] : null,
+    o.pourquoi ? [h('h4', {}, `Pourquoi ${o.score}/10`), h('p', { class: 'texte', translate: 'no' }, o.pourquoi)] : null,
+    o.contact ? [h('h4', {}, 'Contact'), h('p', { class: 'texte', translate: 'no' }, o.contact)] : null,
     h('h4', {}, o.extrait_seulement ? "Extrait de l'annonce (le site n'en donne pas plus)" : "L'annonce"),
-    h('p', { class: 'texte' }, o.description || "Pas de description : ouvre l'annonce sur le site."),
+    h('p', { class: 'texte', translate: o.description ? 'no' : null }, o.description || "Pas de description : ouvre l'annonce sur le site."),
     o.liens.length ? [h('h4', {}, 'Voir sur'), h('div', { class: 'liens' },
       o.liens.map(l => h('a', { class: 'pastille', href: l.lien, target: '_blank', rel: 'noopener' }, `${l.site} ↗`)))] : null,
   ].flat().filter(Boolean);
@@ -143,5 +155,6 @@ export function majMenu(d) {
 }
 
 export function montant(dollars, chiffres = 2) {
-  return `${dollars.toLocaleString('fr-FR', { minimumFractionDigits: chiffres, maximumFractionDigits: chiffres })} $`;
+  const n = dollars.toLocaleString(LOCALE, { minimumFractionDigits: chiffres, maximumFractionDigits: chiffres });
+  return LANGUE === 'en' ? `$${n}` : `${n} $`;
 }

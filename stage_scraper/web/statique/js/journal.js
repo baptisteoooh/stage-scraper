@@ -1,12 +1,13 @@
 // Page Journal : crédit Claude restant, coût de l'IA, et l'historique des scraps (source par source).
-import { $, h, api, toast, afficherScrap, brancherScrap, majMenu, montant } from './commun.js';
+import { LOCALE, LANGUE, $, h, api, toast, afficherScrap, brancherScrap, majMenu, montant } from './commun.js';
 
-const JOURS = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+const JOURS = new Intl.DateTimeFormat(LOCALE, { weekday: 'short', day: 'numeric', month: 'short' });
 
 function quand(texte) {
   const d = new Date(texte.replace(' ', 'T'));
   if (Number.isNaN(d.getTime())) return texte;
-  return `${JOURS.format(d)} · ${d.getHours()} h ${String(d.getMinutes()).padStart(2, '0')}`;
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${JOURS.format(d)} · ${LANGUE === 'en' ? `${d.getHours()}:${mm}` : `${d.getHours()} h ${mm}`}`;
 }
 
 function pluriel(n, mot) { return `${n} ${mot}${n > 1 ? 's' : ''}`; }
@@ -34,7 +35,7 @@ function passage(p, i) {
       h('b', {}, s.source),
       h('span', {}, s.source === 'scoring' ? `${pluriel(s.offres, 'offre')} notée${s.offres > 1 ? 's' : ''}`
         : `${s.offres} reçues, ${s.nouvelles} nouv.`),
-      s.erreur ? h('span', { class: 'err' }, s.erreur) : h('span', {}, s.cout ? montant(s.cout, 4) : '')))));
+      s.erreur ? h('span', { class: 'err', translate: 'no' }, s.erreur) : h('span', {}, s.cout ? montant(s.cout, 4) : '')))));
 }
 
 async function charger() {
@@ -46,7 +47,7 @@ async function charger() {
     h('div', { class: 'chiffres' },
       chiffre('Crédit Claude restant', montant(c.restant), `sur ${montant(c.total)} · ≈ ${pluriel(c.dossiers, 'dossier')}`, c.restant / c.total),
       chiffre('Claude ce mois-ci', montant(c.mois, 3), `plafond ${montant(c.plafond_mois)}`, c.mois / c.plafond_mois),
-      chiffre('Offres en base', d.offres_en_base.toLocaleString('fr-FR'), 'toutes sources, doublons compris')),
+      chiffre('Offres en base', d.offres_en_base.toLocaleString(LOCALE), 'toutes sources, doublons compris')),
     h('p', { class: 'explication' },
       `Claude ne sert qu'aux fiches de Ma sélection (analyse, lettre) ; le reste passe par Gemini, gratuit. Au-delà de ${montant(c.plafond_mois)} par mois `
       + `ou ${montant(c.plafond_total)} au total, Gemini prend le relais. Le solde exact est dans la console Anthropic (Billing).`),
@@ -58,7 +59,7 @@ async function charger() {
     d.appels.length ? h('details', { class: 'appels' },
       h('summary', {}, `Appels d'IA depuis l'appli (${d.appels.length} : fiches et Assistant)`),
       h('div', { class: 'sources' }, d.appels.map(a => h('div', { class: 'source' },
-        h('span', {}, quand(a.date)), h('b', {}, a.ou), h('span', { class: a.erreur ? 'err' : '' }, a.erreur || a.modele || ''),
+        h('span', {}, quand(a.date)), h('b', {}, a.ou), h('span', { class: a.erreur ? 'err' : '', translate: 'no' }, a.erreur || a.modele || ''),
         h('span', {}, montant(a.cout || 0, 4)))))) : null,
   ].filter(Boolean));
 }

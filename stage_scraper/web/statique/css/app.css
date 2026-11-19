@@ -50,6 +50,69 @@
 
 .principal { position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 
+/* ---------------------------------------------------------------- barre du haut (filtres) */
+.barre { display: flex; align-items: center; gap: 8px; padding: 22px 28px 0; }
+.sections { display: flex; gap: 6px; margin-right: auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.sections::-webkit-scrollbar { display: none; }
+.barre .pastille { flex: none; white-space: nowrap; }
+.sections .pastille small { font-size: 12px; opacity: .7; font-variant-numeric: tabular-nums; }
+
+/* ---------------------------------------------------------------- en-tête d'une offre : initiale, entreprise, note */
+.tete { display: flex; align-items: center; gap: 12px; flex: none; }
+.initiale {
+  width: 42px; height: 42px; border-radius: var(--r-carte); flex: none;
+  display: grid; place-items: center; font-family: var(--titres); font-weight: 600;
+  background: rgba(255, 255, 255, .1);
+}
+.qui { min-width: 0; }
+.qui b { display: block; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qui small { display: block; font-size: 13px; color: var(--doux); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.note { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; line-height: 1; flex: none; }
+.note small { font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--doux); margin-bottom: 6px; }
+.note b { font-family: var(--titres); font-size: 36px; font-weight: 600; letter-spacing: -.03em; color: var(--note); }
+.note b span { font-size: 16px; font-weight: 500; color: var(--doux); margin-left: 2px; letter-spacing: 0; }
+.note.attente b { font-size: 22px; color: var(--doux); }
+.puces { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 18px; flex: none; }
+.puces span { font-size: 13px; padding: 5px 11px; border-radius: 999px; background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1px var(--ligne); }
+.puces .ia { color: var(--note); box-shadow: inset 0 0 0 1px var(--note); }
+.puces .cdd { color: #F4D9A8; box-shadow: inset 0 0 0 1px rgba(244, 217, 168, .6); }
+.puces .inconnu { color: var(--faible); }
+
+/* ---------------------------------------------------------------- fiche détaillée (glisse depuis la droite) */
+.fiche {
+  position: absolute; top: 0; right: 0; bottom: 0; width: min(620px, 100%); z-index: 10;
+  display: flex; flex-direction: column;
+  background: rgba(24, 18, 34, .96);
+  -webkit-backdrop-filter: blur(30px); backdrop-filter: blur(30px);
+  box-shadow: -1px 0 0 var(--ligne), -30px 0 60px rgba(5, 3, 9, .45);
+  transform: translateX(104%); visibility: hidden;
+  transition: transform .5s var(--ressort), visibility 0s .5s;
+}
+.fiche.ouverte { transform: none; visibility: visible; transition: transform .5s var(--ressort), visibility 0s; }
+.fiche-tete { padding: 20px 24px 0; }
+.fiche-corps { flex: 1; overflow-y: auto; padding: 18px 32px 32px; overscroll-behavior: contain; }
+.fiche-corps h2 { font-family: var(--titres); font-size: 26px; font-weight: 600; line-height: 1.22; letter-spacing: -.03em; margin: 18px 0 14px; }
+.fiche-corps h4 { font-size: 12px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--faible); margin: 26px 0 8px; }
+.fiche-corps .texte { font-size: 15px; line-height: 1.65; color: #E6DFEE; white-space: pre-line; overflow-wrap: anywhere; }
+.fiche-corps .liens { display: flex; flex-wrap: wrap; gap: 8px; }
+.fiche-decisions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
+.fiche-decisions .bouton { padding: 12px 18px; }
+.fiche-decisions .non { color: var(--non); }
+
+/* ---------------------------------------------------------------- toast : raisons « pas pour moi » */
+.raisons { display: none; gap: 6px; flex-wrap: wrap; }
+.toast.avec-raisons { flex-direction: column; align-items: stretch; border-radius: var(--r-panneau); padding: 14px; gap: 10px; }
+.toast.avec-raisons .raisons { display: flex; }
+.toast .raisons button { font-weight: 500; font-size: 13px; }
+.toast .raisons button[aria-pressed="true"] { background: var(--accent); color: var(--sur-accent); }
+.toast .ligne-toast { display: flex; align-items: center; gap: 12px; }
+.toast .ligne-toast .texte { flex: 1; }
+
+@media (max-width: 700px) {
+  .barre { padding: 14px 16px 0; flex-wrap: wrap; }
+  .sections { width: 100%; margin-right: 0; }
+}
+
 @media (max-width: 900px) {
   .fenetre { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); inset: 0; border-radius: 0; }
   .principal { overflow-y: auto; }

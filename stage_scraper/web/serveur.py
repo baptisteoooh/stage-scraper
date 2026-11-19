@@ -10,9 +10,15 @@ API
 - POST /api/annuler            la décision renvoyée par /api/decision
 - POST /api/raison             {offre_id, raison} : pourquoi « pas pour moi » (facultatif)
 - POST /api/scrap  /  GET /api/scrap   lancer un scrap manuel / suivre son avancement
+- GET  /api/selection          Ma sélection : fiches rangées par étape, compteurs
+- GET  /api/selection/{id}     une fiche (dates, notes, lettre)
+- POST /api/selection/{id}/etape | /relance | /dates | /retirer   changements (renvoient un jeton d'annulation)
+- POST /api/selection/annuler  {jeton} : remet la candidature comme avant
+- POST /api/selection/nouvelle offre trouvée ailleurs
 """
 import logging
 import os
+import secrets
 import threading
 from contextlib import asynccontextmanager, closing
 from datetime import date, datetime
@@ -65,6 +71,11 @@ def page_accueil():
 @app.get("/a-trier", include_in_schema=False)
 def page_a_trier():
     return FileResponse(STATIQUE / "a-trier.html")
+
+
+@app.get("/selection", include_in_schema=False)
+def page_selection():
+    return FileResponse(STATIQUE / "selection.html")
 
 
 # =========================================================================== mise en forme
@@ -200,6 +211,172 @@ def api_raison(r: Raison):
     with connexion() as conn:
         requetes.preciser_raison(conn, r.offre_id, r.raison)
     return {"ok": True}
+
+
+# =========================================================================== API : Ma sélection
+
+ETAPES_FICHE = {"preparation": "En préparation", "envoyee": "Envoyée", "entretien": "Entretien", "terminee": "Terminée"}
+# Ce que dit le bouton de la prochaine action (selection.ACTIONS), sur la carte.
+BOUTON_ACTION = {"preparer": "Préparer", "envoyer": "Finir et envoyer", "relancer": "J'ai relancé",
+                 "entretien": "Préparer l'entretien"}
+
+# États d'avant, gardés côté serveur le temps de pouvoir annuler : la page n'envoie qu'un jeton.
+_annulations: dict[str, dict] = {}
+
+
+def _jeton(avant: dict | None) -> str | None:
+    if not avant:
+        return None
+    jeton = secrets.token_urlsafe(9)
+    _annulations[jeton] = avant
+    for vieux in list(_annulations)[:-50]:   # on ne garde que les 50 dernières
+        del _annulations[vieux]
+    return jeton
+
+
+def relance_jours() -> int:
+    return int(charger_config().get("candidatures", {}).get("relance_jours", 7))
+
+
+def fiche_carte(f: dict) -> dict:
+    """Ce que la page affiche d'une offre de la sélection."""
+    entreprise = (f["entreprise"] or "Entreprise ?").strip()
+    return {
+        "id": f["id"], "offre_id": f["offre_id"], "entreprise": entreprise,
+        "initiale": next((c for c in entreprise if c.isalnum()), "?").upper(),
+        "titre": f["titre"], "lieu": presentation.lieu_court(f["lieu"]) or "", "score": f["score"],
+        "etape": f["etape"], "statut": f["statut"], "situation": selection.situation(f),
+        "action": f["action"], "bouton": BOUTON_ACTION.get(f["action"]),
+        "a_faire": selection.ACTIONS.get(f["action"]),
+        "relance_due": f["relance_due"], "lettre_prete": f["lettre_prete"],
+        "trouvee_ailleurs": f["trouvee_ailleurs"], "lien": f["lien"],
+    }
+
+
+@app.get("/api/selection")
+def api_selection():
+    with connexion() as conn:
+        fiches = [fiche_carte(f) for f in selection.fiches(conn)]
+        nb_a_trier = len(requetes.offres_a_trier(conn))
+        scrap = requetes.dernier_scrap(conn)
+    return {"fiches": fiches, "etapes": [{"cle": k, "nom": selection.ETAPES[k][0]} for k in selection.ETAPES],
+            "a_trier": nb_a_trier, "scrap": phrase_scrap(scrap)}
+
+
+def _fiche_ou_404(conn, candidature_id: int) -> dict:
+    f = selection.fiche(conn, candidature_id)
+    if f is None:
+        raise HTTPException(404, "Cette offre n'est pas (ou plus) dans ta sélection")
+    return f
+
+
+@app.get("/api/selection/{candidature_id}")
+def api_fiche_selection(candidature_id: int):
+    with connexion() as conn:
+        f = _fiche_ou_404(conn, candidature_id)
+        o = requetes.offre(conn, f["offre_id"]) if f["offre_id"] else None
+    return {**fiche_carte(f), "puces": _puces(o) if o else [], "resume": f["resume"], "pourquoi": f["pourquoi"],
+            "description": f["description"], "notes": f["notes"] or "",
+            "date_candidature": (f["date_candidature"] or "")[:10], "date_relance": (f["date_relance"] or "")[:10],
+            "date_entretien": f["date_entretien"] or "", "lettre": f["lettre_courante"] or f.get("lettre") or "",
+            "analyse_faite": bool(f["analyse_faite"]), "relance_jours": relance_jours()}
+
+
+class Etape(BaseModel):
+    etape: str
+    resultat: str = "refus"
+
+
+class Dates(BaseModel):
+    date_candidature: str | None = None
+    date_relance: str | None = None
+    date_entretien: str | None = None
+    notes: str | None = None
+    annonce: str | None = None
+
+
+class Jeton(BaseModel):
+    jeton: str
+
+
+class Nouvelle(BaseModel):
+    entreprise: str = ""
+    poste: str = ""
+    lien: str = ""
+    lieu: str = ""
+    annonce: str = ""
+    envoyee: str | None = None   # AAAA-MM-JJ si la candidature est déjà partie
+
+
+@app.post("/api/selection/{candidature_id}/etape")
+def api_changer_etape(candidature_id: int, e: Etape):
+    if e.etape not in selection.ETAPES:
+        raise HTTPException(400, f"étape inconnue : {e.etape}")
+    with connexion() as conn:
+        _fiche_ou_404(conn, candidature_id)
+        try:
+            avant = selection.changer_etape(conn, candidature_id, e.etape, relance_jours(), e.resultat)
+        except ValueError as err:
+            raise HTTPException(400, str(err)) from err
+    return {"jeton": _jeton(avant)}
+
+
+@app.post("/api/selection/{candidature_id}/relance")
+def api_relance(candidature_id: int):
+    with connexion() as conn:
+        _fiche_ou_404(conn, candidature_id)
+        return {"jeton": _jeton(selection.noter_relance(conn, candidature_id, relance_jours()))}
+
+
+@app.post("/api/selection/{candidature_id}/dates")
+def api_dates(candidature_id: int, d: Dates):
+    """Dates, notes, et texte de l'annonce d'une offre trouvée ailleurs : seuls les champs envoyés changent."""
+    champs = d.model_dump(exclude_unset=True)
+    with connexion() as conn:
+        f = _fiche_ou_404(conn, candidature_id)
+        avant = requetes.candidature(conn, candidature_id)
+        if "annonce" in champs:
+            requetes.completer_annonce(conn, f["offre_id"], champs.pop("annonce"))
+        if champs.get("date_entretien") and f["etape"] != "entretien":
+            selection.changer_etape(conn, candidature_id, "entretien", relance_jours())
+        if champs:
+            requetes.modifier_candidature(conn, candidature_id, **champs)
+    return {"jeton": _jeton(avant)}
+
+
+@app.post("/api/selection/{candidature_id}/retirer")
+def api_retirer(candidature_id: int):
+    with connexion() as conn:
+        _fiche_ou_404(conn, candidature_id)
+        return {"jeton": _jeton(selection.retirer(conn, candidature_id))}
+
+
+@app.post("/api/selection/annuler")
+def api_annuler_selection(j: Jeton):
+    avant = _annulations.pop(j.jeton, None)
+    if avant is None:
+        raise HTTPException(410, "Trop tard pour annuler")
+    with connexion() as conn:
+        selection.annuler(conn, avant)
+    return {"ok": True}
+
+
+@app.post("/api/selection/nouvelle")
+def api_nouvelle(n: Nouvelle):
+    if not (n.entreprise.strip() or n.poste.strip()):
+        raise HTTPException(400, "Indique au moins l'entreprise ou le poste.")
+    envoyee = None
+    if n.envoyee:
+        try:
+            envoyee = date.fromisoformat(n.envoyee)
+        except ValueError as err:
+            raise HTTPException(400, "Date d'envoi invalide") from err
+    with connexion() as conn:
+        identifiant = requetes.ajouter_a_la_main(
+            conn, n.entreprise.strip() or None, n.poste.strip() or None, n.lien.strip() or None,
+            "postulé" if envoyee else "à postuler", None, envoyee, relance_jours(),
+            description=n.annonce, lieu=n.lieu.strip() or None)
+    return {"id": identifiant}
 
 
 # =========================================================================== API : scrap

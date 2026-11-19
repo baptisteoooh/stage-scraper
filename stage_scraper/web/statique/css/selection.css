@@ -1,0 +1,114 @@
+/* Page Ma sélection : les offres gardées, rangées par étape, et leur fiche de suivi. */
+
+.sections .pastille .point { width: 7px; height: 7px; border-radius: 50%; background: var(--lavande); margin-left: -2px; }
+.sections .pastille[aria-pressed="true"] .point { background: var(--sur-accent); }
+
+/* ---------------------------------------------------------------- grille des fiches */
+.dossiers {
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); align-content: start; gap: 16px;
+  padding: 4px 28px 28px;
+}
+.dossier {
+  position: relative; display: flex; flex-direction: column; min-height: 214px;
+  padding: 20px 22px 18px; border-radius: var(--r-carte); text-align: left; cursor: pointer;
+  background: var(--verre-fort);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), inset 0 0 0 1px var(--ligne), 0 14px 34px rgba(5, 3, 9, .3);
+  transition: transform .35s var(--ressort), box-shadow .25s;
+  animation: entre .5s var(--sortie) both; animation-delay: calc(var(--i, 0) * 40ms);
+}
+.dossier:hover { transform: translateY(-3px); box-shadow: inset 0 0 0 1.5px rgba(205, 184, 232, .75), 0 22px 44px rgba(5, 3, 9, .42); }
+.dossier:active { transform: translateY(-1px) scale(.99); }
+.dossier:focus-visible { outline-offset: 2px; }
+@keyframes entre { from { opacity: 0; transform: translateY(14px) scale(.98); } }
+
+.dossier .initiale { width: 36px; height: 36px; font-size: 14px; }
+.dossier .note b { font-size: 24px; }
+.dossier .note b span { font-size: 13px; }
+.dossier h3 {
+  font-family: var(--titres); font-size: 18px; font-weight: 600; line-height: 1.28; letter-spacing: -.02em;
+  margin: 16px 0 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.dossier .situation { font-size: 13.5px; line-height: 1.45; color: var(--doux); }
+.dossier .bas { margin-top: auto; padding-top: 16px; display: flex; align-items: center; gap: 10px; min-height: 52px; }
+.a-faire {
+  display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 500;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--lavande);
+}
+.a-faire::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.a-faire.urgent { color: #F4D9A8; }
+.dossier .agir {
+  margin-left: auto; padding: 9px 15px; border-radius: 999px; font-size: 13.5px; font-weight: 600;
+  background: var(--accent); color: var(--sur-accent); white-space: nowrap;
+  transition: background-color .2s, transform .18s var(--sortie);
+}
+.dossier .agir:hover { background: #fff; }
+.dossier .agir:active { transform: scale(.96); }
+.dossier .ouvrir { margin-left: auto; font-size: 13.5px; font-weight: 500; color: var(--doux); }
+.dossier:hover .ouvrir { color: var(--texte); }
+.dossier .ailleurs { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--faible); }
+
+/* La fiche qui quitte la grille (changement d'étape, retrait) */
+.dossier.part { animation: part .32s var(--sortie) forwards; pointer-events: none; }
+@keyframes part { to { opacity: 0; transform: scale(.94); } }
+
+.rien {
+  grid-column: 1 / -1; align-self: center; justify-self: center; max-width: 420px; text-align: center;
+  padding: 80px 16px; animation: apparait .5s var(--sortie);
+}
+.rien h3 { font-family: var(--titres); font-size: 24px; font-weight: 600; letter-spacing: -.03em; margin-bottom: 10px; }
+.rien p { color: var(--doux); line-height: 1.55; }
+.rien .bouton { margin-top: 18px; }
+@keyframes apparait { from { opacity: 0; transform: translateY(12px); } }
+
+/* ---------------------------------------------------------------- fiche de suivi */
+.etapes-fiche { display: flex; flex-wrap: wrap; gap: 6px; }
+.etapes-fiche .pastille { padding: 8px 14px; }
+.situation-fiche { margin-top: 12px; font-size: 14px; color: var(--doux); }
+.boutons-fiche { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.boutons-fiche .bouton { padding: 11px 18px; font-size: 14px; }
+
+.dates { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.dates label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--doux); }
+.dates .champ, .fiche-corps textarea.champ { padding: 11px 13px; font-size: 14.5px; }
+.fiche-corps textarea.champ { min-height: 120px; resize: vertical; line-height: 1.55; }
+input[type="date"].champ, input[type="datetime-local"].champ { color-scheme: dark; }
+.garde { font-size: 12px; color: var(--oui); opacity: 0; transition: opacity .3s; margin-left: 8px; text-transform: none; letter-spacing: 0; }
+.garde.visible { opacity: 1; }
+
+.fiche-corps details { margin-top: 26px; border-top: 1px solid var(--ligne); padding-top: 14px; }
+.fiche-corps summary {
+  cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between;
+  font-size: 12px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--faible);
+}
+.fiche-corps summary::-webkit-details-marker { display: none; }
+.fiche-corps summary::after { content: "+"; font-size: 18px; transition: transform .3s var(--sortie); }
+.fiche-corps details[open] summary::after { transform: rotate(45deg); }
+.fiche-corps details .texte { margin-top: 12px; }
+.encart {
+  margin-top: 26px; padding: 14px 16px; border-radius: var(--r-carte); font-size: 14px; line-height: 1.55; color: var(--doux);
+  background: rgba(255, 255, 255, .05); box-shadow: inset 0 0 0 1px var(--ligne);
+}
+.retirer { margin-top: 30px; font-size: 14px; color: var(--non); padding: 8px 0; }
+.retirer:hover { text-decoration: underline; text-underline-offset: 4px; }
+
+/* Formulaire « offre trouvée ailleurs » */
+.formulaire { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.formulaire .deux { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.formulaire label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--doux); }
+.formulaire .case { flex-direction: row; align-items: center; gap: 10px; font-size: 14px; color: var(--texte); cursor: pointer; }
+.formulaire .case input { width: 18px; height: 18px; accent-color: var(--lavande); }
+.formulaire .erreur { color: var(--non); font-size: 14px; min-height: 20px; }
+.formulaire .bouton { margin-top: 6px; }
+
+@media (max-width: 700px) {
+  .dossiers { padding: 4px 16px 24px; grid-template-columns: 1fr; }
+  .formulaire .deux { grid-template-columns: 1fr; }
+  #nouvelle span { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dossier, .dossier.part { animation: none; }
+}
+
+.compte { padding: 14px 28px 12px; font-size: 13px; color: var(--doux); letter-spacing: .03em; min-height: 45px; font-variant-numeric: tabular-nums; }
+@media (max-width: 700px) { .compte { padding: 12px 16px 10px; } }

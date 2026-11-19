@@ -145,8 +145,12 @@ Pour l'arrêter : `Ctrl + C` dans le terminal.
   **à gauche** (Pas pour moi) ou **vers le haut** (Plus tard). Un geste vif suffit, même court. Mêmes décisions
   avec les boutons ronds ou le clavier (← → ↑) ; **Ctrl+Z** annule. « Détails » (ou Entrée) ouvre l'annonce complète.
   Filtres en haut : Santé / Hors santé / À négocier / Plus tard, tri, offres « Bof » (moins de 5/10), recherche.
-- Ma sélection, Assistant, Réglages, Journal et Corbeille arrivent ensuite : en attendant, ils restent dans
-  l'appli Streamlit ci-dessous (les deux utilisent la même base).
+- **Ma sélection** : les offres gardées, rangées par étape (En préparation, Envoyées, Entretien, Terminées).
+  Une fiche par offre : changer d'étape (« C'est envoyé », « J'ai relancé »), dates, notes (gardées toutes seules),
+  « Retirer de ma sélection ». Chaque changement s'annule depuis le message en bas. **Offre trouvée ailleurs**
+  ajoute une offre vue hors de l'outil.
+- L'analyse face au CV, les conseils, la lettre, l'Assistant, les Réglages, le Journal et la Corbeille arrivent
+  ensuite : en attendant, ils restent dans l'appli Streamlit ci-dessous (les deux utilisent la même base).
 
 Pour essayer sans toucher à tes offres : copie `data\stages.db`, puis
 `set STAGE_SCRAPER_BASE=chemin\de\la\copie.db` (CMD) ou `$env:STAGE_SCRAPER_BASE="chemin\de\la\copie.db"`

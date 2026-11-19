@@ -1,21 +1,7 @@
 // Page À trier : le paquet de cartes, les filtres, les décisions (geste, boutons, clavier), l'annulation,
 // la fiche détaillée et le scrap manuel.
 import { Glisseur } from './swipe.js';
-
-const $ = (sel) => document.querySelector(sel);
-
-// Petit constructeur d'éléments : le texte des offres passe toujours par textContent (jamais de HTML).
-function h(tag, attrs = {}, ...enfants) {
-  const el = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
-    if (v === null || v === undefined || v === false) continue;
-    if (k === 'class') el.className = v;
-    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
-    else el.setAttribute(k, v === true ? '' : v);
-  }
-  for (const e of enfants.flat()) if (e !== null && e !== undefined && e !== false) el.append(e);
-  return el;
-}
+import { $, h, api, toast, cacherToast, afficherScrap, brancherScrap } from './commun.js';
 
 const SECTIONS = [
   { cle: 'toutes', nom: 'Toutes' },
@@ -42,14 +28,6 @@ const etat = {
 };
 
 // ======================================================================= données
-
-async function api(chemin, corps) {
-  const r = await fetch(chemin, corps === undefined ? {} : {
-    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(corps),
-  });
-  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
-  return r.json();
-}
 
 async function charger() {
   const d = await api('/api/a-trier');
@@ -158,7 +136,7 @@ function messageVide() {
     h('p', {}, 'Plus aucune offre à trier ici.'));
   return h('div', { class: 'vide' }, h('h3', {}, 'Tout est trié'),
     h('p', {}, 'Les nouvelles offres arrivent tous les jours à 8 h, ou quand tu lances un scrap.'),
-    h('button', { class: 'bouton principal', type: 'button', onclick: lancerScrap }, 'Lancer le scrap'));
+    h('button', { class: 'bouton principal', type: 'button', onclick: () => $('#scrap').click() }, 'Lancer le scrap'));
 }
 
 function carteDessus() { return $('#pile .carte.pos0'); }
@@ -283,21 +261,6 @@ async function annulerDerniere() {
 
 // ======================================================================= toast
 
-let minuteur = 0;
-function toast(texte, boutons = [], { raisons = null, duree = 5000 } = {}) {
-  const t = $('#toast');
-  clearTimeout(minuteur);
-  t.classList.toggle('avec-raisons', !!raisons);
-  const ligne = h('div', { class: 'ligne-toast' }, h('span', { class: 'texte' }, texte), boutons);
-  t.replaceChildren(ligne, raisons || '');
-  t.classList.add('visible');
-  const programmer = () => { minuteur = setTimeout(cacherToast, duree); };
-  t.onmouseenter = () => clearTimeout(minuteur);
-  t.onmouseleave = programmer;
-  programmer();
-}
-function cacherToast() { $('#toast').classList.remove('visible'); }
-
 function toastDecision(decision, o) {
   const boutons = [h('button', { type: 'button', onclick: annulerDerniere }, 'Annuler')];
   const nom = o.entreprise ? `${o.entreprise} : ` : '';
@@ -369,45 +332,17 @@ function fermerFiche() {
 
 // ======================================================================= scrap
 
-function afficherScrap(s, ligne) {
-  const zone = $('#dernier');
-  if (ligne !== undefined) {
-    zone.replaceChildren(h('b', {}, 'Scrap en cours…'), 'Quelques minutes : tu peux continuer à trier.',
-      ligne ? h('span', { class: 'ligne' }, ligne) : '');
-    return;
-  }
-  zone.replaceChildren(...(s ? [h('b', {}, s.titre), s.texte] : [h('b', {}, 'Aucun scrap pour l\'instant'),
-    'Clique sur « Lancer le scrap ».']));
-}
-
-async function lancerScrap() {
-  const bouton = $('#scrap');
-  if (bouton.getAttribute('aria-busy') === 'true') return;
-  bouton.setAttribute('aria-busy', 'true');
-  bouton.querySelector('span').textContent = 'Scrap en cours…';
+async function apresScrap(s) {
   const avant = new Set(etat.toutes.map(o => o.id));
-  try { await api('/api/scrap', {}); } catch (e) {
-    bouton.removeAttribute('aria-busy'); bouton.querySelector('span').textContent = 'Lancer le scrap';
-    toast("Le scrap n'a pas pu démarrer."); return;
-  }
-  afficherScrap(null, '');
-  const suivre = async () => {
-    let s;
-    try { s = await api('/api/scrap'); } catch { setTimeout(suivre, 3000); return; }
-    if (s.en_cours) { afficherScrap(null, s.derniere_ligne || ''); setTimeout(suivre, 2000); return; }
-    bouton.removeAttribute('aria-busy');
-    bouton.querySelector('span').textContent = 'Lancer le scrap';
-    const ancienDessus = carteDessus()?.dataset.id;
-    const d = await api('/api/a-trier');
-    etat.toutes = d.offres;
-    afficherScrap(d.scrap);
-    const nouvelles = d.offres.filter(o => !avant.has(o.id)).length;
-    if (!carteDessus() || visibles()[0]?.id !== Number(ancienDessus)) rafraichir(); else { dessinerBarre(); majCompte(); }
-    toast(s.erreur ? `Le scrap a planté : ${s.erreur}`
-      : nouvelles ? `Scrap terminé : ${nouvelles} nouvelle${nouvelles > 1 ? 's' : ''} offre${nouvelles > 1 ? 's' : ''} à trier.`
-        : 'Scrap terminé : pas de nouvelle offre.');
-  };
-  setTimeout(suivre, 1500);
+  const ancienDessus = carteDessus()?.dataset.id;
+  const d = await api('/api/a-trier');
+  etat.toutes = d.offres;
+  afficherScrap(d.scrap);
+  const nouvelles = d.offres.filter(o => !avant.has(o.id)).length;
+  if (!carteDessus() || visibles()[0]?.id !== Number(ancienDessus)) rafraichir(); else { dessinerBarre(); majCompte(); }
+  toast(s.erreur ? `Le scrap a planté : ${s.erreur}`
+    : nouvelles ? `Scrap terminé : ${nouvelles} nouvelle${nouvelles > 1 ? 's' : ''} offre${nouvelles > 1 ? 's' : ''} à trier.`
+      : 'Scrap terminé : pas de nouvelle offre.');
 }
 
 // ======================================================================= branchements
@@ -419,7 +354,7 @@ function brancher() {
   $('#fleche-oui').addEventListener('click', () => decider('droite'));
   $('#fleche-non').addEventListener('click', () => decider('gauche'));
   $('#fiche-fermer').addEventListener('click', fermerFiche);
-  $('#scrap').addEventListener('click', lancerScrap);
+  brancherScrap(apresScrap);
   $('#tri').addEventListener('click', () => { etat.tri = etat.tri === 'note' ? 'recentes' : 'note'; rafraichir(); });
   $('#bof').addEventListener('click', () => { etat.bof = !etat.bof; rafraichir(); });
   let attente = 0;

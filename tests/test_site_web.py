@@ -89,3 +89,49 @@ def test_phrase_scrap():
     assert p["titre"] == "Dernier scrap aujourd'hui à 8 h 02"
     assert p["texte"] == "12 nouvelles offres, dont 1 notée 8 ou plus. En erreur : careerjet."
     assert serveur.phrase_scrap(None) is None
+
+
+def test_ma_selection(client):
+    oui = client.post("/api/decision", json={"offre_id": 1, "action": "candidate"}).json()
+    d = client.get("/api/selection").json()
+    assert [e["cle"] for e in d["etapes"]] == ["preparation", "envoyee", "entretien", "terminee"]
+    (f,) = d["fiches"]
+    assert (f["id"], f["entreprise"], f["etape"], f["action"], f["bouton"]) == (
+        oui["candidature_id"], "Doctolib", "preparation", "preparer", "Préparer")
+    assert d["a_trier"] == 2
+    cid = f["id"]
+
+    # notes gardées, puis « C'est envoyé » et annulation
+    assert client.post(f"/api/selection/{cid}/dates", json={"notes": "Contact : RH"}).status_code == 200
+    jeton = client.post(f"/api/selection/{cid}/etape", json={"etape": "envoyee"}).json()["jeton"]
+    fiche = client.get(f"/api/selection/{cid}").json()
+    assert fiche["etape"] == "envoyee" and fiche["notes"] == "Contact : RH" and fiche["date_relance"]
+    assert client.post("/api/selection/annuler", json={"jeton": jeton}).json() == {"ok": True}
+    assert client.get(f"/api/selection/{cid}").json()["etape"] == "preparation"
+    assert client.post("/api/selection/annuler", json={"jeton": jeton}).status_code == 410   # une seule fois
+
+    # une date d'entretien range l'offre dans « Entretien »
+    client.post(f"/api/selection/{cid}/dates", json={"date_entretien": "2026-11-26 14:00"})
+    assert client.get(f"/api/selection/{cid}").json()["etape"] == "entretien"
+
+    # terminée : refus ou acceptation
+    assert client.post(f"/api/selection/{cid}/etape", json={"etape": "terminee", "resultat": "nimporte"}).status_code == 400
+    client.post(f"/api/selection/{cid}/etape", json={"etape": "terminee", "resultat": "accepté"})
+    assert client.get(f"/api/selection/{cid}").json()["statut"] == "accepté"
+
+    # retirer, puis annuler
+    jeton = client.post(f"/api/selection/{cid}/retirer").json()["jeton"]
+    assert client.get(f"/api/selection/{cid}").status_code == 404
+    client.post("/api/selection/annuler", json={"jeton": jeton})
+    assert client.get(f"/api/selection/{cid}").status_code == 200
+
+
+def test_offre_trouvee_ailleurs(client):
+    assert client.post("/api/selection/nouvelle", json={}).status_code == 400
+    cid = client.post("/api/selection/nouvelle", json={"entreprise": "Lifen", "poste": "Stage data",
+                                                       "envoyee": "2026-11-10"}).json()["id"]
+    f = client.get(f"/api/selection/{cid}").json()
+    assert (f["trouvee_ailleurs"], f["etape"], f["date_candidature"]) == (True, "envoyee", "2026-11-10")
+    client.post(f"/api/selection/{cid}/dates", json={"annonce": "Texte collé"})
+    assert client.get(f"/api/selection/{cid}").json()["description"] == "Texte collé"
+    assert client.get("/selection").status_code == 200

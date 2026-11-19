@@ -23,3 +23,6 @@ exports/
 
 # Copie de sécurité écrite par la page Réglages
 config.yaml.bak
+
+# Dossier de dépôt du CV et du modèle de lettre (données personnelles)
+CV & lettre de motivation template/

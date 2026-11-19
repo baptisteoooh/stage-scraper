@@ -8,7 +8,8 @@ from datetime import datetime
 from . import db
 from .config import secret
 from .prefiltre import entreprise_suivie
-from .scoring import LONGUEUR_DESCRIPTION_MAX, ajouter_usage, charger_cv, cout_du_mois
+from .cv import texte_cv
+from .scoring import LONGUEUR_DESCRIPTION_MAX, ajouter_usage, cout_du_mois
 
 
 class LettreImpossible(Exception):
@@ -60,8 +61,7 @@ def message_offre(offre: dict, config: dict, consignes: str, cv: str | None):
         lignes += ["", f"Consignes de l'étudiant pour cette lettre : {consignes.strip()}"]
     texte = "\n".join(lignes)
     if cv:
-        return [{"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": cv}},
-                {"type": "text", "text": texte}]
+        return f"CV de l'étudiant (coordonnées retirées) :\n<cv>\n{cv}\n</cv>\n\n{texte}"
     return texte
 
 
@@ -78,7 +78,7 @@ def rediger(conn, config: dict, offre: dict, consignes: str = "", client=None) -
         import anthropic
         client = anthropic.Anthropic()
 
-    cv = charger_cv(config)
+    cv = texte_cv(config)
     bilan = {"texte": "", "cout_usd": 0.0, "tokens_entree": 0, "tokens_sortie": 0}
     debut, erreur = _maintenant(), None
     try:

@@ -57,6 +57,12 @@
 .barre .pastille { flex: none; white-space: nowrap; }
 .sections .pastille small { font-size: 12px; opacity: .7; font-variant-numeric: tabular-nums; }
 
+.recherche { padding: 0 6px 0 12px; cursor: text; }
+.recherche input { width: 98px; padding: 9px 4px; border: 0; background: none; font-size: 14px; transition: width .35s var(--sortie); }
+.recherche input::placeholder { color: var(--texte); opacity: .9; }
+.recherche input:focus, .recherche input:not(:placeholder-shown) { outline: none; width: 190px; }
+.recherche:focus-within { box-shadow: inset 0 0 0 1.5px var(--lavande); }
+
 /* ---------------------------------------------------------------- en-tête d'une offre : initiale, entreprise, note */
 .tete { display: flex; align-items: center; gap: 12px; flex: none; }
 .initiale {

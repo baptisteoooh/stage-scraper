@@ -15,6 +15,9 @@ API
 - POST /api/selection/{id}/etape | /relance | /dates | /retirer   changements (renvoient un jeton d'annulation)
 - POST /api/selection/annuler  {jeton} : remet la candidature comme avant
 - POST /api/selection/nouvelle offre trouvée ailleurs
+- GET  /api/journal            passages (scraps), coût de l'IA, crédit Claude restant
+- GET  /api/corbeille          offres écartées (par BAP, par le tri) et expirées
+- POST /api/corbeille/remettre {offre_id, liste} : remet une offre dans À trier
 """
 import logging
 import os
@@ -25,11 +28,11 @@ from datetime import date, datetime
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .. import db, decisions, presentation, requetes, selection
+from .. import claude, db, decisions, expiration, presentation, requetes, selection
 from ..config import charger_config, chemin_projet, secret
 
 STATIQUE = Path(__file__).parent / "statique"
@@ -68,14 +71,33 @@ def page_accueil():
     return FileResponse(STATIQUE / "accueil.html")
 
 
+def page_appli(nom: str) -> HTMLResponse:
+    """Page de l'appli avec le menu de gauche (un seul fichier, _menu.html), la page en cours marquée."""
+    page = (STATIQUE / f"{nom}.html").read_text(encoding="utf-8")
+    menu = (STATIQUE / "_menu.html").read_text(encoding="utf-8")
+    lien = f'<a href="/{nom}">'
+    menu = menu.replace(lien, f'<a class="on" href="/{nom}" aria-current="page">')
+    return HTMLResponse(page.replace("<!-- menu -->", menu), headers={"Cache-Control": "no-cache"})
+
+
 @app.get("/a-trier", include_in_schema=False)
 def page_a_trier():
-    return FileResponse(STATIQUE / "a-trier.html")
+    return page_appli("a-trier")
 
 
 @app.get("/selection", include_in_schema=False)
 def page_selection():
-    return FileResponse(STATIQUE / "selection.html")
+    return page_appli("selection")
+
+
+@app.get("/journal", include_in_schema=False)
+def page_journal():
+    return page_appli("journal")
+
+
+@app.get("/corbeille", include_in_schema=False)
+def page_corbeille():
+    return page_appli("corbeille")
 
 
 # =========================================================================== mise en forme
@@ -257,10 +279,10 @@ def fiche_carte(f: dict) -> dict:
 def api_selection():
     with connexion() as conn:
         fiches = [fiche_carte(f) for f in selection.fiches(conn)]
-        nb_a_trier = len(requetes.offres_a_trier(conn))
+        a_trier = nb_a_trier(conn)
         scrap = requetes.dernier_scrap(conn)
     return {"fiches": fiches, "etapes": [{"cle": k, "nom": selection.ETAPES[k][0]} for k in selection.ETAPES],
-            "a_trier": nb_a_trier, "scrap": phrase_scrap(scrap)}
+            "a_trier": a_trier, "scrap": phrase_scrap(scrap)}
 
 
 def _fiche_ou_404(conn, candidature_id: int) -> dict:
@@ -377,6 +399,109 @@ def api_nouvelle(n: Nouvelle):
             "postulé" if envoyee else "à postuler", None, envoyee, relance_jours(),
             description=n.annonce, lieu=n.lieu.strip() or None)
     return {"id": identifiant}
+
+
+# =========================================================================== API : journal et corbeille
+
+COUT_DOSSIER = 0.08   # ~8 centimes par dossier Claude (analyse + lettre + quelques retouches)
+MAX_CORBEILLE = 400   # au-delà, la page proposerait trop de lignes d'un coup
+
+
+def nb_a_trier(conn) -> int:
+    """Le nombre affiché à côté de « À trier » : comme la page, sans les « Bof » ni les « Plus tard »."""
+    return sum(1 for o in requetes.offres_a_trier(conn)
+               if not o["favori"] and (o["score"] is None or o["score"] >= SEUIL_BOF))
+
+
+def _menu(conn) -> dict:
+    """Compteurs du menu de gauche et dernier scrap, communs à toutes les pages."""
+    return {"a_trier": nb_a_trier(conn), "selection": len(selection.fiches(conn)),
+            "scrap": phrase_scrap(requetes.dernier_scrap(conn))}
+
+
+@app.get("/api/journal")
+def api_journal():
+    config = charger_config()
+    with connexion() as conn:
+        r, d = claude.reglages(config), claude.depenses(conn, config)
+        passages = requetes.passages(conn)
+        details: dict[int, list[dict]] = {}
+        if passages:
+            ids = [p["passage_id"] for p in passages]
+            for l in conn.execute(
+                    f"SELECT passage_id, source, nb_offres, nb_nouvelles, erreurs, cout_usd FROM runs "
+                    f"WHERE passage_id IN ({', '.join('?' * len(ids))}) AND source NOT IN "
+                    f"({', '.join('?' * len(requetes.APPELS_IA))}) ORDER BY id", (*ids, *requetes.APPELS_IA)):
+                details.setdefault(l["passage_id"], []).append(dict(l))
+        appels = requetes.appels_ia(conn)
+        total_offres = requetes.statistiques(conn)["total"]
+        menu = _menu(conn)
+    restant = max(r["credit_usd"] - d["total"], 0)
+    return {
+        **menu,
+        "credit": {"total": r["credit_usd"], "depense": d["total"], "restant": restant, "mois": d["mois"],
+                   "plafond_mois": r["plafond_mensuel_usd"], "plafond_total": r["plafond_total_usd"],
+                   "dossiers": int(restant / COUT_DOSSIER)},
+        "offres_en_base": total_offres,
+        "passages": [{
+            "id": p["passage_id"], "date": p["date"][:16], "auto": p["auto"], "trouvees": p["trouvees"],
+            "nouvelles": p["nouvelles"], "gardees": p["gardees"], "top": p["top"], "notees": p["notees"],
+            "cout": p["cout_usd"], "erreurs": p["erreurs"],
+            "sources": [{"source": x["source"], "offres": x["nb_offres"], "nouvelles": x["nb_nouvelles"],
+                         "erreur": x["erreurs"], "cout": x["cout_usd"]} for x in details.get(p["passage_id"], [])],
+        } for p in passages],
+        "appels": [{"date": (a["date_debut"] or "")[:16], "ou": "Assistant" if a["source"] == "chat" else "Fiche",
+                    "modele": a["modele"], "cout": a["cout_usd"], "erreur": a["erreurs"]} for a in appels],
+    }
+
+
+def _ligne_corbeille(o: dict, raison: str | None, remettre: bool) -> dict:
+    return {"id": o["id"], "titre": o["titre"], "entreprise": o.get("entreprise") or "Entreprise ?",
+            "lieu": presentation.lieu_court(o.get("lieu")) or "", "score": o.get("score"),
+            "raison": raison, "lien": o.get("lien"), "remettre": remettre}
+
+
+@app.get("/api/corbeille")
+def api_corbeille():
+    with connexion() as conn:
+        toi = requetes.offres_pas_interesse(conn)
+        tri = requetes.offres_exclues(conn)
+        expirees = expiration.expirees(conn)
+        menu = _menu(conn)
+    return {
+        **menu,
+        "listes": [
+            {"cle": "toi", "nom": "Écartées par toi", "total": len(toi),
+             "aide": "Rien n'est supprimé : tu peux remettre une offre dans À trier.",
+             "offres": [_ligne_corbeille(o, o["raison"] or "Sans raison", True) for o in toi[:MAX_CORBEILLE]]},
+            {"cle": "tri", "nom": "Écartées par le tri", "total": len(tri),
+             "aide": "Écartées automatiquement (contrat, poste non technique, durée, lieu…) ou par l'IA. "
+                     "Pour changer ce qui est écarté : Réglages › Critères.",
+             "offres": [_ligne_corbeille(o, o["exclusion_prefiltre"] or o["exclusion_ia"], False)
+                        for o in tri[:MAX_CORBEILLE]]},
+            {"cle": "expirees", "nom": "Expirées", "total": len(expirees),
+             "aide": "Plus en ligne, ou trop anciennes. Une offre signalée expirée à la main peut revenir.",
+             "offres": [_ligne_corbeille(o, expiration.raison(o), o["expiration"] == "manuelle")
+                        for o in expirees[:MAX_CORBEILLE]]},
+        ],
+    }
+
+
+class Remise(BaseModel):
+    offre_id: int
+    liste: str
+
+
+@app.post("/api/corbeille/remettre")
+def api_remettre(r: Remise):
+    with connexion() as conn:
+        if r.liste == "toi":
+            requetes.annuler_pas_interesse(conn, r.offre_id)
+        elif r.liste == "expirees":
+            expiration.annuler(conn, r.offre_id)
+        else:
+            raise HTTPException(400, "Les offres écartées par le tri se règlent dans Réglages › Critères.")
+    return {"ok": True}
 
 
 # =========================================================================== API : scrap

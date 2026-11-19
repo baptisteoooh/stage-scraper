@@ -98,7 +98,7 @@ def test_ma_selection(client):
     (f,) = d["fiches"]
     assert (f["id"], f["entreprise"], f["etape"], f["action"], f["bouton"]) == (
         oui["candidature_id"], "Doctolib", "preparation", "preparer", "Préparer")
-    assert d["a_trier"] == 2
+    assert d["a_trier"] == 1   # Owkin ; Acme (3/10) est « Bof »
     cid = f["id"]
 
     # notes gardées, puis « C'est envoyé » et annulation
@@ -135,3 +135,18 @@ def test_offre_trouvee_ailleurs(client):
     client.post(f"/api/selection/{cid}/dates", json={"annonce": "Texte collé"})
     assert client.get(f"/api/selection/{cid}").json()["description"] == "Texte collé"
     assert client.get("/selection").status_code == 200
+
+
+def test_journal_et_corbeille(client):
+    j = client.get("/api/journal").json()
+    assert j["credit"]["total"] > 0 and j["offres_en_base"] == 3 and j["a_trier"] == 2
+    client.post("/api/decision", json={"offre_id": 2, "action": "ecarte"})
+    c = client.get("/api/corbeille").json()
+    toi = next(l for l in c["listes"] if l["cle"] == "toi")
+    assert [o["id"] for o in toi["offres"]] == [2] and toi["offres"][0]["remettre"]
+    assert client.post("/api/corbeille/remettre", json={"offre_id": 2, "liste": "tri"}).status_code == 400
+    client.post("/api/corbeille/remettre", json={"offre_id": 2, "liste": "toi"})
+    assert next(l for l in client.get("/api/corbeille").json()["listes"] if l["cle"] == "toi")["total"] == 0
+    for page in ("/journal", "/corbeille", "/selection", "/a-trier"):
+        html = client.get(page).text
+        assert '<!-- menu -->' not in html and f'class="on" href="{page}"' in html

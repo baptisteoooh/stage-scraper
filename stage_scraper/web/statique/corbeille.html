@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Corbeille · Stage Scraper</title>
+<link rel="icon" href="/statique/img/icone.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/statique/css/site.css">
+<link rel="stylesheet" href="/statique/css/app.css">
+<link rel="stylesheet" href="/statique/css/plus.css">
+<script type="module" src="/statique/js/corbeille.js"></script>
+</head>
+<body>
+<div class="fond uni" aria-hidden="true"></div>
+
+<div class="fenetre verre">
+  <!-- menu -->
+
+  <main class="principal">
+    <div class="barre">
+      <div class="sections" role="group" aria-label="Listes" id="listes"></div>
+      <label class="recherche pastille">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
+        <span class="sr-only">Rechercher</span>
+        <input id="recherche" type="search" placeholder="Rechercher" autocomplete="off">
+      </label>
+    </div>
+    <p class="compte" id="compte" aria-live="polite"></p>
+    <div class="defile" id="corbeille"></div>
+    <aside class="fiche" id="fiche" aria-hidden="true" aria-labelledby="fiche-titre" tabindex="-1">
+      <div class="fiche-tete">
+        <button class="pastille" id="fiche-fermer" type="button">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Retour</button>
+      </div>
+      <div class="fiche-corps" id="fiche-corps"></div>
+    </aside>
+  </main>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

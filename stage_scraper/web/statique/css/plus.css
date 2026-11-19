@@ -1,0 +1,88 @@
+/* Pages Journal et Corbeille : listes calmes dans la fenêtre de verre. */
+
+.titre-page { font-family: var(--titres); font-size: 26px; font-weight: 600; letter-spacing: -.03em; padding: 4px 0; }
+.defile { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 18px 28px 32px; }
+.compte { padding: 14px 28px 0; font-size: 13px; color: var(--doux); letter-spacing: .03em; min-height: 33px; font-variant-numeric: tabular-nums; }
+.compte + .defile { padding-top: 12px; }
+.defile h2 { font-family: var(--titres); font-size: 17px; font-weight: 600; letter-spacing: -.02em; margin: 34px 0 12px; }
+.defile .aide-liste { font-size: 13.5px; line-height: 1.55; color: var(--doux); margin-bottom: 14px; max-width: 760px; }
+.apparait { animation: entre .45s var(--sortie) both; animation-delay: calc(var(--i, 0) * 30ms); }
+@keyframes entre { from { opacity: 0; transform: translateY(10px); } }
+
+/* ---------------------------------------------------------------- chiffres du journal */
+.chiffres { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+.chiffre {
+  padding: 18px 20px; border-radius: var(--r-panneau);
+  background: rgba(255, 255, 255, .05); box-shadow: inset 0 0 0 1px var(--ligne);
+}
+.chiffre small { display: block; font-size: 12px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--faible); }
+.chiffre b { display: block; margin: 10px 0 4px; font-family: var(--titres); font-size: 32px; font-weight: 600; letter-spacing: -.03em; color: var(--note); font-variant-numeric: tabular-nums; }
+.chiffre span { font-size: 13.5px; color: var(--doux); }
+.jauge { height: 6px; margin-top: 14px; border-radius: 999px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+.jauge i { display: block; height: 100%; border-radius: inherit; background: var(--lavande); transform-origin: left; animation: remplit .9s var(--sortie) both .15s; }
+@keyframes remplit { from { transform: scaleX(0); } }
+.explication { margin-top: 12px; font-size: 13px; line-height: 1.55; color: var(--faible); max-width: 860px; }
+
+/* ---------------------------------------------------------------- passages (scraps) */
+.passages { display: flex; flex-direction: column; gap: 8px; }
+.passage { border-radius: var(--r-carte); background: rgba(255, 255, 255, .04); box-shadow: inset 0 0 0 1px var(--ligne); transition: background-color .2s; }
+.passage:hover, .passage[open] { background: rgba(255, 255, 255, .07); }
+.passage summary {
+  list-style: none; cursor: pointer; display: grid; align-items: center; gap: 14px;
+  grid-template-columns: 190px 78px minmax(0, 1fr) auto; padding: 13px 16px; font-size: 14px;
+}
+.passage summary::-webkit-details-marker { display: none; }
+.passage .quand { font-weight: 600; font-variant-numeric: tabular-nums; }
+.passage .mode { justify-self: start; font-size: 12px; padding: 3px 9px; border-radius: 999px; background: rgba(255, 255, 255, .08); color: var(--doux); }
+.passage .mode.auto { color: var(--lavande); box-shadow: inset 0 0 0 1px rgba(205, 184, 232, .45); background: none; }
+.passage .nombres { color: var(--doux); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.passage .nombres b { color: var(--texte); font-weight: 600; }
+.passage .etat { font-size: 13px; color: var(--faible); white-space: nowrap; }
+.passage .etat.erreur { color: var(--non); }
+.passage .etat::after { content: "+"; display: inline-block; margin-left: 12px; font-size: 16px; color: var(--faible); transition: transform .3s var(--sortie); }
+.passage[open] .etat::after { transform: rotate(45deg); }
+.sources { padding: 2px 16px 14px; display: flex; flex-direction: column; }
+.source { display: grid; grid-template-columns: 170px 110px minmax(0, 1fr); gap: 14px; padding: 8px 0; font-size: 13.5px; border-top: 1px solid rgba(255, 255, 255, .06); color: var(--doux); }
+.source b { color: var(--texte); font-weight: 500; }
+.source .err { color: var(--non); overflow-wrap: anywhere; }
+
+.appels { margin-top: 30px; }
+.appels summary { cursor: pointer; font-size: 13.5px; color: var(--doux); list-style: none; }
+.appels summary::-webkit-details-marker { display: none; }
+.appels summary::before { content: "+ "; }
+.appels[open] summary::before { content: "− "; }
+.appels .source { grid-template-columns: 150px 90px minmax(0, 1fr) 80px; }
+
+/* ---------------------------------------------------------------- corbeille */
+.lignes { display: flex; flex-direction: column; gap: 8px; }
+.ligne-offre {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px;
+  padding: 14px 16px; border-radius: var(--r-carte);
+  background: rgba(255, 255, 255, .04); box-shadow: inset 0 0 0 1px var(--ligne);
+  transition: background-color .2s, opacity .3s, transform .3s var(--sortie);
+}
+.ligne-offre:hover { background: rgba(255, 255, 255, .07); }
+.ligne-offre.part { opacity: 0; transform: translateX(24px); }
+.ligne-offre .quoi { min-width: 0; cursor: pointer; }
+.ligne-offre .quoi b { display: block; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ligne-offre .quoi span { display: block; margin-top: 3px; font-size: 13.5px; color: var(--doux); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ligne-offre .quoi em { font-style: normal; color: var(--faible); }
+.ligne-offre .boutons { display: flex; gap: 8px; }
+.ligne-offre .boutons .pastille { padding: 8px 13px; font-size: 13.5px; }
+.plus-de { display: block; margin: 16px auto 0; }
+.rien-ici { padding: 60px 16px; text-align: center; color: var(--doux); }
+
+@media (max-width: 900px) {
+  .passage summary { grid-template-columns: 1fr auto; }
+  .passage .mode, .passage .nombres { display: none; }
+  .source, .appels .source { grid-template-columns: 1fr 1fr; }
+  .source .err { grid-column: 1 / -1; }
+}
+@media (max-width: 700px) {
+  .defile { padding: 14px 16px 24px; }
+  .compte { padding: 12px 16px 0; }
+  .ligne-offre { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .apparait, .jauge i { animation: none; }
+}

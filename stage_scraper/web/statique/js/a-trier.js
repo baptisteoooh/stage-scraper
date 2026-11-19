@@ -1,7 +1,7 @@
 // Page À trier : le paquet de cartes, les filtres, les décisions (geste, boutons, clavier), l'annulation,
 // la fiche détaillée et le scrap manuel.
 import { Glisseur } from './swipe.js';
-import { $, h, api, toast, cacherToast, afficherScrap, brancherScrap } from './commun.js';
+import { $, h, api, toast, cacherToast, afficherScrap, brancherScrap, detailOffre } from './commun.js';
 
 const SECTIONS = [
   { cle: 'toutes', nom: 'Toutes' },
@@ -301,25 +301,11 @@ async function ouvrirFiche(id) {
     return;
   }
   const estDessus = Number(carteDessus()?.dataset.id) === id;
-  corps.replaceChildren(...[
-    h('div', { class: 'tete' }, h('div', { class: 'initiale' }, o.initiale),
-      h('div', { class: 'qui' }, h('b', {}, o.entreprise), h('small', {}, o.lieu)),
-      o.score === null ? null : h('div', { class: 'note' }, h('small', {}, 'Note'), h('b', {}, String(o.score), h('span', {}, '/10')))),
-    h('h2', { id: 'fiche-titre' }, o.titre),
-    h('div', { class: 'puces' }, o.puces.map(p => h('span', { class: p.type }, p.texte))),
-    estDessus ? h('div', { class: 'fiche-decisions' },
-      h('button', { class: 'bouton principal', type: 'button', onclick: () => { fermerFiche(); decider('droite'); } }, 'Je candidate'),
-      h('button', { class: 'bouton discret non', type: 'button', onclick: () => { fermerFiche(); decider('gauche'); } }, 'Pas pour moi'),
-      h('button', { class: 'bouton discret', type: 'button', onclick: () => { fermerFiche(); decider('haut'); } },
-        etat.section === 'plus_tard' ? 'Remettre à trier' : 'Plus tard')) : null,
-    o.resume ? [h('h4', {}, 'En bref'), h('p', { class: 'texte' }, o.resume)] : null,
-    o.pourquoi ? [h('h4', {}, `Pourquoi ${o.score}/10`), h('p', { class: 'texte' }, o.pourquoi)] : null,
-    o.contact ? [h('h4', {}, 'Contact'), h('p', { class: 'texte' }, o.contact)] : null,
-    h('h4', {}, o.extrait_seulement ? "Extrait de l'annonce (le site n'en donne pas plus)" : "L'annonce"),
-    h('p', { class: 'texte' }, o.description || "Pas de description : ouvre l'annonce sur le site."),
-    o.liens.length ? [h('h4', {}, 'Voir sur'), h('div', { class: 'liens' },
-      o.liens.map(l => h('a', { class: 'pastille', href: l.lien, target: '_blank', rel: 'noopener' }, `${l.site} ↗`)))] : null,
-  ].flat().filter(Boolean));
+  corps.replaceChildren(...detailOffre(o, estDessus ? h('div', { class: 'fiche-decisions' },
+    h('button', { class: 'bouton principal', type: 'button', onclick: () => { fermerFiche(); decider('droite'); } }, 'Je candidate'),
+    h('button', { class: 'bouton discret non', type: 'button', onclick: () => { fermerFiche(); decider('gauche'); } }, 'Pas pour moi'),
+    h('button', { class: 'bouton discret', type: 'button', onclick: () => { fermerFiche(); decider('haut'); } },
+      etat.section === 'plus_tard' ? 'Remettre à trier' : 'Plus tard')) : null));
 }
 
 function fermerFiche() {

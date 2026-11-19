@@ -149,8 +149,11 @@ Pour l'arrêter : `Ctrl + C` dans le terminal.
   Une fiche par offre : changer d'étape (« C'est envoyé », « J'ai relancé »), dates, notes (gardées toutes seules),
   « Retirer de ma sélection ». Chaque changement s'annule depuis le message en bas. **Offre trouvée ailleurs**
   ajoute une offre vue hors de l'outil.
-- L'analyse face au CV, les conseils, la lettre, l'Assistant, les Réglages, le Journal et la Corbeille arrivent
-  ensuite : en attendant, ils restent dans l'appli Streamlit ci-dessous (les deux utilisent la même base).
+- **Journal** : crédit Claude restant, dépense du mois, et chaque scrap (clique un passage pour le détail
+  source par source, erreurs comprises).
+- **Corbeille** : offres écartées par toi, par le tri, ou expirées. Rien n'est supprimé : « Remettre à trier ».
+- L'analyse face au CV, les conseils, la lettre, l'Assistant et les Réglages arrivent ensuite : en attendant, ils
+  restent dans l'appli Streamlit ci-dessous (les deux utilisent la même base).
 
 Pour essayer sans toucher à tes offres : copie `data\stages.db`, puis
 `set STAGE_SCRAPER_BASE=chemin\de\la\copie.db` (CMD) ou `$env:STAGE_SCRAPER_BASE="chemin\de\la\copie.db"`
@@ -268,7 +271,8 @@ stage_scraper/
   decisions.py         décisions sur une offre (Je candidate, Pas pour moi, Plus tard) et annulation
   presentation.py      mise en forme commune (lieu court, date de début, ancienneté)
   web/serveur.py       serveur du nouveau site (FastAPI) : pages et API
-  web/statique/        pages HTML, styles (css/), scripts (js/ : swipe.js = le geste), images (img/)
+  web/statique/        pages HTML (_menu.html = menu commun), styles (css/), scripts (js/ : swipe.js = le geste,
+                       commun.js = outils partagés), images (img/)
   page_selection.py    pages Ma sélection et fiche d'une offre
   page_plus.py         pages Réglages, Journal et Corbeille
   style.py             habillage de l'appli (typographie, cartes, accessibilité)

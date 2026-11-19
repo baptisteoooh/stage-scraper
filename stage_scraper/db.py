@@ -5,7 +5,7 @@ from pathlib import Path
 
 # À augmenter quand on modifie la structure des tables, en ajoutant la
 # modification correspondante dans MIGRATIONS (pour mettre à jour les bases existantes).
-VERSION_SCHEMA = 8
+VERSION_SCHEMA = 9
 
 MIGRATIONS = {
     2: [
@@ -29,6 +29,16 @@ MIGRATIONS = {
     7: [],  # tables dossiers, lettres_versions et messages : créées par SCHEMA
     8: [
         "ALTER TABLE runs ADD COLUMN modele TEXT",
+    ],
+    9: [
+        "ALTER TABLE candidatures ADD COLUMN date_entretien TEXT",
+        # Candidatures ajoutées à la main avant la v9 : chacune reçoit son offre (source « manuel »),
+        # pour avoir une fiche comme les autres. vue = notifiee = 1 : jamais dans À trier ni dans les mails.
+        "INSERT INTO offres (source, source_id, titre, entreprise, lien, vue, notifiee) "
+        "SELECT 'manuel', 'candidature-' || id, COALESCE(poste, entreprise, 'Candidature'), entreprise, lien, 1, 1 "
+        "FROM candidatures WHERE offre_id IS NULL",
+        "UPDATE candidatures SET offre_id = (SELECT o.id FROM offres o WHERE o.source = 'manuel' "
+        "AND o.source_id = 'candidature-' || candidatures.id) WHERE offre_id IS NULL",
     ],
 }
 
@@ -130,6 +140,7 @@ CREATE TABLE IF NOT EXISTS candidatures (
     date_creation       TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
     date_candidature    TEXT,
     date_relance        TEXT,
+    date_entretien      TEXT,               -- date (et heure) de l'entretien, si connue
     date_maj            TEXT,
     lettre              TEXT,               -- brouillon de lettre de motivation
     notes               TEXT

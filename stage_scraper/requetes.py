@@ -175,6 +175,7 @@ def creer_candidature(conn, offre_id: int | None = None, entreprise: str | None 
             return existante["id"]
         o = offre(conn, offre_id)
         entreprise, poste, lien = entreprise or o["entreprise"], poste or o["titre"], lien or o["lien"]
+        conn.execute("UPDATE offres SET vue = 1 WHERE id = ?", (offre_id,))
     curseur = conn.execute(
         "INSERT INTO candidatures (offre_id, entreprise, poste, lien, statut, notes, date_maj) "
         "VALUES (?, ?, ?, ?, ?, ?, ?)", (offre_id, entreprise, poste, lien, statut, notes, maintenant()))
@@ -221,10 +222,22 @@ def candidature(conn, candidature_id: int) -> dict | None:
 
 
 def ajouter_a_la_main(conn, entreprise: str | None, poste: str | None, lien: str | None, statut: str,
-                      notes: str | None, envoyee=None, relance_jours: int = 7) -> int:
-    """Candidature faite hors de l'outil. Déjà envoyée : date d'envoi et date de relance remplies."""
+                      notes: str | None, envoyee=None, relance_jours: int = 7, description: str | None = None,
+                      lieu: str | None = None) -> int:
+    """Offre trouvée hors de l'outil : elle devient une offre (source « manuel ») avec sa candidature.
+
+    Elle a donc une fiche comme les autres ; avec le texte de l'annonce (`description`), l'IA peut
+    l'analyser et écrire la lettre. Déjà envoyée : date d'envoi et date de relance remplies.
+    """
+    import uuid
     from datetime import date, timedelta
-    identifiant = creer_candidature(conn, entreprise=entreprise, poste=poste, lien=lien, statut=statut, notes=notes)
+    curseur = conn.execute(
+        "INSERT INTO offres (source, source_id, titre, entreprise, lien, lieu, description, vue, notifiee) "
+        "VALUES ('manuel', ?, ?, ?, ?, ?, ?, 1, 1)",
+        (f"manuel-{uuid.uuid4().hex[:12]}", poste or entreprise or "Candidature", entreprise, lien, lieu,
+         (description or "").strip() or None))
+    identifiant = creer_candidature(conn, offre_id=curseur.lastrowid, entreprise=entreprise, poste=poste, lien=lien,
+                                    statut=statut, notes=notes)
     if statut != "à postuler":
         envoyee = envoyee or date.today()
         champs = {"date_candidature": envoyee.isoformat()}
@@ -236,7 +249,8 @@ def ajouter_a_la_main(conn, entreprise: str | None, poste: str | None, lien: str
 
 def modifier_candidature(conn, candidature_id: int, **champs) -> None:
     """Met à jour les champs donnés (entreprise, poste, lien, statut, dates, notes, lettre)."""
-    valeurs = {c: _vide_en_none(v) for c, v in champs.items() if c in (*CHAMPS_CANDIDATURE, "lettre")}
+    valeurs = {c: _vide_en_none(v) for c, v in champs.items()
+               if c in (*CHAMPS_CANDIDATURE, "lettre", "date_entretien")}
     if "statut" in valeurs and valeurs["statut"] not in STATUTS:
         raise ValueError(f"statut inconnu : {valeurs['statut']}")
     if not valeurs:

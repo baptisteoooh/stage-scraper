@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Réglages · Stage Scraper</title>
+<link rel="icon" href="/statique/img/icone.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/statique/css/site.css">
+<link rel="stylesheet" href="/statique/css/app.css">
+<link rel="stylesheet" href="/statique/css/plus.css">
+<script type="module" src="/statique/js/reglages.js"></script>
+</head>
+<body>
+<div class="fond uni" aria-hidden="true"></div>
+
+<div class="fenetre verre">
+  <!-- menu -->
+
+  <main class="principal">
+    <div class="barre">
+      <h1 class="titre-page">Réglages</h1>
+      <div class="sections onglets" role="tablist" aria-label="Rubriques" id="onglets"></div>
+    </div>
+    <div class="defile" id="reglages"></div>
+    <div class="a-enregistrer" id="a-enregistrer" aria-hidden="true">
+      <span>Modifications non enregistrées</span>
+      <button class="pastille" type="button" id="defaire">Annuler</button>
+      <button class="bouton principal" type="button" id="enregistrer">Enregistrer</button>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

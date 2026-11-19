@@ -152,12 +152,16 @@ Pour l'arrêter : `Ctrl + C` dans le terminal.
 - **Journal** : crédit Claude restant, dépense du mois, et chaque scrap (clique un passage pour le détail
   source par source, erreurs comprises).
 - **Corbeille** : offres écartées par toi, par le tri, ou expirées. Rien n'est supprimé : « Remettre à trier ».
-- L'analyse face au CV, les conseils, la lettre, l'Assistant et les Réglages arrivent ensuite : en attendant, ils
-  restent dans l'appli Streamlit ci-dessous (les deux utilisent la même base).
+- **Réglages** : critères (ancienneté, contrats, postes et niveaux exclus), entreprises suivies, mails (seuil
+  d'alerte, envoi, aperçus, mail de test), tes documents (CV, lettre modèle, et ce que l'IA en reçoit) et
+  « Refaire le tri ». Un seul bouton **Enregistrer** (ou Ctrl+S) écrit config.yaml (copie dans config.yaml.bak).
+- L'analyse face au CV, les conseils, la lettre et l'Assistant arrivent ensuite : en attendant, ils restent dans
+  l'appli Streamlit ci-dessous (les deux utilisent la même base).
 
 Pour essayer sans toucher à tes offres : copie `data\stages.db`, puis
 `set STAGE_SCRAPER_BASE=chemin\de\la\copie.db` (CMD) ou `$env:STAGE_SCRAPER_BASE="chemin\de\la\copie.db"`
-(PowerShell) avant `python site_web.py`.
+(PowerShell) avant `python site_web.py`. De même, `STAGE_SCRAPER_CONFIG` désigne une copie de config.yaml
+(les Réglages écrivent alors dans la copie).
 
 ## Lancement de l'appli
 

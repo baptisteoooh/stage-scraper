@@ -150,3 +150,40 @@ def test_journal_et_corbeille(client):
     for page in ("/journal", "/corbeille", "/selection", "/a-trier"):
         html = client.get(page).text
         assert '<!-- menu -->' not in html and f'class="on" href="{page}"' in html
+
+
+def test_reglages(client, tmp_path, monkeypatch):
+    import shutil
+    from stage_scraper.config import CHEMIN_CONFIG
+    copie = tmp_path / "config.yaml"
+    shutil.copyfile(CHEMIN_CONFIG, copie)
+    monkeypatch.setenv("STAGE_SCRAPER_CONFIG", str(copie))   # jamais le vrai config.yaml
+    avant_vrai = CHEMIN_CONFIG.read_text(encoding="utf-8")
+
+    d = client.get("/api/reglages").json()
+    assert "alternance" in d["criteres"]["contrats"] and d["criteres"]["entreprises_suivies"][0]["nom"] == "Doctolib"
+    assert set(d["groupes"]) == {"priorite_absolue", "grand_groupe", "scale_up", "ecosysteme"}
+
+    postes = d["criteres"]["postes"] + ["growth hacker", "  ", "Growth Hacker"]
+    r = client.post("/api/reglages", json={"postes": postes, "anciennete_max_jours": 60}).json()
+    assert set(r["changements"]) == {"exclusions postes", "anciennete_max_jours"}
+    d = client.get("/api/reglages").json()
+    assert d["criteres"]["postes"].count("growth hacker") == 1 and d["criteres"]["anciennete_max_jours"] == 60
+    assert (tmp_path / "config.yaml.bak").exists()
+    assert client.post("/api/reglages", json={"anciennete_max_jours": 60}).json() == {"changements": []}
+
+    assert client.post("/api/reglages", json={"anciennete_max_jours": 0}).status_code == 400
+    assert client.post("/api/reglages", json={"inconnu": 1}).status_code == 400
+    assert client.post("/api/reglages", json={"entreprises_suivies": [{"nom": "X", "groupe": "pirate"}]}).status_code == 400
+    assert CHEMIN_CONFIG.read_text(encoding="utf-8") == avant_vrai
+
+
+def test_reglages_documents_et_tri(client, tmp_path, monkeypatch):
+    from stage_scraper.web import serveur
+    monkeypatch.setitem(serveur.DOCUMENTS, "modele", lambda config: tmp_path / "profil" / "modele.txt")
+    assert client.post("/api/reglages/documents/cv", content=b"pas un pdf").status_code == 400
+    assert client.post("/api/reglages/documents/modele?fichier=lettre.exe", content=b"x").status_code == 400
+    assert client.post("/api/reglages/documents/modele?fichier=lettre.txt", content="Madame, Monsieur".encode()).json() == {"ok": True}
+    assert (tmp_path / "profil" / "modele.txt").read_text(encoding="utf-8") == "Madame, Monsieur"
+    assert client.get("/api/reglages/apercu/autre").status_code == 404
+    assert "Tri des" in client.post("/api/reglages/retrier").json()["texte"]

@@ -86,3 +86,81 @@
 @media (prefers-reduced-motion: reduce) {
   .apparait, .jauge i { animation: none; }
 }
+
+/* ---------------------------------------------------------------- réglages */
+.barre .titre-page { margin-right: 18px; }
+.onglets { margin-right: 0; }
+.rubrique { max-width: 980px; padding-bottom: 90px; }
+.bloc { margin-top: 26px; }
+.bloc:first-of-type { margin-top: 14px; }
+.bloc h2 { margin: 0 0 6px; }
+.bloc .aide-liste { margin-bottom: 12px; }
+.ligne-champ { display: flex; align-items: center; gap: 12px; font-size: 14px; color: var(--doux); }
+.champ.court { width: 96px; padding: 10px 12px; font-variant-numeric: tabular-nums; }
+select.champ { padding: 10px 12px; appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--doux) 50%), linear-gradient(135deg, var(--doux) 50%, transparent 50%); background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 30px; }
+select.champ option { background: #241B33; color: var(--texte); }
+
+.mots { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; padding: 10px; border-radius: var(--r-carte); background: rgba(255, 255, 255, .04); box-shadow: inset 0 0 0 1px var(--ligne); }
+.mot { display: inline-flex; align-items: center; gap: 4px; padding: 5px 6px 5px 12px; border-radius: 999px; font-size: 13.5px; background: rgba(255, 255, 255, .09); animation: entre .3s var(--sortie); }
+.mot button { width: 20px; height: 20px; border-radius: 50%; font-size: 15px; line-height: 1; color: var(--doux); transition: background-color .2s, color .2s; }
+.mot button:hover { background: rgba(242, 181, 191, .2); color: var(--non); }
+.mots .ajout { flex: 1; min-width: 180px; width: auto; padding: 6px 8px; background: none; box-shadow: none; font-size: 14px; }
+.mots .ajout:focus { box-shadow: none; background: none; }
+.mots:focus-within { box-shadow: inset 0 0 0 1.5px var(--lavande); }
+
+.entreprises { display: flex; flex-direction: column; gap: 6px; }
+.entreprise { display: grid; grid-template-columns: 1.1fr 1fr 1fr .8fr 1.6fr 32px; gap: 8px; align-items: center; }
+.entreprise .champ { padding: 9px 11px; font-size: 14px; min-width: 0; }
+.entreprise.entete span { font-size: 12px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; color: var(--faible); padding: 0 2px 2px; }
+.retirer-ligne { width: 32px; height: 32px; border-radius: 50%; font-size: 18px; color: var(--doux); transition: background-color .2s, color .2s; }
+.retirer-ligne:hover { background: rgba(242, 181, 191, .16); color: var(--non); }
+.ajouter { margin-top: 12px; }
+
+.interrupteur { width: 46px; height: 28px; border-radius: 999px; padding: 3px; background: rgba(255, 255, 255, .14); box-shadow: inset 0 0 0 1px var(--ligne); transition: background-color .25s; flex: none; }
+.interrupteur i { display: block; width: 22px; height: 22px; border-radius: 50%; background: var(--texte); transition: transform .35s var(--ressort); }
+.interrupteur[aria-checked="true"] { background: var(--oui); }
+.interrupteur[aria-checked="true"] i { transform: translateX(18px); background: var(--sur-accent); }
+.boutons-ligne { display: flex; flex-wrap: wrap; gap: 8px; }
+.pastille[disabled] { opacity: .4; pointer-events: none; }
+.apercu .sujet { margin: 16px 0 10px; font-size: 14px; }
+.cadre-mail { width: 100%; height: 520px; border: 0; border-radius: var(--r-carte); background: #fff; }
+
+.documents { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-top: 6px; }
+.depot {
+  display: flex; flex-direction: column; gap: 6px; padding: 24px 20px; border-radius: var(--r-panneau); cursor: pointer;
+  background: rgba(255, 255, 255, .04); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .16);
+  outline: 1.5px dashed transparent; transition: background-color .2s, box-shadow .2s;
+}
+.depot:hover, .depot.survol { background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1.5px var(--lavande); }
+.depot:focus-within { box-shadow: inset 0 0 0 1.5px var(--lavande); }
+.depot b { font-family: var(--titres); font-size: 17px; font-weight: 600; }
+.depot span { font-size: 13.5px; color: var(--doux); }
+.depot.present b::after { content: " ✓"; color: var(--oui); }
+.depot.envoi { opacity: .6; cursor: progress; }
+.voir-ia { margin-top: 10px; }
+.voir-ia summary { cursor: pointer; font-size: 13.5px; color: var(--doux); }
+.voir-ia pre { margin-top: 10px; max-height: 340px; overflow: auto; padding: 14px; border-radius: var(--r-carte); background: rgba(0, 0, 0, .22); font: 13px/1.55 var(--corps); white-space: pre-wrap; color: #E6DFEE; }
+.alerte { padding: 12px 14px; border-radius: var(--r-carte); color: #F4D9A8; background: rgba(244, 217, 168, .08); box-shadow: inset 0 0 0 1px rgba(244, 217, 168, .35); font-size: 14px; margin-bottom: 12px; }
+
+/* Barre « Modifications non enregistrées » : monte du bas quand quelque chose a changé */
+.a-enregistrer {
+  position: absolute; left: 50%; bottom: 22px; z-index: 6;
+  display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 20px; border-radius: 999px; font-size: 14px;
+  background: rgba(30, 23, 42, .94); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  box-shadow: inset 0 0 0 1px var(--ligne), 0 16px 40px rgba(5, 3, 9, .5);
+  transform: translate(-50%, 160%); opacity: 0; pointer-events: none;
+  transition: transform .45s var(--ressort), opacity .25s;
+}
+.a-enregistrer.visible { transform: translate(-50%, 0); opacity: 1; pointer-events: auto; }
+.a-enregistrer span { color: var(--doux); white-space: nowrap; }
+.a-enregistrer .bouton { padding: 10px 18px; font-size: 14px; }
+
+@media (max-width: 1100px) {
+  .entreprise { grid-template-columns: 1fr 1fr 32px; }
+  .entreprise.entete { display: none; }
+  .entreprise { padding: 10px; border-radius: var(--r-carte); background: rgba(255, 255, 255, .03); }
+}
+@media (max-width: 700px) {
+  .barre .titre-page { display: none; }
+  .a-enregistrer span { display: none; }
+}

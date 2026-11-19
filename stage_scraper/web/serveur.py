@@ -18,7 +18,12 @@ API
 - GET  /api/journal            passages (scraps), coût de l'IA, crédit Claude restant
 - GET  /api/corbeille          offres écartées (par BAP, par le tri) et expirées
 - POST /api/corbeille/remettre {offre_id, liste} : remet une offre dans À trier
+- GET  /api/reglages  /  POST /api/reglages   critères, entreprises suivies, mails (écrit config.yaml)
+- GET  /api/reglages/apercu/{alerte|recap}     aperçu d'un mail ; POST /api/reglages/mail-test
+- POST /api/reglages/retrier                   refait le tri de toutes les offres
+- GET|POST /api/reglages/documents/{cv|modele} texte anonymisé / dépôt du fichier (corps brut)
 """
+import io
 import logging
 import os
 import secrets
@@ -27,13 +32,14 @@ from contextlib import asynccontextmanager, closing
 from datetime import date, datetime
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .. import claude, db, decisions, expiration, presentation, requetes, selection
-from ..config import charger_config, chemin_projet, secret
+from .. import claude, db, decisions, expiration, notifications, presentation, reglages, requetes, selection
+from .. import cv as module_cv
+from ..config import CHEMIN_CONFIG, charger_config, chemin_projet, secret
 
 STATIQUE = Path(__file__).parent / "statique"
 SEUIL_BOF = 5
@@ -57,6 +63,16 @@ def chemin_base() -> Path:
     """Base de config.yaml, sauf si la variable STAGE_SCRAPER_BASE en désigne une autre (tests, essais)."""
     autre = os.getenv("STAGE_SCRAPER_BASE")
     return Path(autre) if autre else chemin_projet(charger_config()["general"]["base_de_donnees"])
+
+
+def chemin_config() -> Path:
+    """config.yaml, sauf si STAGE_SCRAPER_CONFIG en désigne une copie (tests : ne jamais toucher au vrai)."""
+    autre = os.getenv("STAGE_SCRAPER_CONFIG")
+    return Path(autre) if autre else CHEMIN_CONFIG
+
+
+def config_courante() -> dict:
+    return charger_config(chemin_config())
 
 
 def connexion():
@@ -98,6 +114,11 @@ def page_journal():
 @app.get("/corbeille", include_in_schema=False)
 def page_corbeille():
     return page_appli("corbeille")
+
+
+@app.get("/reglages", include_in_schema=False)
+def page_reglages():
+    return page_appli("reglages")
 
 
 # =========================================================================== mise en forme
@@ -501,6 +522,134 @@ def api_remettre(r: Remise):
             expiration.annuler(conn, r.offre_id)
         else:
             raise HTTPException(400, "Les offres écartées par le tri se règlent dans Réglages › Critères.")
+    return {"ok": True}
+
+
+# =========================================================================== API : réglages
+
+GROUPES = {"priorite_absolue": "Priorité absolue", "grand_groupe": "Grand groupe", "scale_up": "Scale-up",
+           "ecosysteme": "Écosystème"}
+OUTILS = {"": "Aucun", "ashby": "Ashby", "workday": "Workday"}
+DOCUMENTS = {"cv": module_cv.chemin_cv, "modele": module_cv.chemin_modele_lettre}
+TAILLE_MAX_DOCUMENT = 8 * 1024 * 1024
+
+
+@app.get("/api/reglages")
+def api_reglages():
+    donnees = reglages.lire(chemin_config())
+    config = config_courante()
+    _, mot_de_passe, destinataire = notifications.adresses()
+    texte_cv = module_cv.texte_cv(config)
+    with connexion() as conn:
+        alerte, recap = notifications.offres_alerte(conn, config), notifications.offres_recap(conn, config)
+        menu = _menu(conn)
+    return {
+        **menu,
+        "criteres": {"anciennete_max_jours": int(donnees["general"]["anciennete_max_jours"]),
+                     "contrats": list(donnees["exclusions"]["contrats"]),
+                     "postes": list(donnees["exclusions"]["postes"]),
+                     "niveaux": list(donnees["exclusions"]["niveaux"]),
+                     "entreprises_suivies": reglages.entreprises_en_lignes(donnees)},
+        "groupes": GROUPES, "outils": OUTILS,
+        "mails": {"alerte_seuil_score": int(donnees["notifications"]["alerte_seuil_score"]),
+                  "envoi_actif": bool(donnees["notifications"].get("envoi_actif")),
+                  "destinataire": destinataire, "pret": bool(destinataire and mot_de_passe),
+                  "en_attente": {"alerte": len(alerte), "recap": len(recap)}},
+        "documents": {"cv": texte_cv is not None, "modele": module_cv.modele_lettre(config) is not None,
+                      "nom_masque": texte_cv is None or module_cv.NOM_MASQUE in texte_cv},
+    }
+
+
+@app.post("/api/reglages")
+def api_enregistrer_reglages(modifications: dict):
+    permis = {"anciennete_max_jours", "alerte_seuil_score", "envoi_actif", "contrats", "postes", "niveaux",
+              "entreprises_suivies"}
+    inconnus = set(modifications) - permis
+    if inconnus:
+        raise HTTPException(400, f"Réglage inconnu : {', '.join(sorted(inconnus))}")
+    for cle in ("anciennete_max_jours", "alerte_seuil_score"):
+        if cle in modifications:
+            try:
+                valeur = int(modifications[cle])
+            except (TypeError, ValueError) as err:
+                raise HTTPException(400, f"{cle} doit être un nombre") from err
+            bornes = (1, 365) if cle == "anciennete_max_jours" else (0, 10)
+            if not bornes[0] <= valeur <= bornes[1]:
+                raise HTTPException(400, f"{cle} doit être entre {bornes[0]} et {bornes[1]}")
+    for cle in ("contrats", "postes", "niveaux"):
+        if cle in modifications:
+            modifications[cle] = reglages.texte_en_liste("\n".join(str(x) for x in modifications[cle]))
+    for e in modifications.get("entreprises_suivies", []):
+        if e.get("groupe") and e["groupe"] not in GROUPES:
+            raise HTTPException(400, f"Groupe inconnu : {e['groupe']}")
+        if e.get("outil") and e["outil"] not in OUTILS:
+            raise HTTPException(400, f"Outil inconnu : {e['outil']}")
+    donnees = reglages.lire(chemin_config())
+    changements = reglages.appliquer(donnees, modifications)
+    if changements:
+        reglages.ecrire(donnees, chemin_config())
+    return {"changements": changements}
+
+
+@app.get("/api/reglages/apercu/{type_mail}")
+def api_apercu(type_mail: str):
+    if type_mail not in ("alerte", "recap"):
+        raise HTTPException(404, "Aperçu inconnu")
+    config = config_courante()
+    with connexion() as conn:
+        offres = (notifications.offres_alerte if type_mail == "alerte" else notifications.offres_recap)(conn, config)
+    if not offres:
+        return {"sujet": None, "html": None}
+    sujet, _, page = notifications.construire(type_mail, offres, config)
+    return {"sujet": sujet, "html": page}
+
+
+@app.post("/api/reglages/mail-test")
+def api_mail_test():
+    try:
+        notifications.mail_de_test()
+    except RuntimeError as e:
+        raise HTTPException(400, f"Mail de test non envoyé : {e}") from e
+    return {"ok": True}
+
+
+@app.post("/api/reglages/retrier")
+def api_retrier():
+    from .. import pipeline
+    with connexion() as conn:
+        bilan = pipeline.retrier(conn, config_courante())
+    return {"texte": pipeline.resume_tri(bilan).strip()}
+
+
+@app.get("/api/reglages/documents/{nom}")
+def api_document(nom: str):
+    """Ce que l'IA reçoit : le texte anonymisé du CV ou de la lettre modèle."""
+    if nom not in DOCUMENTS:
+        raise HTTPException(404, "Document inconnu")
+    config = config_courante()
+    return {"texte": module_cv.texte_cv(config) if nom == "cv" else module_cv.modele_lettre(config)}
+
+
+@app.post("/api/reglages/documents/{nom}")
+async def api_deposer_document(nom: str, request: Request, fichier: str = ""):
+    """Dépôt du CV (PDF) ou de la lettre modèle (.txt, .docx) : le fichier arrive tel quel dans le corps."""
+    if nom not in DOCUMENTS:
+        raise HTTPException(404, "Document inconnu")
+    contenu = await request.body()
+    if not contenu or len(contenu) > TAILLE_MAX_DOCUMENT:
+        raise HTTPException(400, "Fichier vide ou trop gros (8 Mo au plus)")
+    extension = Path(fichier).suffix.lower()
+    if nom == "cv":
+        if not contenu.startswith(b"%PDF"):
+            raise HTTPException(400, "Le CV doit être un PDF")
+    elif extension == ".docx":
+        from docx import Document
+        contenu = "\n".join(p.text for p in Document(io.BytesIO(contenu)).paragraphs).encode("utf-8")
+    elif extension not in (".txt", ""):
+        raise HTTPException(400, "La lettre modèle doit être un .txt ou un .docx")
+    chemin = DOCUMENTS[nom](config_courante())
+    chemin.parent.mkdir(parents=True, exist_ok=True)
+    chemin.write_bytes(contenu)
     return {"ok": True}
 
 

@@ -1,8 +1,9 @@
-"""Offres affichées en vignettes (page Offres), de la plus intéressante à la moins intéressante.
+"""Vignettes d'offres, fiche détaillée et décisions (page À trier, Assistant).
 
 Chaque vignette montre l'essentiel : note, entreprise, poste, lieu, durée, début, gratification,
-télétravail, résumé en 2 lignes et date de publication. Le bouton « Voir la fiche » ouvre le détail
-complet dans une fenêtre (avec Postuler, Pas intéressé, Lettre de motivation, Offre expirée).
+télétravail, résumé et date de publication. Trois décisions, en un clic, depuis la vignette ou la fiche :
+✅ Je candidate (l'offre part dans Candidatures), 👎 Pas pour moi (masquée ; la raison, facultative,
+sert d'exemple à l'IA), ⏳ Plus tard (rangée à part). Un bandeau permet d'annuler la dernière décision.
 """
 import html
 import re
@@ -91,19 +92,20 @@ SECTIONS_COURTES = {"Hors santé mais intéressant": "Hors santé"}
 
 
 def html_vignette(o: dict, suivie: bool = False, aujourd_hui: date | None = None,
-                  avec_section: bool = False) -> str:
-    """Contenu d'une vignette (sans les boutons). `avec_section` : étiquette Santé / Hors santé / À négocier."""
+                  avec_section: bool = False, nouveau: bool | None = None, avec_extrait: bool = True) -> str:
+    """Contenu d'une vignette (sans les boutons). `avec_section` : étiquette Santé / Hors santé / À négocier.
+
+    `nouveau` : badge « Nouvelle » (par défaut : offre jamais ouverte). `avec_extrait` : début de l'annonce.
+    """
     niveau = niveau_note(o["score"])
     note = (f'<b>{o["score"]}</b><span>/10</span>' if o["score"] is not None else "<b>—</b>")
 
     badges = []
-    if o.get("favori"):
-        badges.append('<span class="v-badge v-favori">★ Favori</span>')
     if o.get("expiration"):
         badges.append('<span class="v-badge v-expiree">Expirée</span>')
     if avec_section and o["section"]:
         badges.append(f'<span class="v-badge v-section">{_e(SECTIONS_COURTES.get(o["section"], o["section"]))}</span>')
-    if not o["vue"]:
+    if (not o["vue"]) if nouveau is None else nouveau:
         badges.append('<span class="v-badge v-nouveau">Nouvelle</span>')
     if o["poste_ia_data"]:
         badges.append('<span class="v-badge v-ia">IA / data</span>')
@@ -129,12 +131,12 @@ def html_vignette(o: dict, suivie: bool = False, aujourd_hui: date | None = None
 
     pied = [x for x in (anciennete(o["date_publication"], aujourd_hui), o["site_origine"] or o["source"]) if x]
     resume = o["resume"] or ("Pas encore notée par l'IA." if o["score"] is None else "")
-    texte_annonce = extrait(o["description"])
+    texte_annonce = extrait(o["description"]) if avec_extrait else None
     bloc_extrait = (f'<div class="v-extrait"><span class="v-label">Extrait de l’annonce</span>{_e(texte_annonce)}</div>'
                     if texte_annonce else "")
 
     return (
-        f'<div class="vignette{" v-est-favori" if o.get("favori") else ""}">'
+        '<div class="vignette">'
         '<div class="v-haut">'
         f'<div class="v-entreprise">{_e(o["entreprise"] or "Entreprise inconnue")}</div>'
         f'<div class="v-note v-note-{niveau}" title="{_e(o["categorie"] or "Note IA")}">{note}</div>'
@@ -156,60 +158,90 @@ def _slug(texte: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", texte.lower().encode("ascii", "ignore").decode()).strip("_")
 
 
-def grille(conn, config: dict, offres: list[dict], cle: str, page_candidater=None, avec_section: bool = False) -> None:
-    """Vignettes triées comme la liste reçue (par note décroissante).
+# =========================================================================== décisions
 
-    La grille est faite en CSS (style.py) : 3 ou 4 vignettes par rangée sur grand écran,
-    2 sur une demi-fenêtre, 1 sur une fenêtre étroite.
-    """
-    if not offres:
-        st.markdown('<div class="etape-vide">Aucune offre ici pour l’instant</div>', unsafe_allow_html=True)
-        return
-    cle = _slug(cle)
-    suivies = {c["offre_id"] for c in requetes.candidatures(conn) if c["offre_id"]}
-    nb = st.session_state.get(f"nb_{cle}", PAR_PAGE)
-
-    a_ouvrir = None
-    with st.container(key=f"grille_{cle}"):
-        for o in offres[:nb]:
-            with st.container(border=True, key=f"carte_offre_{cle}_{o['id']}"):
-                st.markdown(html_vignette(o, o["id"] in suivies, avec_section=avec_section), unsafe_allow_html=True)
-                boutons = st.columns([1, 1, 0.42])
-                if boutons[0].button("Voir la fiche", key=f"fiche_{cle}_{o['id']}", width="stretch"):
-                    a_ouvrir = o["id"]
-                if o["lien"]:
-                    boutons[1].link_button("Ouvrir l'offre ↗", o["lien"], width="stretch")
-                bouton_favori(conn, o, f"favori_{cle}_{o['id']}", boutons[2], compact=True)
-    if a_ouvrir is not None:  # fenêtre ouverte hors de la grille, pour ne pas y laisser une case vide
-        fenetre_fiche(config, a_ouvrir, cle, page_candidater)
-
-    if len(offres) > nb:
-        reste = len(offres) - nb
-        if st.button(f"Afficher plus ({reste} autre{'s' if reste > 1 else ''})", key=f"plus_{cle}",
-                     width="stretch"):
-            st.session_state[f"nb_{cle}"] = nb + PAR_PAGE
-            st.rerun()
+RAISONS = ["Trop long (6 mois)", "Commercial / pas technique", "Pas mon domaine", "Dates incompatibles",
+           "Hors Île-de-France", "Entreprise"]
+TEXTES_DECISION = {"candidate": "ajoutée à tes candidatures (« à postuler »)", "ecarte": "écartée",
+                   "plus_tard": "rangée dans « Plus tard »", "remettre": "remise dans les offres à trier"}
 
 
-def _basculer_favori(chemin_base: str, offre_id: int) -> None:
-    """Appelé par Streamlit juste après le clic, avant de réafficher la page : la vignette
-    et la fiche s'affichent donc tout de suite avec la nouvelle étoile, sans changer de place."""
+def decider(conn, offre_id: int, action: str) -> None:
+    """Applique une décision et la retient pour le bandeau (qui permet de l'annuler)."""
+    o = requetes.offre(conn, offre_id)
+    candidature_id = None
+    if action == "candidate":
+        candidature_id = requetes.creer_candidature(conn, offre_id=offre_id)
+    elif action == "ecarte":
+        requetes.marquer_pas_interesse(conn, offre_id)
+    elif action == "plus_tard" and not o["favori"] or action == "remettre" and o["favori"]:
+        requetes.basculer_favori(conn, offre_id)
+    requetes.marquer_vue(conn, offre_id)
+    st.session_state["derniere_decision"] = {"action": action, "offre_id": offre_id, "titre": o["titre"],
+                                             "entreprise": o["entreprise"], "candidature_id": candidature_id}
+
+
+def _decider_depuis_vignette(chemin_base: str, offre_id: int, action: str) -> None:
+    """Appelé juste après le clic, avant de réafficher la page : la vignette disparaît tout de suite."""
     with closing(db.connecter(Path(chemin_base))) as conn:
-        garde = requetes.basculer_favori(conn, offre_id)
-    if not garde:  # dans la vue Favoris, l'offre reste affichée jusqu'à la fin de la visite
-        st.session_state.setdefault("favoris_retires", set()).add(offre_id)
-    st.toast("Gardée dans tes favoris ★" if garde else "Retirée des favoris.")
+        decider(conn, offre_id, action)
 
 
-def bouton_favori(conn, o: dict, cle: str, zone=st, compact: bool = False) -> None:
-    """Bouton ★ / ☆ qui ajoute l'offre aux favoris ou l'en retire."""
-    chemin_base = conn.execute("PRAGMA database_list").fetchone()["file"]
-    if o.get("favori"):
-        libelle, aide = ("★" if compact else "★ Favori"), "Retirer des favoris"
+def annuler_decision(conn, d: dict) -> None:
+    if d["action"] == "candidate" and d["candidature_id"]:
+        requetes.supprimer_candidature(conn, d["candidature_id"])
+    elif d["action"] == "ecarte":
+        requetes.annuler_pas_interesse(conn, d["offre_id"])
+    elif d["action"] in ("plus_tard", "remettre"):
+        requetes.basculer_favori(conn, d["offre_id"])
+
+
+def bandeau_decision(conn, page_candidater=None) -> None:
+    """Dernière décision : rappel, raison facultative (« pas pour moi »), Ouvrir le dossier, Annuler."""
+    d = st.session_state.get("derniere_decision")
+    if not d:
+        return
+    nom = f"**{_e(d['titre'])}**" + (f" — {_e(d['entreprise'])}" if d["entreprise"] else "")
+    icone = {"candidate": "✅", "ecarte": "👎", "plus_tard": "⏳", "remettre": "↩️"}[d["action"]]
+    with st.container(border=True, key="bandeau_decision"):
+        ligne = st.columns([6, 1.6, 1.1, 0.5], vertical_alignment="center")
+        ligne[0].markdown(f"{icone} {nom} {TEXTES_DECISION[d['action']]}.", unsafe_allow_html=True)
+        if d["action"] == "candidate" and ligne[1].button("📝 Ouvrir le dossier", type="primary", width="stretch",
+                                                          help="Lettre de motivation, conseils CV, analyse de l'offre"):
+            st.session_state.pop("derniere_decision", None)
+            page_dossier.ouvrir_depuis(conn, d["offre_id"], page_candidater)
+        if ligne[2].button("↩️ Annuler", width="stretch", key="annuler_decision"):
+            annuler_decision(conn, d)
+            st.session_state.pop("derniere_decision", None)
+            st.rerun()
+        if ligne[3].button("✕", key="fermer_decision", help="Fermer", type="tertiary"):
+            st.session_state.pop("derniere_decision", None)
+            st.rerun()
+        if d["action"] == "ecarte":
+            raison = st.pills("Pourquoi ? (facultatif : l'IA s'en servira pour mieux noter)", RAISONS,
+                              key=f"raison_{d['offre_id']}")
+            if raison != d.get("raison"):
+                requetes.preciser_raison(conn, d["offre_id"], raison)
+                d["raison"] = raison
+
+
+def boutons_decision(chemin_base: str, o: dict, cle: str) -> bool:
+    """Les 3 décisions + Détails, en 2 rangées. Renvoie vrai si BAP veut voir le détail."""
+    haut, bas = st.columns(2), st.columns(2)
+    args = lambda action: (chemin_base, o["id"], action)  # noqa: E731
+    haut[0].button("✅ Je candidate", key=f"candidate_{cle}", type="primary", width="stretch",
+                   on_click=_decider_depuis_vignette, args=args("candidate"),
+                   help="L'offre part dans Candidatures (« à postuler ») ; aucune IA ne se lance")
+    haut[1].button("👎 Pas pour moi", key=f"ecarte_{cle}", width="stretch",
+                   on_click=_decider_depuis_vignette, args=args("ecarte"))
+    if o["favori"]:
+        bas[0].button("↩️ À trier", key=f"remettre_{cle}", width="stretch", help="Remettre dans les offres à trier",
+                      on_click=_decider_depuis_vignette, args=args("remettre"))
     else:
-        libelle, aide = ("☆" if compact else "☆ Garder"), "Garder en favori, pour la retrouver dans « Favoris »"
-    zone.button(libelle, key=cle, help=aide, width="stretch" if compact else "content",
-                on_click=_basculer_favori, args=(chemin_base, o["id"]))
+        bas[0].button("⏳ Plus tard", key=f"plus_tard_{cle}", width="stretch", help="Ranger à part pour y revenir",
+                      on_click=_decider_depuis_vignette, args=args("plus_tard"))
+    return bas[1].button("🔍 Détails", key=f"details_{cle}", width="stretch",
+                         help="Description complète, pourquoi cette note, lien vers l'annonce")
 
 
 @st.dialog("Offre", width="large")
@@ -220,14 +252,11 @@ def fenetre_fiche(config: dict, offre_id: int, cle: str, page_candidater=None) -
 
 
 def fiche(conn, offre_id: int, cle: str, page_candidater=None) -> None:
-    """Détail complet d'une offre, avec les boutons Postuler, Pas intéressé et Lettre."""
+    """Détail complet d'une offre, avec les mêmes décisions que la vignette, en haut."""
     o = requetes.offre(conn, offre_id)
     if o is None:
         st.warning("Cette offre n'existe plus.")
         return
-    if not o["vue"]:
-        requetes.marquer_vue(conn, o["id"])
-        st.session_state.setdefault("ouvertes", set()).add(o["id"])
 
     haut = st.columns([5, 1])
     haut[0].subheader(o["titre"])
@@ -237,7 +266,7 @@ def fiche(conn, offre_id: int, cle: str, page_candidater=None) -> None:
 
     badges = []
     if o["favori"]:
-        badges.append(":orange-badge[★ Favori]")
+        badges.append(":orange-badge[⏳ Plus tard]")
     if o["type_contrat"] == "cdd":
         badges.append(":orange-badge[CDD]")
     if o["section"]:
@@ -246,6 +275,7 @@ def fiche(conn, offre_id: int, cle: str, page_candidater=None) -> None:
         badges.append(":violet-badge[IA / data]")
     if badges:
         st.markdown(" ".join(badges))
+    actions_fiche(conn, o, cle, page_candidater)
 
     if o["resume"]:
         st.markdown(f"**Résumé** : {o['resume']}")
@@ -269,11 +299,10 @@ def fiche(conn, offre_id: int, cle: str, page_candidater=None) -> None:
     }
     st.markdown("  \n".join(f"**{k}** : {v}" for k, v in infos.items() if v))
 
-    liens = st.columns(4)
-    if o["lien"]:
-        liens[0].link_button("Ouvrir l'offre ↗", o["lien"])
-    for i, autre in enumerate(requetes.doublons_de(conn, o["id"])[:3], start=1):
-        if autre["lien"]:
+    autres = [a for a in requetes.doublons_de(conn, o["id"])[:3] if a["lien"]]
+    if autres:
+        liens = st.columns(4)
+        for i, autre in enumerate(autres):
             liens[i].link_button(f"Aussi sur {autre['site_origine'] or autre['source']}", autre["lien"])
 
     st.markdown("**Description de l'annonce**")
@@ -286,45 +315,50 @@ def fiche(conn, offre_id: int, cle: str, page_candidater=None) -> None:
                 st.markdown(texte, unsafe_allow_html=True)
         else:
             st.markdown(texte, unsafe_allow_html=True)
-        if o["source"] in SOURCES_EXTRAIT or len(o["description"]) < 600:
-            st.info(f"{(o['source'] or 'Ce site').capitalize()} ne transmet qu'un extrait de l'annonce. "
-                    "Le texte complet est sur le site : bouton **Ouvrir l'offre ↗**.", icon="ℹ️")
+        if o["source"] in SOURCES_EXTRAIT:
+            st.caption(f"{o['source'].capitalize()} ne transmet qu'un extrait de l'annonce : "
+                       "le texte complet est sur le site (bouton **Voir l'annonce ↗**).")
 
-    actions = st.columns(5)
-    candidature = requetes.candidature_de(conn, o["id"])
-    with actions[0]:
-        if candidature:
-            st.success(f"Candidature suivie (statut : {candidature['statut']}).")
-        elif st.button("✅ Postuler", key=f"postuler_{cle}_{o['id']}", type="primary"):
-            requetes.creer_candidature(conn, offre_id=o["id"])
-            st.toast("Ajoutée aux candidatures, statut « à postuler ».")
-            st.rerun()
-    with actions[1]:
-        if o["pas_interesse"]:
-            if st.button("Annuler « pas intéressé »", key=f"annuler_{cle}_{o['id']}"):
-                requetes.annuler_pas_interesse(conn, o["id"])
-                st.rerun()
-        else:
-            with st.popover("👎 Pas intéressé"):
-                raison = st.text_input("Raison (facultatif)", key=f"raison_{cle}_{o['id']}",
-                                       placeholder="ex. trop orienté finance, trop loin…")
-                if st.button("Confirmer", key=f"pasint_{cle}_{o['id']}"):
-                    requetes.marquer_pas_interesse(conn, o["id"], raison)
-                    st.toast("Offre masquée. L'IA s'en servira d'exemple pour les prochaines notes.")
-                    st.rerun()
-    with actions[3]:
+    if o["expiration"] not in (None, "manuelle"):
+        return
+    with st.popover("⋯ Autres actions"):
         if o["expiration"] == "manuelle":
-            if st.button("Remettre en ligne", key=f"remettre_{cle}_{o['id']}"):
+            if st.button("Remettre en ligne", key=f"remettre_ligne_{cle}_{o['id']}"):
                 expiration.annuler(conn, o["id"])
                 st.rerun()
-        elif not o["expiration"] and st.button("⌛ Offre expirée", key=f"expiree_{cle}_{o['id']}",
+        elif not o["expiration"] and st.button("⌛ Signaler l'offre comme expirée", key=f"expiree_{cle}_{o['id']}",
                                                help="L'offre n'est plus en ligne ou n'accepte plus de candidatures"):
             expiration.marquer_expiree(conn, o["id"])
             st.toast("Offre masquée (expirée).")
             st.rerun()
-    with actions[4]:
-        bouton_favori(conn, o, f"favori_fiche_{cle}_{o['id']}")
-    with actions[2]:
-        if st.button("📝 Préparer ma candidature", key=f"dossier_{cle}_{o['id']}",
-                     help="Analyse de l'offre face à ton CV, conseils CV et lettre de motivation"):
+
+
+def actions_fiche(conn, o: dict, cle: str, page_candidater=None) -> None:
+    """Décisions en haut de la fiche ; si une candidature existe déjà, accès direct au dossier."""
+    candidature = requetes.candidature_de(conn, o["id"])
+    ligne = st.columns(4)
+    if candidature:
+        ligne[0].success(f"Dans tes candidatures ({candidature['statut']}).")
+        if ligne[1].button("📝 Ouvrir le dossier", key=f"dossier_{cle}_{o['id']}", type="primary"):
             page_dossier.ouvrir_depuis(conn, o["id"], page_candidater)
+    elif o["pas_interesse"]:
+        ligne[0].info("Écartée (pas pour moi).")
+        if ligne[1].button("↩️ Remettre à trier", key=f"annuler_{cle}_{o['id']}"):
+            requetes.annuler_pas_interesse(conn, o["id"])
+            st.rerun()
+    else:
+        choix = None
+        if ligne[0].button("✅ Je candidate", key=f"candidate_fiche_{cle}_{o['id']}", type="primary", width="stretch"):
+            choix = "candidate"
+        if ligne[1].button("👎 Pas pour moi", key=f"ecarte_fiche_{cle}_{o['id']}", width="stretch"):
+            choix = "ecarte"
+        if o["favori"]:
+            if ligne[2].button("↩️ À trier", key=f"remettre_fiche_{cle}_{o['id']}", width="stretch"):
+                choix = "remettre"
+        elif ligne[2].button("⏳ Plus tard", key=f"plus_tard_fiche_{cle}_{o['id']}", width="stretch"):
+            choix = "plus_tard"
+        if choix:
+            decider(conn, o["id"], choix)
+            st.rerun()   # ferme la fenêtre ; le bandeau de la page permet d'annuler
+    if o["lien"]:
+        ligne[3].link_button("Voir l'annonce ↗", o["lien"], width="stretch")

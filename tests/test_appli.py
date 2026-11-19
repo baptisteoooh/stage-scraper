@@ -177,36 +177,109 @@ def test_chaque_page_s_affiche(appli, page):
 def test_appli_complete_avec_menu(appli):
     at = AppTest.from_file(str(CHEMIN_CONFIG.parent / "app.py"), default_timeout=30).run()
     assert not at.exception, at.exception
-    assert at.title[0].value.endswith("Offres de stage")
-    onglets = [t.label for t in at.tabs]
-    assert onglets[:2] == ["Toutes sections (1)", "Santé (1)"] and onglets[-1] == "En attente de note IA (1)"
+    assert at.title[0].value == "📥 À trier"
+    assert at.segmented_control(key="filtre_a_trier").options[:2] == ["Toutes  2", "Santé  1"]
 
 
-def test_page_offres_en_vignettes(appli):
+def vignettes_affichees(at):
+    return [m.value for m in at.markdown if 'class="vignette"' in m.value]
+
+
+def test_a_trier_en_vignettes(appli):
     at = AppTest.from_function(une_page, args=("tableau_de_bord",), default_timeout=30).run()
     assert not at.exception, at.exception
-    vignettes = [m.value for m in at.markdown if 'class="vignette"' in m.value]
-    assert any("Gleamer" in v and "<b>9</b>" in v for v in vignettes)
-    assert any(b.label == "Voir la fiche" for b in at.button)
-    assert not at.dataframe or len(at.dataframe) == 1  # seul reste le tableau des offres écartées
+    vues = vignettes_affichees(at)
+    assert len(vues) == 2 and any("Gleamer" in v and "<b>9</b>" in v for v in vues)
+    assert not any("Extrait de l’annonce" in v for v in vues)                     # vignettes courtes
+    assert {"✅ Je candidate", "👎 Pas pour moi", "⏳ Plus tard", "🔍 Détails"} <= {b.label for b in at.button}
+    assert any("Aucun scrap" in c.value for c in at.caption)
+    assert at.session_state["tri_a_trier"] == "Plus récentes"                     # les plus récentes d'abord
+    assert "Withings" in vues[0]                                                  # publiée le 21/10, après Gleamer
 
 
-def test_garder_en_favori_depuis_une_vignette(appli):
+def test_je_candidate_puis_annuler(appli):
     at = AppTest.from_function(une_page, args=("tableau_de_bord",), default_timeout=30).run()
-    next(b for b in at.button if b.label == "☆").click().run()
+    at.button(key="candidate_toutes_1").click().run()
     assert not at.exception, at.exception
-    assert any(b.label == "★" for b in at.button)  # l'étoile change tout de suite
-    assert any("★ Favori" in m.value for m in at.markdown if 'class="vignette' in m.value)
-    at.segmented_control(key="filtre_offres").set_value("★ Favoris").run()
+    assert not any("Gleamer" in v for v in vignettes_affichees(at))               # l'offre quitte la liste
+    assert any("ajoutée à tes candidatures" in m.value for m in at.markdown)
+    with closing(db.connecter(appli)) as conn:
+        assert requetes.candidature_de(conn, 1)["statut"] == "à postuler"
+    at.button(key="annuler_decision").click().run()
+    assert any("Gleamer" in v for v in vignettes_affichees(at))
+    with closing(db.connecter(appli)) as conn:
+        assert requetes.candidature_de(conn, 1) is None
+
+
+def test_pas_pour_moi_avec_raison(appli):
+    at = AppTest.from_function(une_page, args=("tableau_de_bord",), default_timeout=30).run()
+    at.button(key="ecarte_toutes_1").click().run()
     assert not at.exception, at.exception
-    vignettes = [m.value for m in at.markdown if 'class="vignette' in m.value]
-    assert len(vignettes) == 1 and "Gleamer" in vignettes[0]
-    at.segmented_control(key="tri_offres_bouton").set_value("Plus récentes").run()
-    assert not at.exception and at.session_state["tri_offres"] == "Plus récentes"
+    assert len(vignettes_affichees(at)) == 1
+    at.pills(key="raison_1").set_value("Pas mon domaine").run()
+    assert not at.exception, at.exception
+    with closing(db.connecter(appli)) as conn:
+        assert requetes.offre(conn, 1)["pas_interesse"] == 1
+        assert requetes.offres_pas_interesse(conn)[0]["raison"] == "Pas mon domaine"
+
+
+def test_plus_tard_puis_remettre(appli):
+    at = AppTest.from_function(une_page, args=("tableau_de_bord",), default_timeout=30).run()
+    at.button(key="plus_tard_toutes_1").click().run()
+    assert not at.exception, at.exception
+    assert len(vignettes_affichees(at)) == 1
+    at.segmented_control(key="filtre_a_trier").set_value("⏳ Plus tard").run()
+    vues = vignettes_affichees(at)
+    assert len(vues) == 1 and "Gleamer" in vues[0]
+    at.button(key="remettre_plus_tard_1").click().run()
+    assert not at.exception, at.exception
+    with closing(db.connecter(appli)) as conn:
+        assert requetes.offre(conn, 1)["favori"] == 0
+
+
+def test_offres_bof_masquees_et_recherche(appli):
+    with closing(db.connecter(appli)) as conn:
+        conn.execute("UPDATE offres SET score = 3 WHERE source_id = '2'")
+        conn.commit()
+    at = AppTest.from_function(une_page, args=("tableau_de_bord",), default_timeout=30).run()
+    assert len(vignettes_affichees(at)) == 1
+    at.toggle(key="voir_bof").set_value(True).run()
+    assert len(vignettes_affichees(at)) == 2
+    at.text_input(key="recherche_a_trier").set_value("gleamer paris").run()
+    vues = vignettes_affichees(at)
+    assert len(vues) == 1 and "Gleamer" in vues[0]
+    at.text_input(key="recherche_a_trier").set_value("introuvable").run()
+    assert any("Aucune offre ne correspond" in m.value for m in at.markdown)
+
+
+def test_tout_est_trie(appli):
+    with closing(db.connecter(appli)) as conn:
+        conn.execute("UPDATE offres SET pas_interesse = 1")
+        conn.commit()
+    at = AppTest.from_function(une_page, args=("tableau_de_bord",), default_timeout=30).run()
+    assert any("Tout est trié" in m.value for m in at.markdown)
+
+
+def test_phrase_du_dernier_scrap(tmp_path):
+    from datetime import datetime
+    from stage_scraper import page_a_trier
+    with closing(base(tmp_path / "t.db")) as conn:
+        assert requetes.dernier_scrap(conn) is None
+        db.journaliser_run(conn, passage_id=1, date_debut="2026-11-19 08:02:00", declenchement="auto",
+                           source="careerjet", nb_offres=3, erreurs=None)
+        db.journaliser_run(conn, passage_id=1, date_debut="2026-11-19 08:03:00", declenchement="auto",
+                           source="gmail", erreurs="IMAP refusé")
+        db.journaliser_run(conn, passage_id=2, date_debut="2026-11-19 09:00:00", declenchement="manuel",
+                           source="dossier")                                       # pas un scrap
+        s = requetes.dernier_scrap(conn)
+    assert (s["passage_id"], s["nouvelles"], s["top"], s["en_erreur"]) == (1, 2, 1, ["gmail"])
+    phrase = page_a_trier.phrase_scrap(s, datetime(2026, 11, 19, 12, 0))
+    assert phrase == ("Dernier scrap aujourd'hui à 08h02 (automatique) : 2 nouvelles offres, dont 1 notée 8 ou plus"
+                      " · ⚠️ en erreur : gmail (détail dans Journal).")
 
 
 def contenu_fiche(offre_id):
-    """Contenu de la fenêtre « Voir la fiche », avec sa propre connexion comme dans l'appli."""
+    """Contenu de la fenêtre « Détails », avec sa propre connexion comme dans l'appli."""
     from contextlib import closing
     from stage_scraper import db, vignettes
     from stage_scraper.config import charger_config, chemin_projet
@@ -214,24 +287,17 @@ def contenu_fiche(offre_id):
         vignettes.fiche(conn, offre_id, "test")
 
 
-def test_postuler_depuis_la_fiche(appli):
+def test_je_candidate_depuis_la_fiche(appli):
     # AppTest ne sait pas relancer une fenêtre seule : on affiche directement son contenu.
     at = AppTest.from_function(contenu_fiche, args=(1,), default_timeout=30).run()
     assert not at.exception, at.exception
-    next(b for b in at.button if "Postuler" in b.label).click().run()
+    assert any(b.label == "Voir l'annonce ↗" for b in at.get("link_button"))
+    next(b for b in at.button if b.label == "✅ Je candidate").click().run()
     assert not at.exception, at.exception
     with closing(db.connecter(appli)) as conn:
         assert [c["entreprise"] for c in requetes.candidatures(conn)] == ["Gleamer"]
         assert conn.execute("SELECT vue FROM offres WHERE source_id = '1'").fetchone()[0] == 1
-
-
-def test_favori_depuis_la_fiche(appli):
-    at = AppTest.from_function(contenu_fiche, args=(1,), default_timeout=30).run()
-    next(b for b in at.button if b.label == "☆ Garder").click().run()
-    assert not at.exception, at.exception
-    assert any(b.label == "★ Favori" for b in at.button)
-    with closing(db.connecter(appli)) as conn:
-        assert [o["id"] for o in requetes.offres_favorites(conn)] == [1]
+    assert any(b.label == "📝 Ouvrir le dossier" for b in at.button)             # déjà dans les candidatures
 
 
 def test_contenu_d_une_vignette():
@@ -358,7 +424,7 @@ def test_chat_affiche_les_offres_proposees(appli, monkeypatch):
     assert any("Imagerie et deep learning." in m.value for m in at.markdown)
     assert at.expander[0].label == "📋 1 offre proposée"
     assert any("Lu : Stage ML — Gleamer" in c.value for c in at.caption)
-    assert any(b.label == "Fiche" for b in at.button)
+    assert any(b.label == "🔍 Détails" for b in at.button)
     assert not any('class="vignette"' in m.value for m in at.markdown)   # plus de grandes vignettes
     # la conversation est gardée en base : elle est encore là à la réouverture de l'appli
     at = AppTest.from_function(une_page, args=("chat",), default_timeout=30).run()

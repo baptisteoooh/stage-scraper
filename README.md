@@ -137,17 +137,17 @@ L'appli s'ouvre dans le navigateur (http://localhost:8501). Elle n'est visible q
 Elle suit le mode clair ou sombre de Windows (thème dans `.streamlit/config.toml`, styles dans `stage_scraper/style.py`).
 Pour l'arrêter : `Ctrl + C` dans le terminal. Les pages sont dans le menu en haut.
 
-- **Offres** : bouton **Lancer le scrap** (le menu **⋯** à côté choisit les sources et exporte en Excel), puis les offres
-  en vignettes, de la mieux notée à la moins bien notée, en onglets
-  Toutes sections / Santé / Hors santé mais intéressant / À négocier / En attente de note IA.
-  **Toutes** (par défaut) : toutes les offres gardées, l'étiquette « Nouvelle » marque celles pas encore ouvertes ;
-  **Nouvelles** : seulement celles-là ; **Dernier passage** : celles trouvées par le dernier scrap.
-  Chaque vignette montre la note, l'entreprise, le poste, le lieu, la durée, le début, le télétravail, la
-  gratification (si connue), le résumé de l'IA, un extrait de l'annonce et la date de publication. 24 vignettes s'affichent d'abord,
-  **Afficher plus** ajoute les suivantes. **Voir la fiche** ouvre le détail : explication de la note, contact, liens,
-  description (Careerjet ne transmet qu'un extrait : le texte complet est sur le site), boutons **Postuler** (crée une candidature), **Pas intéressé** (avec une raison
-  facultative, réutilisée par l'IA) et **📝 Préparer ma candidature**. **Ouvrir l'offre ↗** mène directement au site.
-  En bas, la liste des offres écartées par le tri, pour vérifier qu'il ne se trompe pas.
+- **À trier** : les offres sur lesquelles tu n'as pas encore décidé, comme une boîte de réception à vider.
+  En haut : **🔄 Lancer le scrap** (le menu **⋯** choisit les sources) et une phrase sur le dernier scrap
+  (heure, nouvelles offres, sources en erreur). Puis une recherche, le tri (**Plus récentes** par défaut, ou
+  **Meilleure note**) et les filtres Toutes / Santé / Hors santé / À négocier / ⏳ Plus tard, avec leur nombre.
+  Les offres « Bof » (note < 5) sont masquées : l'interrupteur **Voir les « Bof »** les affiche.
+  Chaque vignette (note, entreprise, poste, lieu, durée, début, résumé de l'IA, badge « Nouvelle » pour le
+  dernier scrap) a trois décisions en un clic : **✅ Je candidate** (l'offre part dans Candidatures, aucune IA ne se
+  lance), **👎 Pas pour moi** (raison facultative en un clic, réutilisée par l'IA), **⏳ Plus tard** (rangée à part).
+  Un bandeau permet d'**annuler** la dernière décision, ou d'**ouvrir le dossier** de candidature. **🔍 Détails**
+  ouvre la fiche complète (pourquoi cette note, description, contact, **Voir l'annonce ↗**) avec les mêmes boutons.
+  En bas, les offres écartées automatiquement et les offres expirées, pour vérifier que le tri ne se trompe pas.
 - **Candidatures** : une colonne par étape (À postuler, Postulé, Relancé, Entretien), une carte par
   candidature ; les candidatures terminées (acceptées ou refusées) sont rangées dans le volet **Terminées**. Le bouton bleu de la carte passe à l'étape suivante et remplit les dates (envoi, rappel de relance
   7 jours après, réglable dans `config.yaml` > `candidatures.relance_jours`). **Détails** ouvre une fenêtre pour tout
@@ -173,7 +173,7 @@ Pour l'arrêter : `Ctrl + C` dans le terminal. Les pages sont dans le menu en ha
 - **Réglages › Mes documents** : dépose ton CV (PDF) et une lettre modèle (.txt ou .docx). Ils restent dans `profil/`
   (jamais sur Git) ; l'aperçu montre exactement le texte envoyé aux IA, sans coordonnées ni nom.
 - **Journal** : historique des passages et coût IA (mois en cours et cumulé).
-- **Exporter en Excel** (en haut de la page Candidatures, ou menu **⋯** de la page Offres) : un fichier avec deux feuilles, Offres et Candidatures.
+- **Exporter en Excel** (en haut de la page Candidatures) : un fichier avec deux feuilles, Offres et Candidatures.
 
 ## Tâche planifiée
 

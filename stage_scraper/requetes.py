@@ -37,6 +37,44 @@ def offres_visibles(conn, filtre: str = "toutes", passage_id: int | None = None)
     return [dict(l) for l in lignes]
 
 
+def offres_a_trier(conn) -> list[dict]:
+    """Offres gardées sur lesquelles BAP n'a pas encore décidé : ni candidature, ni « pas pour moi ».
+
+    Les offres rangées « plus tard » (colonne favori) en font partie : la page À trier les met à part.
+    """
+    lignes = conn.execute(
+        f"SELECT * FROM offres WHERE {VISIBLE} AND id NOT IN "
+        "(SELECT offre_id FROM candidatures WHERE offre_id IS NOT NULL)").fetchall()
+    return [dict(l) for l in lignes]
+
+
+SOURCES_HORS_SCRAP = ("dossier", "chat", "lettre", "scoring")   # lignes du journal qui ne sont pas une collecte
+
+
+def dernier_scrap(conn) -> dict | None:
+    """Le dernier scrap (même sans nouvelle offre) : date, mode, offres gardées, sources en erreur."""
+    marques = ", ".join("?" * len(SOURCES_HORS_SCRAP))
+    passage = conn.execute(f"SELECT MAX(passage_id) FROM runs WHERE source NOT IN ({marques})",
+                           SOURCES_HORS_SCRAP).fetchone()[0]
+    if passage is None:
+        return None
+    lignes = [dict(l) for l in conn.execute(
+        f"SELECT * FROM runs WHERE passage_id = ? AND source NOT IN ({marques}) ORDER BY id",
+        (passage, *SOURCES_HORS_SCRAP))]
+    compte = lambda condition: conn.execute(  # noqa: E731
+        f"SELECT COUNT(*) FROM offres WHERE passage_id = ? AND {VISIBLE}{condition}", (passage,)).fetchone()[0]
+    return {"passage_id": passage, "date": min(l["date_debut"] for l in lignes),
+            "auto": any(l["declenchement"] == "auto" for l in lignes),
+            "nouvelles": compte(""), "top": compte(" AND score >= 8"),
+            "en_erreur": [l["source"] for l in lignes if l["erreurs"]]}
+
+
+def preciser_raison(conn, offre_id: int, raison: str | None) -> None:
+    """Raison d'un « pas pour moi », choisie après coup (elle sert d'exemple à l'IA)."""
+    conn.execute("UPDATE feedback SET raison = ? WHERE offre_id = ?", ((raison or "").strip() or None, offre_id))
+    conn.commit()
+
+
 def offres_exclues(conn) -> list[dict]:
     """Offres écartées par le pré-filtre ou l'IA (pour vérifier que le tri ne se trompe pas)."""
     lignes = conn.execute(

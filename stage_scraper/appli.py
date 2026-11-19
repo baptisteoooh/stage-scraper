@@ -1,156 +1,28 @@
 """Appli locale, lancée par app.py (streamlit run app.py).
 
-Pages (menu en haut) : offres en vignettes (+ bouton de scrap), assistant (chat sur les offres),
+Pages (menu en haut) : À trier (nouvelles offres + bouton de scrap), assistant (chat sur les offres),
 candidater (dossier d'une offre : analyse, conseils CV, lettre), candidatures, réglages, journal.
-L'export Excel est dans le menu « ⋯ » de la page Offres et en haut de la page Candidatures.
+L'export Excel est en haut de la page Candidatures.
 """
-import logging
 
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-from stage_scraper import (chat_offres, claude, collecte, db, dossier, expiration, notifications, page_dossier, pipeline,
+from stage_scraper import (chat_offres, claude, db, dossier, notifications, page_a_trier, page_dossier, pipeline,
                            reglages, requetes, style, suivi, vignettes)
 from stage_scraper import cv as module_cv
 from stage_scraper import config as parametres
-from stage_scraper.config import chemin_projet, secret
+from stage_scraper.config import chemin_projet
 
 # Ouverts à chaque affichage (Streamlit relance ce fichier à chaque clic).
 CONFIG: dict = {}
 CONN = None
 
-ONGLET_TOUTES = "Toutes sections"
-ONGLET_ATTENTE = "En attente de note IA"
-FILTRE_FAVORIS = "★ Favoris"
-
-
 # =========================================================================== pages
 
 def page_tableau_de_bord():
-    entete = st.columns([4, 1.1, 0.5], vertical_alignment="bottom")
-    entete[0].title("🩺 Offres de stage")
-    lancer = entete[1].button("Lancer le scrap", type="primary", width="stretch")
-    with entete[2].popover("⋯", help="Sources du scrap et export Excel", width="stretch"):
-        actives = [n for n, r in CONFIG["sources"].items() if r.get("actif") and n in collecte.SOURCES]
-        choix = st.multiselect(
-            "Sources (vide = toutes les sources actives, sauf Google Jobs réservé au passage de 8 h)",
-            list(collecte.SOURCES), placeholder="Toutes les sources actives", key="sources_choisies")
-        st.caption("Actives : " + ", ".join(actives))
-        st.divider()
-        suivi.bouton_export(CONN)
-    if lancer:
-        lancer_scrap(choix or None)
-
-    stats = requetes.statistiques(CONN)
-    m = st.columns(4)
-    m[0].metric("Offres gardées", stats["visibles"])
-    m[1].metric("Pas encore vues", stats["non_vues"])
-    m[2].metric("À postuler vite", stats["a_postuler_vite"])
-    m[3].metric("Candidatures", stats["candidatures"])
-
-    if stats["a_noter"] and not secret("GEMINI_API_KEY"):
-        st.info(f"{stats['a_noter']} offre(s) attendent la note de l'IA : ajoute GEMINI_API_KEY dans le "
-                "fichier .env, puis relance un scrap (ou `python run.py --noter`).")
-
-    st.markdown("")
-    # « Toutes » par défaut : une offre ouverte une fois reste visible (l'étiquette « Nouvelle » repère les autres).
-    choix = st.columns([3, 2], vertical_alignment="bottom")
-    filtre = choix[0].segmented_control("Afficher", ["Toutes", "Nouvelles", "Dernier passage", FILTRE_FAVORIS],
-                                        default="Toutes", key="filtre_offres") or "Toutes"
-    # Tri retenu pour toute la visite (la clé du bouton est oubliée quand on change de page).
-    tri = choix[1].segmented_control("Trier par", requetes.TRIS, key="tri_offres_bouton",
-                                     default=st.session_state.get("tri_offres", requetes.TRIS[0]))
-    tri = st.session_state["tri_offres"] = tri or st.session_state.get("tri_offres", requetes.TRIS[0])
-
-    if filtre == FILTRE_FAVORIS:
-        favoris = requetes.trier_offres(
-            requetes.offres_favorites(CONN, st.session_state.get("favoris_retires", set())), tri)
-        st.caption("Les offres gardées avec ☆ restent ici, même déjà vues ou expirées.")
-        vignettes.grille(CONN, CONFIG, favoris, cle="favoris", page_candidater=PAGES_OBJETS.get("candidater"),
-                         avec_section=True)
-        offres = []
-    else:
-        if filtre == "Dernier passage":
-            offres = requetes.offres_visibles(CONN, "passage", requetes.dernier_passage(CONN))
-        else:
-            offres = requetes.offres_visibles(CONN)
-            if filtre == "Nouvelles":  # les offres ouvertes pendant cette visite restent affichées
-                ouvertes = st.session_state.get("ouvertes", set())
-                offres = [o for o in offres if not o["vue"] or o["id"] in ouvertes]
-        offres = requetes.trier_offres(offres, tri)
-
-        # Premier onglet : toutes les offres notées, dans l'ordre choisi (note ou date).
-        par_section = {ONGLET_TOUTES: [o for o in offres if o["score"] is not None]}
-        par_section.update({s: [o for o in offres if o["score"] is not None and o["section"] == s]
-                            for s in requetes.SECTIONS})
-        par_section[ONGLET_ATTENTE] = [o for o in offres if o["score"] is None]
-        onglets = st.tabs([f"{nom} ({len(liste)})" for nom, liste in par_section.items()])
-        for onglet, (nom, liste) in zip(onglets, par_section.items()):
-            with onglet:
-                if nom == ONGLET_ATTENTE and liste:
-                    st.caption("Offres qui ont passé le pré-filtre mais que l'IA n'a pas encore notées.")
-                vignettes.grille(CONN, CONFIG, liste, cle=f"{filtre}_{nom}",
-                                 page_candidater=PAGES_OBJETS.get("candidater"), avec_section=(nom == ONGLET_TOUTES))
-
-    if filtre == "Nouvelles" and offres:
-        if st.button("Tout marquer comme vu"):
-            CONN.executemany("UPDATE offres SET vue = 1 WHERE id = ?", [(o["id"],) for o in offres])
-            CONN.commit()
-            st.session_state["ouvertes"] = set()
-            st.rerun()
-
-    with st.expander("🔍 Offres écartées par le tri (pour vérifier qu'il ne se trompe pas)"):
-        exclues = requetes.offres_exclues(CONN)
-        st.dataframe(pd.DataFrame([{"Titre": o["titre"], "Entreprise": o["entreprise"], "Lieu": o["lieu"],
-                                    "Raison": o["exclusion_prefiltre"] or o["exclusion_ia"], "Lien": o["lien"]}
-                                   for o in exclues]),
-                     hide_index=True, width="stretch",
-                     column_config={"Lien": st.column_config.LinkColumn(display_text="Ouvrir")})
-
-    expirees = expiration.expirees(CONN)
-    with st.expander(f"⌛ Offres expirées ({len(expirees)})"):
-        st.caption("Retirées du site de l'entreprise, trop anciennes ou signalées à la main. "
-                   "Elles restent en base mais n'apparaissent plus dans les offres ni dans les mails.")
-        for o in expirees[:100]:
-            c = st.columns([6, 1])
-            c[0].markdown(f"**{o['titre']}** — {o['entreprise'] or '?'}"
-                          + (f" · {o['score']}/10" if o["score"] is not None else "")
-                          + f" · _{expiration.raison(o)}_")
-            if o["expiration"] == "manuelle" and c[1].button("Remettre", key=f"remettre_{o['id']}"):
-                expiration.annuler(CONN, o["id"])
-                st.rerun()
-
-
-class JournalVersStreamlit(logging.Handler):
-    """Affiche en direct, dans l'appli, les messages écrits pendant le scrap."""
-
-    def __init__(self, zone):
-        super().__init__(level=logging.INFO)
-        self.zone, self.lignes = zone, []
-        self.setFormatter(logging.Formatter("%(asctime)s  %(message)s", "%H:%M:%S"))
-
-    def emit(self, record):
-        self.lignes.append(self.format(record))
-        self.zone.code("\n".join(self.lignes[-25:]), language=None)
-
-
-def lancer_scrap(sources: list[str] | None) -> None:
-    with st.status("Scrap en cours… (quelques minutes)", expanded=True) as statut:
-        zone = st.empty()
-        journal = JournalVersStreamlit(zone)
-        racine = logging.getLogger()
-        racine.addHandler(journal)
-        ancien_niveau = racine.level
-        racine.setLevel(logging.INFO)
-        try:
-            bilan = pipeline.passage_complet(CONN, CONFIG, auto=False, sources=sources)
-        finally:
-            racine.removeHandler(journal)
-            racine.setLevel(ancien_niveau)
-        zone.code("\n".join(pipeline.resume_texte(bilan)), language=None)
-        statut.update(label="Scrap terminé", state="complete")
-    st.session_state["filtre_offres"] = "Dernier passage"
+    page_a_trier.afficher(CONN, CONFIG, PAGES_OBJETS.get("candidater"))
 
 
 def page_candidatures():
@@ -320,6 +192,7 @@ def page_chat():
     st.caption("Demande-lui des offres (« un stage en computer vision sur l'imagerie médicale »), ou pose une "
                "question sur une offre (« quelles compétences pour le stage deep learning de GE ? », « compare "
                "ces deux offres »), ou sur tes candidatures. Il lit les annonces en entier avant de répondre.")
+    vignettes.bandeau_decision(CONN, PAGES_OBJETS.get("candidater"))
     messages = messages_assistant()
     if messages and st.button("🧹 Nouvelle conversation", help="Efface cette conversation (les offres restent)"):
         dossier.effacer_conversation(CONN, CONVERSATION_ASSISTANT)
@@ -373,15 +246,14 @@ def liste_offres_chat(message: dict, cle: str, ouverte: bool) -> None:
     with st.expander(f"📋 {len(offres)} offre{'s' if len(offres) > 1 else ''} proposée{'s' if len(offres) > 1 else ''}",
                      expanded=ouverte):
         for o in offres:
-            ligne = st.columns([8, 1.3, 0.6], vertical_alignment="center")
+            ligne = st.columns([8, 1.3], vertical_alignment="center")
             note = f"**{o['score']}/10**" if o["score"] is not None else "—"
             lieu = vignettes.lieu_court(o["lieu"])
             ligne[0].markdown(f"{note} · **{o['titre']}** — {o['entreprise'] or '?'}" + (f" · {lieu}" if lieu else "")
                               + f"  \n<span class='chat-raison'>{vignettes._e(message['raisons'].get(o['id'], ''))}</span>",
                               unsafe_allow_html=True)
-            if ligne[1].button("Fiche", key=f"{cle}_fiche_{o['id']}", width="stretch"):
+            if ligne[1].button("🔍 Détails", key=f"{cle}_fiche_{o['id']}", width="stretch"):
                 a_ouvrir = o["id"]
-            vignettes.bouton_favori(CONN, o, f"{cle}_favori_{o['id']}", ligne[2], compact=True)
     if a_ouvrir is not None:
         vignettes.fenetre_fiche(CONFIG, a_ouvrir, cle, PAGES_OBJETS.get("candidater"))
 
@@ -435,7 +307,7 @@ def page_journal():
 # =========================================================================== lancement
 
 PAGES = {
-    "tableau_de_bord": dict(titre="Offres", icone="🩺"),
+    "tableau_de_bord": dict(titre="À trier", icone="📥"),
     "chat": dict(titre="Assistant", icone="💬"),
     "candidater": dict(titre="Candidater", icone="📝"),
     "candidatures": dict(titre="Candidatures", icone="📋"),

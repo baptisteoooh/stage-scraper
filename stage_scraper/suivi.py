@@ -12,7 +12,7 @@ from datetime import date
 import pandas as pd
 import streamlit as st
 
-from . import db, export, requetes
+from . import db, export, page_dossier, requetes
 from .config import chemin_projet
 
 # (clé, titre, symbole) ; « terminé » regroupe refus et accepté.
@@ -72,7 +72,7 @@ def correspond(c: dict, recherche: str) -> bool:
 
 # =========================================================================== page
 
-def afficher(conn, config: dict) -> None:
+def afficher(conn, config: dict, page_candidater=None) -> None:
     relance_jours = int(config.get("candidatures", {}).get("relance_jours", 7))
     st.title("📋 Candidatures")
 
@@ -117,7 +117,7 @@ def afficher(conn, config: dict) -> None:
                 if not cartes:
                     st.markdown('<div class="etape-vide">Rien ici pour l’instant</div>', unsafe_allow_html=True)
                 for c in cartes:
-                    carte(conn, config, c, relance_jours)
+                    carte(conn, config, c, relance_jours, page_candidater)
 
     terminees = [c for c in visibles if etape(c) == "terminé"]
     st.markdown("")
@@ -128,13 +128,13 @@ def afficher(conn, config: dict) -> None:
             grille = st.columns(4, gap="medium")
             for i, c in enumerate(terminees):
                 with grille[i % 4]:
-                    carte(conn, config, c, relance_jours)
+                    carte(conn, config, c, relance_jours, page_candidater)
 
     with st.expander("Vue tableau (pour modifier beaucoup de lignes d'un coup)"):
         vue_tableau(conn, toutes)
 
 
-def carte(conn, config: dict, c: dict, relance_jours: int) -> None:
+def carte(conn, config: dict, c: dict, relance_jours: int, page_candidater=None) -> None:
     e = html.escape
     with st.container(border=True, key=f"carte_{c['id']}"):
         st.markdown(f'<div class="carte-entreprise">{e(c["entreprise"] or "Entreprise ?")}</div>'
@@ -156,7 +156,7 @@ def carte(conn, config: dict, c: dict, relance_jours: int) -> None:
         elif c["statut"] == "refus":
             badges.append(":gray-badge[Refus]")
         if c.get("lettre"):
-            badges.append(":blue-badge[Lettre prête]")
+            badges.append(":blue-badge[Lettre]")
         if badges:
             st.markdown(" ".join(badges))
 
@@ -167,7 +167,11 @@ def carte(conn, config: dict, c: dict, relance_jours: int) -> None:
                 avant = requetes.changer_statut(conn, c["id"], suivant, relance_jours)
                 _retenir(f"{c['entreprise'] or 'Candidature'} : {LIBELLES_STATUT[suivant]}", avant)
                 st.rerun()
-        if st.button("Détails", key=f"details_{c['id']}", type="tertiary", width="stretch"):
+        bas = st.columns(2) if c["offre_id"] else [st.container()]
+        if c["offre_id"] and bas[1].button("📝 Dossier", key=f"dossier_{c['id']}", type="tertiary", width="stretch",
+                                           help="Lettre, conseils CV et conversation avec l'IA pour cette offre"):
+            page_dossier.ouvrir_depuis(conn, c["offre_id"], page_candidater)
+        if bas[0].button("Détails", key=f"details_{c['id']}", type="tertiary", width="stretch"):
             fenetre_details(config, c["id"], relance_jours)
 
 

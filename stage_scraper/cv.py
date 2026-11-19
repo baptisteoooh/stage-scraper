@@ -97,6 +97,18 @@ def modele_lettre(config: dict) -> str | None:
     return anonymiser(chemin.read_text(encoding="utf-8", errors="replace"), nom)
 
 
+def nom_reel(config: dict) -> str | None:
+    """Le vrai nom (tête du CV), seulement pour signer localement une lettre exportée."""
+    chemin = chemin_cv(config)
+    return _lire_cv(str(chemin), chemin.stat().st_mtime)[1] if chemin.exists() else None
+
+
+def signer(texte: str, config: dict) -> str:
+    """Remet le vrai nom à la place de [Prénom Nom] (export local, jamais envoyé à l'IA)."""
+    nom = nom_reel(config)
+    return texte.replace(NOM_MASQUE, nom) if nom else texte
+
+
 def empreinte(texte: str | None) -> str | None:
     """Empreinte courte du CV : un diagnostic est à refaire quand elle change."""
     return hashlib.sha256(texte.encode("utf-8")).hexdigest()[:16] if texte else None

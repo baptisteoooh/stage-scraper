@@ -16,7 +16,6 @@ CHEMIN_CONFIG = RACINE / "config.yaml"
 # Secrets attendus dans .env, avec leur usage.
 SECRETS_ATTENDUS = {
     "GEMINI_API_KEY": "scoring IA (Gemini)",
-    "ANTHROPIC_API_KEY": "lettres de motivation (Claude)",
     "FRANCE_TRAVAIL_CLIENT_ID": "API France Travail",
     "FRANCE_TRAVAIL_CLIENT_SECRET": "API France Travail",
     "SERPAPI_API_KEY": "Google Jobs via SerpApi",

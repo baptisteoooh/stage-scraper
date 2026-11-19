@@ -168,7 +168,7 @@ def une_page(page):
     main(page)
 
 
-@pytest.mark.parametrize("page", ["tableau_de_bord", "chat", "candidatures", "lettre", "reglages", "journal"])
+@pytest.mark.parametrize("page", ["tableau_de_bord", "chat", "candidater", "candidatures", "reglages", "journal"])
 def test_chaque_page_s_affiche(appli, page):
     at = AppTest.from_function(une_page, args=(page,), default_timeout=30).run()
     assert not at.exception, at.exception
@@ -360,3 +360,88 @@ def test_chat_affiche_les_offres_proposees(appli, monkeypatch):
     assert any("Lu : Stage ML — Gleamer" in c.value for c in at.caption)
     assert any(b.label == "Fiche" for b in at.button)
     assert not any('class="vignette"' in m.value for m in at.markdown)   # plus de grandes vignettes
+    # la conversation est gardée en base : elle est encore là à la réouverture de l'appli
+    at = AppTest.from_function(une_page, args=("chat",), default_timeout=30).run()
+    assert any("Une offre correspond." in m.value for m in at.markdown)
+    next(b for b in at.button if b.label == "🧹 Nouvelle conversation").click().run()
+    assert not any("Une offre correspond." in m.value for m in at.markdown)
+
+
+# --------------------------------------------------------------------------- page Candidater
+
+DIAG_TEST = {"adequation": "partielle", "synthese": "Python oui, imagerie non.", "pour": ["Python"],
+             "contre": ["Pas d'imagerie"], "alertes": [{"alerte": "Durée non précisée", "question_recruteur": "Combien ?"}],
+             "exigences": [{"exigence": "Python", "obligatoire": True, "preuve_cv": "Python (pandas)",
+                            "couverture": "couverte", "action": "-", "citation_verifiee": True}],
+             "conseils_cv": [{"section": "Projets", "action": "reformuler", "avant": "ancienne ligne",
+                              "apres": "nouvelle ligne", "sources": [], "justification": "plus clair",
+                              "mots_cles": ["imagerie"], "a_verifier": True}],
+             "a_apprendre": ["PyTorch"], "conseils_ecartes": 0}
+
+
+@pytest.fixture
+def candidater(appli, monkeypatch):
+    """Faux CV et fausse IA : la page ne fait aucun appel réel."""
+    from stage_scraper import cv, dossier
+    appels = []
+    monkeypatch.setattr(cv, "texte_cv", lambda config: "[Prénom Nom]\nPython (pandas)")
+    monkeypatch.setattr(cv, "modele_lettre", lambda config: None)
+    monkeypatch.setattr(cv, "nom_reel", lambda config: "Alex Martin")
+
+    def faux_diagnostiquer(conn, config, d, client=None):
+        appels.append("diagnostic")
+        conn.execute("UPDATE dossiers SET diagnostic = ?, empreinte_cv = ?, modele_diagnostic = 'faux', "
+                     "date_diagnostic = '2026-11-19 10:00:00' WHERE id = ?",
+                     (__import__("json").dumps(DIAG_TEST), cv.empreinte(cv.texte_cv(config)), d["id"]))
+        conn.commit()
+
+    def faux_discuter(conn, config, d, demande, client=None):
+        appels.append(demande)
+        dossier.ajouter_message(conn, dossier.conversation_de(d), "user", demande)
+        texte = f"Objet : Stage\n\nMadame, Monsieur,\n\nVersion pour « {demande} ».\n\n[Prénom Nom]"
+        numero = dossier.ajouter_version(conn, d, texte, demande, "faux", ["Phrase inventée."])
+        dossier.ajouter_message(conn, dossier.conversation_de(d), "assistant", "C'est fait.", {"version": numero})
+        return {"reponse": "C'est fait.", "numero": numero, "alertes": []}
+
+    monkeypatch.setattr(dossier, "diagnostiquer", faux_diagnostiquer)
+    monkeypatch.setattr(dossier, "discuter", faux_discuter)
+    with closing(db.connecter(appli)) as conn:
+        offre_id = conn.execute("SELECT id FROM offres WHERE source_id = '1'").fetchone()[0]
+        dossier.ouvrir(conn, offre_id)
+    return appels, offre_id
+
+
+def test_candidater_analyse_et_premier_jet_automatiques(appli, candidater):
+    appels, offre_id = candidater
+    at = AppTest.from_function(une_page, args=("candidater",), default_timeout=30).run()
+    assert not at.exception, at.exception
+    assert appels == ["diagnostic", "Rédige une première version de la lettre."]   # une seule fois chacun
+    assert "Version pour" in at.text_area[0].value
+    assert any("Phrase inventée." in w.value for w in at.warning)                # affirmation hors CV signalée
+    assert any("nouvelle ligne" in m.value for m in at.markdown)                 # conseils CV
+    assert any("Combien ?" in w.value for w in at.warning)                       # question au recruteur
+    with closing(db.connecter(appli)) as conn:
+        assert requetes.candidature_de(conn, offre_id)["statut"] == "à postuler"
+
+    at.run()                                                                     # pas de relance automatique
+    assert len(appels) == 2
+
+
+def test_candidater_retouche_garde_les_modifs_et_annule(appli, candidater):
+    appels, offre_id = candidater
+    at = AppTest.from_function(une_page, args=("candidater",), default_timeout=30).run()
+    at.text_area[0].set_value("Ma version écrite à la main.").run()
+    at.chat_input[0].set_value("plus court").run()
+    assert not at.exception, at.exception
+    assert appels[-1] == "plus court"
+    from stage_scraper import dossier
+    with closing(db.connecter(appli)) as conn:
+        d = dossier.obtenir(conn, offre_id)
+        textes = [v["texte"] for v in dossier.versions(conn, d["id"])]
+        assert textes[1] == "Ma version écrite à la main."                      # gardée avant la retouche
+        assert len(textes) == 3 and d["version_courante"] == 3
+    assert any("C'est fait." in m.value for m in at.markdown)
+    next(b for b in at.button if b.label == "↩️ Annuler").click().run()
+    assert at.text_area[0].value == "Ma version écrite à la main."
+    with closing(db.connecter(appli)) as conn:
+        assert requetes.candidature_de(conn, offre_id)["lettre"] == "Ma version écrite à la main."

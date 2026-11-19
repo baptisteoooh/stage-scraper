@@ -1,7 +1,7 @@
 """Appli locale, lancée par app.py (streamlit run app.py).
 
-Pages (menu en haut) : offres en vignettes (+ bouton de scrap), chat sur les offres, candidatures, lettres,
-réglages, journal.
+Pages (menu en haut) : offres en vignettes (+ bouton de scrap), assistant (chat sur les offres),
+candidater (dossier d'une offre : analyse, conseils CV, lettre), candidatures, réglages, journal.
 L'export Excel est dans le menu « ⋯ » de la page Offres et en haut de la page Candidatures.
 """
 import logging
@@ -10,8 +10,9 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-from stage_scraper import (chat_offres, collecte, db, expiration, lettre, notifications, pipeline, reglages, requetes,
-                           style, suivi, vignettes)
+from stage_scraper import (chat_offres, collecte, db, dossier, expiration, notifications, page_dossier, pipeline,
+                           reglages, requetes, style, suivi, vignettes)
+from stage_scraper import cv as module_cv
 from stage_scraper import config as parametres
 from stage_scraper.config import chemin_projet, secret
 
@@ -66,7 +67,7 @@ def page_tableau_de_bord():
         favoris = requetes.trier_offres(
             requetes.offres_favorites(CONN, st.session_state.get("favoris_retires", set())), tri)
         st.caption("Les offres gardées avec ☆ restent ici, même déjà vues ou expirées.")
-        vignettes.grille(CONN, CONFIG, favoris, cle="favoris", page_lettre=PAGES_OBJETS.get("lettre"),
+        vignettes.grille(CONN, CONFIG, favoris, cle="favoris", page_candidater=PAGES_OBJETS.get("candidater"),
                          avec_section=True)
         offres = []
     else:
@@ -90,7 +91,7 @@ def page_tableau_de_bord():
                 if nom == ONGLET_ATTENTE and liste:
                     st.caption("Offres qui ont passé le pré-filtre mais que l'IA n'a pas encore notées.")
                 vignettes.grille(CONN, CONFIG, liste, cle=f"{filtre}_{nom}",
-                                 page_lettre=PAGES_OBJETS.get("lettre"), avec_section=(nom == ONGLET_TOUTES))
+                                 page_candidater=PAGES_OBJETS.get("candidater"), avec_section=(nom == ONGLET_TOUTES))
 
     if filtre == "Nouvelles" and offres:
         if st.button("Tout marquer comme vu"):
@@ -153,7 +154,11 @@ def lancer_scrap(sources: list[str] | None) -> None:
 
 
 def page_candidatures():
-    suivi.afficher(CONN, CONFIG)
+    suivi.afficher(CONN, CONFIG, PAGES_OBJETS.get("candidater"))
+
+
+def page_candidater():
+    page_dossier.afficher(CONN, CONFIG)
 
 
 def page_reglages():
@@ -219,6 +224,7 @@ def page_reglages():
         else:
             st.info("Aucun changement.")
 
+    section_documents()
     section_mails()
 
     st.subheader("Refaire le tri")
@@ -238,6 +244,46 @@ def page_reglages():
         if c[1].button("Rétablir", key=f"retablir_{p['id']}"):
             requetes.annuler_pas_interesse(CONN, p["id"])
             st.rerun()
+
+
+def section_documents():
+    st.subheader("Mes documents")
+    st.caption("Ton CV et une lettre que tu as écrite (modèle de style). Ils restent sur ton ordinateur, dans "
+               "profil/ (ignoré par Git). Les IA ne reçoivent que leur texte, sans tes coordonnées ni ton nom.")
+    c = st.columns(2)
+    cv_pdf = c[0].file_uploader("CV (PDF)", type="pdf", key="depot_cv")
+    modele = c[1].file_uploader("Lettre modèle (.txt ou .docx)", type=["txt", "docx"], key="depot_modele")
+    if cv_pdf is not None and _deposer(module_cv.chemin_cv(CONFIG), cv_pdf.getvalue()):
+        st.toast("CV enregistré. Les dossiers déjà analysés te proposeront de refaire l'analyse.")
+    if modele is not None:
+        contenu = modele.getvalue()
+        if modele.name.lower().endswith(".docx"):
+            import io
+            from docx import Document
+            contenu = "\n".join(p.text for p in Document(io.BytesIO(contenu)).paragraphs).encode("utf-8")
+        if _deposer(module_cv.chemin_modele_lettre(CONFIG), contenu):
+            st.toast("Lettre modèle enregistrée.")
+
+    texte_cv, texte_modele = module_cv.texte_cv(CONFIG), module_cv.modele_lettre(CONFIG)
+    c[0].markdown("✅ CV présent" if texte_cv else "❌ Pas encore de CV")
+    c[1].markdown("✅ Lettre modèle présente" if texte_modele else "➖ Pas de lettre modèle (facultatif)")
+    if texte_cv:
+        if module_cv.NOM_MASQUE not in texte_cv:
+            st.warning("Ton nom n'a pas été reconnu en tête du CV : vérifie dans l'aperçu qu'il n'apparaît pas.")
+        with st.expander("Ce que l'IA reçoit : CV anonymisé"):
+            st.text(texte_cv)
+    if texte_modele:
+        with st.expander("Ce que l'IA reçoit : lettre modèle anonymisée"):
+            st.text(texte_modele)
+
+
+def _deposer(chemin, contenu: bytes) -> bool:
+    """Écrit le fichier déposé s'il est nouveau. Vrai s'il a changé."""
+    if chemin.exists() and chemin.read_bytes() == contenu:
+        return False
+    chemin.parent.mkdir(parents=True, exist_ok=True)
+    chemin.write_bytes(contenu)
+    return True
 
 
 def section_mails():
@@ -274,9 +320,9 @@ def page_chat():
     st.caption("Demande-lui des offres (« un stage en computer vision sur l'imagerie médicale »), ou pose une "
                "question sur une offre (« quelles compétences pour le stage deep learning de GE ? », « compare "
                "ces deux offres »), ou sur tes candidatures. Il lit les annonces en entier avant de répondre.")
-    messages = st.session_state.setdefault("chat_offres", [])
-    if messages and st.button("🧹 Nouvelle conversation"):
-        messages.clear()
+    messages = messages_assistant()
+    if messages and st.button("🧹 Nouvelle conversation", help="Efface cette conversation (les offres restent)"):
+        dossier.effacer_conversation(CONN, CONVERSATION_ASSISTANT)
         st.rerun()
 
     for i, m in enumerate(messages):
@@ -299,13 +345,25 @@ def page_chat():
                 except chat_offres.ChatImpossible as e:
                     st.error(f"Pas de réponse : {e}")
                     return
-        messages.append({"role": "user", "texte": question})
-        messages.append({"role": "assistant", "texte": r["reponse"] or "…", "lues": r["lues"],
-                         "ids": [o["id"] for o in r["offres"]], "raisons": {o["id"]: o["raison"] for o in r["offres"]}})
+        dossier.ajouter_message(CONN, CONVERSATION_ASSISTANT, "user", question)
+        dossier.ajouter_message(CONN, CONVERSATION_ASSISTANT, "assistant", r["reponse"] or "…", {
+            "lues": r["lues"], "ids": [o["id"] for o in r["offres"]],
+            "raisons": {str(o["id"]): o["raison"] for o in r["offres"]}})
         st.session_state["chat_defiler"] = True
         st.rerun()
     if st.session_state.pop("chat_defiler", False):
         defiler_en_bas(len(messages))
+
+
+CONVERSATION_ASSISTANT = "assistant"
+
+
+def messages_assistant() -> list[dict]:
+    """La conversation de l'assistant, gardée en base (on la retrouve en relançant l'appli)."""
+    return [{"role": m["role"], "texte": m["texte"], "lues": m["donnees"].get("lues"),
+             "ids": m["donnees"].get("ids"),
+             "raisons": {int(k): v for k, v in (m["donnees"].get("raisons") or {}).items()}}
+            for m in dossier.messages(CONN, CONVERSATION_ASSISTANT)]
 
 
 def liste_offres_chat(message: dict, cle: str, ouverte: bool) -> None:
@@ -325,7 +383,7 @@ def liste_offres_chat(message: dict, cle: str, ouverte: bool) -> None:
                 a_ouvrir = o["id"]
             vignettes.bouton_favori(CONN, o, f"{cle}_favori_{o['id']}", ligne[2], compact=True)
     if a_ouvrir is not None:
-        vignettes.fenetre_fiche(CONFIG, a_ouvrir, cle, PAGES_OBJETS.get("lettre"))
+        vignettes.fenetre_fiche(CONFIG, a_ouvrir, cle, PAGES_OBJETS.get("candidater"))
 
 
 def defiler_en_bas(repere: int) -> None:
@@ -339,64 +397,6 @@ def defiler_en_bas(repere: int) -> None:
       }};
       setTimeout(bas, 50); setTimeout(bas, 400); setTimeout(bas, 1200);
     </script>""", height=0)
-
-
-def page_lettre():
-    st.title("✍️ Lettre de motivation")
-    st.caption("Claude rédige un brouillon à partir de l'offre, de ton profil et de ton CV (profil/cv.pdf, s'il "
-               "existe). Il n'invente rien : les passages [à compléter : …] sont pour toi. Relis toujours avant d'envoyer.")
-
-    # Offres proposées : celles de tes candidatures d'abord, puis les autres par note.
-    offres = {o["id"]: o for o in requetes.offres_visibles(CONN)}
-    suivies = [c["offre_id"] for c in requetes.candidatures(CONN) if c["offre_id"]]
-    ordre = list(dict.fromkeys([i for i in suivies if requetes.offre(CONN, i)] + list(offres)))
-    if not ordre:
-        st.info("Aucune offre pour l'instant : lance d'abord un scrap.")
-        return
-    cache = {i: offres.get(i) or requetes.offre(CONN, i) for i in ordre}
-    demandee = st.session_state.get("lettre_offre_id")
-    choix = st.selectbox(
-        "Offre", ordre, index=ordre.index(demandee) if demandee in ordre else 0,
-        format_func=lambda i: (("📋 " if i in suivies else "")
-                               + (f"{cache[i]['score']}/10 · " if cache[i]["score"] is not None else "")
-                               + f"{cache[i]['titre']} — {cache[i]['entreprise'] or '?'}"))
-    st.session_state["lettre_offre_id"] = choix
-    o = cache[choix]
-    if o["lien"]:
-        st.link_button("Voir l'offre", o["lien"])
-
-    candidature = requetes.candidature_de(CONN, choix)
-    brouillons = st.session_state.setdefault("brouillons", {})
-    versions = st.session_state.setdefault("versions_brouillons", {})
-    if choix not in brouillons and candidature and candidature.get("lettre"):
-        brouillons[choix] = candidature["lettre"]
-
-    consignes = st.text_input("Consignes (facultatif)", placeholder="ex. insister sur mon projet de deep learning, "
-                                                                    "ton plus direct, en anglais…")
-    sans_cle = not secret("ANTHROPIC_API_KEY")
-    if sans_cle:
-        st.info("Ajoute ANTHROPIC_API_KEY dans le fichier .env pour rédiger des lettres.")
-    if st.button("Rédiger le brouillon" if choix not in brouillons else "Rédiger un nouveau brouillon",
-                 type="primary", disabled=sans_cle):
-        with st.spinner("Rédaction en cours…"):
-            try:
-                resultat = lettre.rediger(CONN, CONFIG, o, consignes)
-                brouillons[choix] = resultat["texte"]
-                versions[choix] = versions.get(choix, 0) + 1  # nouvelle zone de texte avec le nouveau brouillon
-                st.toast(f"Brouillon rédigé (coût : {resultat['cout_usd']:.4f} $).")
-            except lettre.LettreImpossible as e:
-                st.error(f"Lettre non rédigée : {e}")
-
-    if choix in brouillons:
-        texte = st.text_area("Brouillon (modifiable)", brouillons[choix], height=420,
-                             key=f"zone_lettre_{choix}_{versions.get(choix, 0)}")
-        brouillons[choix] = texte
-        c = st.columns(2)
-        nom_fichier = f"lettre_{(o['entreprise'] or 'offre').replace(' ', '_')}.txt"
-        c[0].download_button("📥 Télécharger (.txt)", texte, file_name=nom_fichier, mime="text/plain")
-        if c[1].button("💾 Garder dans la candidature"):
-            requetes.enregistrer_lettre(CONN, choix, texte)
-            st.toast("Lettre gardée dans la candidature (créée si besoin).")
 
 
 def page_journal():
@@ -428,9 +428,9 @@ def page_journal():
 
 PAGES = {
     "tableau_de_bord": dict(titre="Offres", icone="🩺"),
-    "chat": dict(titre="Chercher", icone="💬"),
+    "chat": dict(titre="Assistant", icone="💬"),
+    "candidater": dict(titre="Candidater", icone="📝"),
     "candidatures": dict(titre="Candidatures", icone="📋"),
-    "lettre": dict(titre="Lettres", icone="✍️"),
     "reglages": dict(titre="Réglages", icone="⚙️"),
     "journal": dict(titre="Journal", icone="📜"),
 }

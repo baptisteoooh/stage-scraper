@@ -5,7 +5,7 @@ from pathlib import Path
 
 # À augmenter quand on modifie la structure des tables, en ajoutant la
 # modification correspondante dans MIGRATIONS (pour mettre à jour les bases existantes).
-VERSION_SCHEMA = 6
+VERSION_SCHEMA = 7
 
 MIGRATIONS = {
     2: [
@@ -26,6 +26,7 @@ MIGRATIONS = {
         "ALTER TABLE offres ADD COLUMN favori INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE offres ADD COLUMN date_favori TEXT",
     ],
+    7: [],  # tables dossiers, lettres_versions et messages : créées par SCHEMA
 }
 
 SCHEMA = """
@@ -137,6 +138,43 @@ CREATE TABLE IF NOT EXISTS feedback (
     raison      TEXT,
     date        TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
+
+-- Dossier de candidature d'une offre (page « Candidater ») : diagnostic de l'IA,
+-- conseils CV, versions de la lettre et conversation.
+CREATE TABLE IF NOT EXISTS dossiers (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    offre_id            INTEGER NOT NULL UNIQUE REFERENCES offres(id) ON DELETE CASCADE,
+    diagnostic          TEXT,               -- JSON vérifié par le code (voir dossier.py)
+    empreinte_cv        TEXT,               -- CV utilisé pour le diagnostic (à refaire s'il change)
+    modele_diagnostic   TEXT,
+    date_diagnostic     TEXT,
+    version_courante    INTEGER,            -- numéro de la version de lettre affichée
+    date_creation       TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
+-- Versions successives de la lettre d'un dossier (Annuler = revenir à la précédente).
+CREATE TABLE IF NOT EXISTS lettres_versions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    dossier_id  INTEGER NOT NULL REFERENCES dossiers(id) ON DELETE CASCADE,
+    numero      INTEGER NOT NULL,
+    texte       TEXT    NOT NULL,
+    demande     TEXT,                       -- consigne qui a produit cette version
+    modele      TEXT,                       -- modèle d'IA, ou NULL pour une modification à la main
+    alertes     TEXT,                       -- JSON : affirmations non retrouvées dans le CV
+    date        TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+    UNIQUE (dossier_id, numero)
+);
+
+-- Conversations gardées : 'assistant' (page Assistant) ou 'dossier:<id>'.
+CREATE TABLE IF NOT EXISTS messages (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    conversation    TEXT    NOT NULL,
+    role            TEXT    NOT NULL CHECK (role IN ('user', 'assistant')),
+    texte           TEXT    NOT NULL,
+    donnees         TEXT,                   -- JSON : offres proposées, annonces lues...
+    date            TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation, id);
 """
 
 

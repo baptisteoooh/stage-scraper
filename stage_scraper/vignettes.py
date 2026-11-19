@@ -12,7 +12,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from . import db, expiration, requetes
+from . import db, expiration, page_dossier, requetes
 from .config import chemin_projet
 
 PAR_PAGE = 24      # vignettes affichées d'un coup ; le bouton « Afficher plus » ajoute les suivantes
@@ -156,7 +156,7 @@ def _slug(texte: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", texte.lower().encode("ascii", "ignore").decode()).strip("_")
 
 
-def grille(conn, config: dict, offres: list[dict], cle: str, page_lettre=None, avec_section: bool = False) -> None:
+def grille(conn, config: dict, offres: list[dict], cle: str, page_candidater=None, avec_section: bool = False) -> None:
     """Vignettes triées comme la liste reçue (par note décroissante).
 
     La grille est faite en CSS (style.py) : 3 ou 4 vignettes par rangée sur grand écran,
@@ -181,7 +181,7 @@ def grille(conn, config: dict, offres: list[dict], cle: str, page_lettre=None, a
                     boutons[1].link_button("Ouvrir l'offre ↗", o["lien"], width="stretch")
                 bouton_favori(conn, o, f"favori_{cle}_{o['id']}", boutons[2], compact=True)
     if a_ouvrir is not None:  # fenêtre ouverte hors de la grille, pour ne pas y laisser une case vide
-        fenetre_fiche(config, a_ouvrir, cle, page_lettre)
+        fenetre_fiche(config, a_ouvrir, cle, page_candidater)
 
     if len(offres) > nb:
         reste = len(offres) - nb
@@ -213,13 +213,13 @@ def bouton_favori(conn, o: dict, cle: str, zone=st, compact: bool = False) -> No
 
 
 @st.dialog("Offre", width="large")
-def fenetre_fiche(config: dict, offre_id: int, cle: str, page_lettre=None) -> None:
+def fenetre_fiche(config: dict, offre_id: int, cle: str, page_candidater=None) -> None:
     # Connexion propre à la fenêtre : Streamlit la relance seule, dans un autre fil d'exécution.
     with closing(db.connecter(chemin_projet(config["general"]["base_de_donnees"]))) as conn:
-        fiche(conn, offre_id, cle, page_lettre)
+        fiche(conn, offre_id, cle, page_candidater)
 
 
-def fiche(conn, offre_id: int, cle: str, page_lettre=None) -> None:
+def fiche(conn, offre_id: int, cle: str, page_candidater=None) -> None:
     """Détail complet d'une offre, avec les boutons Postuler, Pas intéressé et Lettre."""
     o = requetes.offre(conn, offre_id)
     if o is None:
@@ -325,7 +325,6 @@ def fiche(conn, offre_id: int, cle: str, page_lettre=None) -> None:
     with actions[4]:
         bouton_favori(conn, o, f"favori_fiche_{cle}_{o['id']}")
     with actions[2]:
-        if st.button("✍️ Lettre de motivation", key=f"lettre_{cle}_{o['id']}"):
-            st.session_state["lettre_offre_id"] = o["id"]
-            if page_lettre is not None:
-                st.switch_page(page_lettre)
+        if st.button("📝 Préparer ma candidature", key=f"dossier_{cle}_{o['id']}",
+                     help="Analyse de l'offre face à ton CV, conseils CV et lettre de motivation"):
+            page_dossier.ouvrir_depuis(conn, o["id"], page_candidater)

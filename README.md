@@ -1,6 +1,6 @@
 # Stage Scraper
 
-Outil local qui collecte les offres de stage medtech / santé (profil IA / data), les dédoublonne, les note avec Claude, les affiche dans une appli Streamlit, envoie un récap par mail et suit les candidatures.
+Outil local qui collecte les offres de stage medtech / santé (profil IA / data), les dédoublonne, les note avec une IA (Gemini), les affiche dans une appli Streamlit, envoie un récap par mail et suit les candidatures.
 
 Le cahier des charges complet est dans `CLAUDE.md`.
 
@@ -146,17 +146,27 @@ Pour l'arrêter : `Ctrl + C` dans le terminal. Les pages sont dans le menu en ha
   gratification (si connue), le résumé de l'IA, un extrait de l'annonce et la date de publication. 24 vignettes s'affichent d'abord,
   **Afficher plus** ajoute les suivantes. **Voir la fiche** ouvre le détail : explication de la note, contact, liens,
   description (Careerjet ne transmet qu'un extrait : le texte complet est sur le site), boutons **Postuler** (crée une candidature), **Pas intéressé** (avec une raison
-  facultative, réutilisée par l'IA) et **Lettre de motivation**. **Ouvrir l'offre ↗** mène directement au site.
+  facultative, réutilisée par l'IA) et **📝 Préparer ma candidature**. **Ouvrir l'offre ↗** mène directement au site.
   En bas, la liste des offres écartées par le tri, pour vérifier qu'il ne se trompe pas.
 - **Candidatures** : une colonne par étape (À postuler, Postulé, Relancé, Entretien), une carte par
   candidature ; les candidatures terminées (acceptées ou refusées) sont rangées dans le volet **Terminées**. Le bouton bleu de la carte passe à l'étape suivante et remplit les dates (envoi, rappel de relance
   7 jours après, réglable dans `config.yaml` > `candidatures.relance_jours`). **Détails** ouvre une fenêtre pour tout
   modifier ou supprimer ; chaque action peut être annulée juste après. **＋ Nouvelle candidature** pour une
   candidature faite hors de l'outil. Une vue tableau reste disponible en bas de page.
-- **Lettres** : choisis une offre (ou clique **Lettre de motivation** sur sa fiche), ajoute des
-  consignes si tu veux, puis **Rédiger le brouillon**. Claude s'appuie sur l'offre, ton profil et ton CV, sans rien
-  inventer : les repères [à compléter : …] sont pour toi. Le brouillon se modifie, se télécharge en .txt ou se garde
-  dans la candidature. Coût : moins d'un centime par lettre, compté dans le même budget mensuel que le scoring.
+- **Assistant** : un chat sur les offres collectées (« un stage en computer vision sur l'imagerie médicale »,
+  « compare ces deux offres », « où en sont mes candidatures ? »). Il lit les annonces avant de répondre. La
+  conversation est gardée ; **Nouvelle conversation** l'efface.
+- **Candidater** : le dossier d'une offre, ouvert par **📝 Préparer ma candidature** (fiche de l'offre) ou **📝 Dossier**
+  (carte de candidature). La première fois, l'IA analyse l'offre face à ton CV (environ une minute), puis rédige un
+  premier jet de lettre. À gauche : la lettre (modifiable, **Annuler**, historique des versions, export **Word** signé
+  de ton nom), les **conseils CV** (avant / après, avec les mots de l'offre) et l'**analyse** (exigences couvertes ou
+  non, alertes et questions à poser au recruteur). À droite : la conversation pour demander des retouches
+  (« plus court », « insiste sur mon projet Parkinson »), gardée pour reprendre plus tard.
+  L'IA ne s'appuie que sur ton CV et l'offre : le code vérifie chaque citation, écarte les conseils qui citent une ligne
+  absente du CV et signale sous la lettre toute affirmation qu'il ne retrouve pas dans ton CV.
+  Modèles réglables dans `config.yaml > dossier`.
+- **Réglages › Mes documents** : dépose ton CV (PDF) et une lettre modèle (.txt ou .docx). Ils restent dans `profil/`
+  (jamais sur Git) ; l'aperçu montre exactement le texte envoyé aux IA, sans coordonnées ni nom.
 - **Journal** : historique des passages et coût IA (mois en cours et cumulé).
 - **Exporter en Excel** (en haut de la page Candidatures, ou menu **⋯** de la page Offres) : un fichier avec deux feuilles, Offres et Candidatures.
 
@@ -197,7 +207,10 @@ stage_scraper/
   prefiltre.py         exclusions et critères (contrat, lieu, durée, dates)
   dedoublonnage.py     repérage d'une même offre publiée sur plusieurs sites
   traitement.py        pré-filtre + doublons des nouvelles offres
-  scoring.py           note de chaque offre par Claude
+  scoring.py           note de chaque offre par Gemini
+  gemini.py            client de l'API Gemini
+  chat_offres.py       assistant : chat sur les offres (agent qui lit les annonces)
+  cv.py                texte anonymisé du CV et de la lettre modèle
   pipeline.py          un passage complet : collecte, tri, scoring
   appli.py             pages de l'appli Streamlit
   suivi.py             page Candidatures (colonnes par étape, cartes, fenêtres)
@@ -205,10 +218,12 @@ stage_scraper/
   requetes.py          lectures et écritures en base pour l'appli
   reglages.py          modification de config.yaml depuis l'appli
   export.py            export Excel
-  lettre.py            brouillons de lettres de motivation
+  dossier.py           dossier d'une offre : analyse, conseils CV, lettre, vérification des citations
+  page_dossier.py      page Candidater
   notifications.py     mails d'alerte et de récap
 planification/         tâche planifiée Windows (installer_tache.ps1, lancer_auto.cmd, desinstaller_tache.ps1)
 tests/                 tests automatiques
 data/stages.db         base SQLite (créée au premier lancement, jamais sur Git)
-profil/cv.pdf          ton CV, utilisé par le scoring dès qu'il est présent (jamais sur Git)
+profil/cv.pdf          ton CV (jamais sur Git ; les IA n'en reçoivent que le texte anonymisé)
+profil/modele_lettre.txt  une lettre écrite par toi, modèle de style (facultatif)
 ```

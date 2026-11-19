@@ -13,82 +13,18 @@ from pathlib import Path
 
 import streamlit as st
 
-from . import db, expiration, page_dossier, requetes, selection
+from . import db, decisions, expiration, page_dossier, requetes, selection
 from .config import chemin_projet
+from .presentation import (  # noqa: F401  (réexportées : tests, autres pages)
+    MOIS, SECTIONS_COURTES, SOURCES_EXTRAIT, _court, anciennete, debut_lisible, extrait, lieu_court, niveau_note)
 
 PAR_PAGE = 24      # vignettes affichées d'un coup ; le bouton « Afficher plus » ajoute les suivantes
-
-MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre",
-        "novembre", "décembre"]
-
 
 # =========================================================================== mise en forme
 
 def _e(texte) -> str:
     """Texte venu des sites d'offres : échappé avant d'être mis dans du HTML."""
     return html.escape(str(texte), quote=True)
-
-
-def niveau_note(score) -> str:
-    if score is None:
-        return "attente"
-    return "haute" if score >= 8 else "moyenne" if score >= 5 else "basse"
-
-
-def lieu_court(lieu: str | None) -> str | None:
-    """« Levallois-Perret, Ile-de-France, France » -> « Levallois-Perret »."""
-    if not lieu:
-        return None
-    return lieu.split(",")[0].strip() or lieu
-
-
-def debut_lisible(o: dict) -> str | None:
-    """Date de début : « 2027-04-01 » -> « avril 2027 » ; sinon le texte trouvé par l'IA."""
-    brut = o["date_debut"] or o["date_debut_ia"]
-    if not brut:
-        return None
-    trouve = re.fullmatch(r"(\d{4})-(\d{2})(?:-\d{2})?", brut.strip())
-    if trouve and 1 <= int(trouve[2]) <= 12:
-        return f"{MOIS[int(trouve[2]) - 1]} {trouve[1]}"
-    return brut
-
-
-def anciennete(date_publication: str | None, aujourd_hui: date | None = None) -> str | None:
-    if not date_publication:
-        return None
-    try:
-        jours = ((aujourd_hui or date.today()) - date.fromisoformat(date_publication[:10])).days
-    except ValueError:
-        return None
-    if jours <= 0:
-        return "publiée aujourd'hui"
-    if jours == 1:
-        return "publiée hier"
-    return f"publiée il y a {jours} j"
-
-
-def _court(texte: str | None, longueur: int = 32) -> str | None:
-    if not texte:
-        return None
-    texte = " ".join(texte.split())
-    return texte if len(texte) <= longueur else texte[:longueur - 1].rstrip() + "…"
-
-
-def extrait(description: str | None, longueur: int = 480) -> str | None:
-    """Début de la description, coupé proprement entre deux mots."""
-    if not description:
-        return None
-    texte = " ".join(description.split())
-    if len(texte) <= longueur:
-        return texte
-    coupe = texte[:longueur].rsplit(" ", 1)[0]
-    return coupe.rstrip(" ,;:.-") + "…"
-
-
-# Sources dont l'API ne donne qu'un extrait de la description (pas le texte complet).
-SOURCES_EXTRAIT = {"careerjet"}
-
-SECTIONS_COURTES = {"Hors santé mais intéressant": "Hors santé"}
 
 
 def html_vignette(o: dict, suivie: bool = False, aujourd_hui: date | None = None,
@@ -160,25 +96,13 @@ def _slug(texte: str) -> str:
 
 # =========================================================================== décisions
 
-RAISONS = ["Trop long (6 mois)", "Commercial / pas technique", "Pas mon domaine", "Dates incompatibles",
-           "Hors Île-de-France", "Entreprise"]
-TEXTES_DECISION = {"candidate": "ajoutée à Ma sélection (en préparation)", "ecarte": "écartée",
-                   "plus_tard": "rangée dans « Plus tard »", "remettre": "remise dans les offres à trier"}
+RAISONS = decisions.RAISONS
+TEXTES_DECISION = {**decisions.TEXTES, "candidate": "ajoutée à Ma sélection (en préparation)"}
 
 
 def decider(conn, offre_id: int, action: str) -> None:
     """Applique une décision et la retient pour le bandeau (qui permet de l'annuler)."""
-    o = requetes.offre(conn, offre_id)
-    candidature_id = None
-    if action == "candidate":
-        candidature_id = requetes.creer_candidature(conn, offre_id=offre_id)
-    elif action == "ecarte":
-        requetes.marquer_pas_interesse(conn, offre_id)
-    elif action == "plus_tard" and not o["favori"] or action == "remettre" and o["favori"]:
-        requetes.basculer_favori(conn, offre_id)
-    requetes.marquer_vue(conn, offre_id)
-    st.session_state["derniere_decision"] = {"action": action, "offre_id": offre_id, "titre": o["titre"],
-                                             "entreprise": o["entreprise"], "candidature_id": candidature_id}
+    st.session_state["derniere_decision"] = decisions.appliquer(conn, offre_id, action)
 
 
 def _decider_depuis_vignette(chemin_base: str, offre_id: int, action: str) -> None:
@@ -188,12 +112,7 @@ def _decider_depuis_vignette(chemin_base: str, offre_id: int, action: str) -> No
 
 
 def annuler_decision(conn, d: dict) -> None:
-    if d["action"] == "candidate" and d["candidature_id"]:
-        requetes.supprimer_candidature(conn, d["candidature_id"])
-    elif d["action"] == "ecarte":
-        requetes.annuler_pas_interesse(conn, d["offre_id"])
-    elif d["action"] in ("plus_tard", "remettre"):
-        requetes.basculer_favori(conn, d["offre_id"])
+    decisions.annuler(conn, d)
 
 
 def bandeau_decision(conn, page_fiche=None) -> None:

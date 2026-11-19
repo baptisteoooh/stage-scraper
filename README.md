@@ -127,6 +127,31 @@ Chaque offre gardée par le tri est notée par Gemini (`gemini-3.5-flash-lite`, 
 
 Les tests utilisent une vraie réponse enregistrée (`tests/donnees/`) : ils ne consomment aucun quota et ne touchent pas à ta base.
 
+## Le nouveau site (en construction)
+
+L'interface Streamlit est remplacée peu à peu par un site sur mesure (verre fumé sur Manhattan au crépuscule,
+tri des offres d'un geste, façon Tinder).
+
+```
+.venv\Scripts\python site_web.py
+```
+
+Le site s'ouvre dans le navigateur (http://127.0.0.1:8000) et n'est visible que depuis ce PC.
+Pour l'arrêter : `Ctrl + C` dans le terminal.
+
+- **Accueil** : présentation et connexion. Pas encore de vrais comptes (version locale) : « Se connecter » fait entrer.
+  La carte d'exemple se glisse déjà, pour essayer le geste.
+- **À trier** : une offre à la fois. Glisse la carte **à droite** (Je candidate : elle part dans Ma sélection),
+  **à gauche** (Pas pour moi) ou **vers le haut** (Plus tard). Un geste vif suffit, même court. Mêmes décisions
+  avec les boutons ronds ou le clavier (← → ↑) ; **Ctrl+Z** annule. « Détails » (ou Entrée) ouvre l'annonce complète.
+  Filtres en haut : Santé / Hors santé / À négocier / Plus tard, tri, offres « Bof » (moins de 5/10), recherche.
+- Ma sélection, Assistant, Réglages, Journal et Corbeille arrivent ensuite : en attendant, ils restent dans
+  l'appli Streamlit ci-dessous (les deux utilisent la même base).
+
+Pour essayer sans toucher à tes offres : copie `data\stages.db`, puis
+`set STAGE_SCRAPER_BASE=chemin\de\la\copie.db` (CMD) ou `$env:STAGE_SCRAPER_BASE="chemin\de\la\copie.db"`
+(PowerShell) avant `python site_web.py`.
+
 ## Lancement de l'appli
 
 ```
@@ -215,6 +240,7 @@ config.yaml            paramètres (critères, domaines, entreprises suivies, so
 .env                   secrets (jamais sur Git) ; modèle dans .env.example
 run.py                 lancement d'un passage
 app.py                 lancement de l'appli (streamlit run app.py)
+site_web.py            lancement du nouveau site (python site_web.py)
 .streamlit/config.toml réglages de l'appli (visible seulement depuis ce PC)
 stage_scraper/
   config.py            lecture de config.yaml et .env
@@ -235,6 +261,10 @@ stage_scraper/
   page_a_trier.py      page À trier (décisions, bouton de scrap)
   vignettes.py         vignettes d'offres, détail d'une offre, décisions
   selection.py         Ma sélection : étapes, prochaine action, changements d'étape (sans affichage)
+  decisions.py         décisions sur une offre (Je candidate, Pas pour moi, Plus tard) et annulation
+  presentation.py      mise en forme commune (lieu court, date de début, ancienneté)
+  web/serveur.py       serveur du nouveau site (FastAPI) : pages et API
+  web/statique/        pages HTML, styles (css/), scripts (js/ : swipe.js = le geste), images (img/)
   page_selection.py    pages Ma sélection et fiche d'une offre
   page_plus.py         pages Réglages, Journal et Corbeille
   style.py             habillage de l'appli (typographie, cartes, accessibilité)

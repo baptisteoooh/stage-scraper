@@ -1,0 +1,91 @@
+"""Site web (FastAPI) : pages, offres à trier, décisions et annulation, fiche détaillée."""
+from contextlib import closing
+
+import pytest
+from fastapi.testclient import TestClient
+
+from stage_scraper import db, requetes
+from stage_scraper.offre import nouvelle_offre
+from stage_scraper.web import serveur
+
+
+@pytest.fixture
+def base(tmp_path, monkeypatch):
+    chemin = tmp_path / "site.db"
+    with closing(db.connecter(chemin)) as c:
+        db.initialiser(c)
+        db.enregistrer_offres(c, [
+            nouvelle_offre(source="test", source_id="1", titre="Stage Data IA", entreprise="Doctolib", lieu="Paris, France",
+                           description="Annonce complète", lien="https://exemple.fr/1"),
+            nouvelle_offre(source="test", source_id="2", titre="Stage ML", entreprise="Owkin", lieu="Paris"),
+            nouvelle_offre(source="test", source_id="3", titre="Stage Marketing", entreprise="Acme", lieu="Paris"),
+        ], passage_id=1)
+        c.execute("UPDATE offres SET score = 9, section = 'Santé', poste_ia_data = 1, duree = '5 mois', "
+                  "date_debut = '2027-04-15', resume = 'Résumé', pourquoi = 'IA en santé' WHERE id = 1")
+        c.execute("UPDATE offres SET score = 3 WHERE id = 3")
+        c.commit()
+    monkeypatch.setenv("STAGE_SCRAPER_BASE", str(chemin))
+    return chemin
+
+
+@pytest.fixture
+def client(base):
+    with TestClient(serveur.app) as c:
+        yield c
+
+
+def test_pages(client):
+    for chemin in ("/", "/a-trier", "/statique/css/site.css", "/statique/js/swipe.js", "/statique/img/fond-manhattan.jpg"):
+        assert client.get(chemin).status_code == 200, chemin
+    assert "Ton stage" in client.get("/").text
+
+
+def test_offres_a_trier(client):
+    d = client.get("/api/a-trier").json()
+    cartes = {o["id"]: o for o in d["offres"]}
+    assert set(cartes) == {1, 2, 3}
+    doctolib = cartes[1]
+    assert doctolib["lieu"] == "Paris" and doctolib["initiale"] == "D" and doctolib["score"] == 9
+    assert [p["texte"] for p in doctolib["puces"]] == ["IA / data", "5 mois", "Avril 2027"]
+    assert cartes[3]["bof"] and not doctolib["bof"]
+    assert cartes[2]["resume"] == "Pas encore notée par l'IA."
+    assert "description" not in doctolib            # l'annonce complète vient avec la fiche
+    assert d["selection"] == 0
+
+
+def test_decisions_et_annulation(client, base):
+    oui = client.post("/api/decision", json={"offre_id": 1, "action": "candidate"}).json()
+    non = client.post("/api/decision", json={"offre_id": 2, "action": "ecarte"}).json()
+    assert client.post("/api/raison", json={"offre_id": 2, "raison": "Pas mon domaine"}).json() == {"ok": True}
+    tard = client.post("/api/decision", json={"offre_id": 3, "action": "plus_tard"}).json()
+    d = client.get("/api/a-trier").json()
+    assert [(o["id"], o["plus_tard"]) for o in d["offres"]] == [(3, True)] and d["selection"] == 1
+    with closing(db.connecter(base)) as c:
+        assert requetes.offres_pas_interesse(c)[0]["raison"] == "Pas mon domaine"
+
+    for decision in (oui, non, tard):
+        assert client.post("/api/annuler", json=decision).json() == {"ok": True}
+    d = client.get("/api/a-trier").json()
+    assert sorted((o["id"], o["plus_tard"]) for o in d["offres"]) == [(1, False), (2, False), (3, False)]
+    assert d["selection"] == 0
+
+
+def test_erreurs(client):
+    assert client.post("/api/decision", json={"offre_id": 1, "action": "nimporte"}).status_code == 400
+    assert client.post("/api/decision", json={"offre_id": 999, "action": "candidate"}).status_code == 400
+    assert client.get("/api/offres/999").status_code == 404
+
+
+def test_fiche(client):
+    o = client.get("/api/offres/1").json()
+    assert o["description"] == "Annonce complète" and o["titre"] == "Stage Data IA"
+    assert o["liens"] == [{"site": "test", "lien": "https://exemple.fr/1"}]
+
+
+def test_phrase_scrap():
+    from datetime import datetime
+    s = {"date": "2026-11-19 08:02:00", "auto": True, "nouvelles": 12, "top": 1, "en_erreur": ["careerjet"]}
+    p = serveur.phrase_scrap(s, maintenant=datetime(2026, 11, 19, 10, 0))
+    assert p["titre"] == "Dernier scrap aujourd'hui à 8 h 02"
+    assert p["texte"] == "12 nouvelles offres, dont 1 notée 8 ou plus. En erreur : careerjet."
+    assert serveur.phrase_scrap(None) is None

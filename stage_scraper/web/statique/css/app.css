@@ -1,0 +1,59 @@
+/* Fenêtre de l'appli (toutes les pages une fois connecté) : panneau de verre, menu à gauche. */
+
+.fenetre {
+  position: fixed; inset: clamp(12px, 3vh, 32px) clamp(12px, 3vw, 40px);
+  max-width: 1480px; margin: 0 auto;
+  display: grid; grid-template-columns: 252px minmax(0, 1fr);
+  border-radius: var(--r-fenetre); overflow: hidden;
+}
+
+.cote {
+  display: flex; flex-direction: column; min-height: 0;
+  padding: 24px 16px 18px;
+  background: rgba(20, 15, 28, .5);
+  border-right: 1px solid var(--ligne);
+}
+.cote .marque { padding: 2px 10px 22px; }
+
+.scrap {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 12px 14px; border-radius: var(--r-panneau); font-size: 15px; font-weight: 500; text-align: left;
+  background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1px var(--ligne);
+  transition: background-color .2s, transform .18s var(--sortie);
+}
+.scrap:hover { background: rgba(255, 255, 255, .13); }
+.scrap:active { transform: scale(.98); }
+.scrap[aria-busy="true"] { cursor: progress; }
+.scrap[aria-busy="true"] .ic { animation: tourne 1s linear infinite; }
+@keyframes tourne { to { transform: rotate(360deg); } }
+
+.cote nav { display: flex; flex-direction: column; gap: 2px; }
+.cote h2 { font-size: 12px; font-weight: 500; letter-spacing: .04em; color: var(--faible); padding: 24px 10px 8px; }
+.cote nav a {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px; border-radius: var(--r-carte); font-size: 15px;
+  transition: background-color .2s;
+}
+.cote nav a:not([aria-disabled]):hover { background: rgba(255, 255, 255, .06); }
+.cote nav a.on { background: rgba(255, 255, 255, .1); }
+.cote nav a[aria-disabled] { color: var(--doux); cursor: default; }
+.cote .nb { margin-left: auto; font-size: 13px; color: var(--doux); font-variant-numeric: tabular-nums; }
+.cote .bientot { margin-left: auto; font-size: 11px; color: var(--faible); }
+
+.dernier {
+  margin-top: auto; padding: 14px 16px; border-radius: var(--r-panneau);
+  background: rgba(255, 255, 255, .05); box-shadow: inset 0 0 0 1px var(--ligne);
+  font-size: 13px; line-height: 1.5; color: var(--doux);
+}
+.dernier b { display: block; margin-bottom: 2px; font-size: 14px; font-weight: 600; color: var(--texte); }
+.dernier .ligne { display: block; margin-top: 6px; font-size: 12px; color: var(--faible); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.principal { position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+
+@media (max-width: 900px) {
+  .fenetre { grid-template-columns: 1fr; inset: 0; border-radius: 0; }
+  .cote { flex-direction: row; align-items: center; gap: 12px; padding: 12px 16px; border-right: 0; border-bottom: 1px solid var(--ligne); }
+  .cote .marque { padding: 0; margin-right: auto; font-size: 17px; }
+  .cote nav, .dernier { display: none; }
+  .scrap { width: auto; padding: 9px 12px; font-size: 14px; }
+}

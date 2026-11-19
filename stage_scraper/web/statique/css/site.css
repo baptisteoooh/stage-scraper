@@ -1,0 +1,119 @@
+/* Stage Scraper : base commune (couleurs, polices, fond, verre, boutons).
+   Direction « Brume mauve » : verre fumé prune sur une photo de Manhattan au crépuscule.
+   Le mauve vient de la photo ; l'interface reste neutre (blanc cassé, lavande claire). */
+
+:root {
+  --texte: #F3EEF7;
+  --doux: #BDB2C9;
+  --faible: #9E92AD;
+  --accent: #EDE6F6;         /* bouton principal */
+  --sur-accent: #221A2E;
+  --lavande: #CDB8E8;        /* contour de la carte active, note */
+  --note: #E3D4F2;
+  --oui: #BFE5C9;
+  --non: #F2B5BF;
+  --verre: rgba(26, 19, 36, .62);
+  --verre-fort: rgba(30, 23, 42, .9);
+  --verre-clair: rgba(255, 255, 255, .07);
+  --ligne: rgba(255, 255, 255, .12);
+  --ligne-forte: rgba(255, 255, 255, .2);
+  --r-carte: 8px;
+  --r-panneau: 12px;
+  --r-fenetre: 18px;
+  --titres: 'Sora', 'Segoe UI', system-ui, sans-serif;
+  --corps: 'Geist', 'Segoe UI', system-ui, sans-serif;
+  --ressort: cubic-bezier(.2, .9, .3, 1.15);
+  --sortie: cubic-bezier(.22, .8, .32, 1);
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; background: #1B1426; }
+body {
+  min-height: 100%;
+  font-family: var(--corps);
+  color: var(--texte);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+}
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; border: 0; background: none; }
+a { color: inherit; text-decoration: none; }
+:focus-visible { outline: 2px solid var(--lavande); outline-offset: 3px; }
+
+/* Fond : la photo floutée, assombrie à gauche et en haut pour garder le texte lisible. */
+.fond {
+  position: fixed; inset: 0; z-index: -1;
+  background: #2A2040 url(../img/fond-manhattan.jpg) 50% 100% / cover no-repeat;
+}
+.fond::after {
+  content: ""; position: absolute; inset: 0;
+  background:
+    linear-gradient(90deg, rgba(20, 14, 30, .62) 0%, rgba(20, 14, 30, .38) 40%, rgba(20, 14, 30, .08) 65%, rgba(20, 14, 30, 0) 100%),
+    linear-gradient(180deg, rgba(20, 14, 30, .35) 0%, rgba(20, 14, 30, 0) 30%, rgba(20, 14, 30, 0) 75%, rgba(20, 14, 30, .45) 100%);
+}
+.fond.uni::after { background: rgba(20, 14, 30, .38); }
+
+.verre {
+  background: var(--verre);
+  -webkit-backdrop-filter: blur(26px) saturate(1.2);
+  backdrop-filter: blur(26px) saturate(1.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), inset 0 0 0 1px var(--ligne), 0 30px 70px rgba(5, 3, 9, .5);
+}
+
+.marque { font-family: var(--titres); font-weight: 600; font-size: 20px; letter-spacing: -.02em; }
+
+/* Boutons */
+.bouton {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 14px 20px; border-radius: 999px; font-size: 15px; font-weight: 600;
+  transition: transform .18s var(--sortie), background-color .2s, box-shadow .2s;
+}
+.bouton:active { transform: scale(.97); }
+.bouton.principal { background: var(--accent); color: var(--sur-accent); box-shadow: 0 10px 26px rgba(5, 3, 9, .4); }
+.bouton.principal:hover { background: #fff; }
+.bouton.discret { background: var(--verre-clair); box-shadow: inset 0 0 0 1px var(--ligne); }
+.bouton.discret:hover { background: rgba(255, 255, 255, .12); }
+
+.pastille {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 15px; border-radius: 999px; font-size: 14px; font-weight: 500;
+  background: var(--verre-clair); box-shadow: inset 0 0 0 1px var(--ligne);
+  transition: background-color .2s, box-shadow .2s;
+}
+.pastille:hover { background: rgba(255, 255, 255, .11); }
+.pastille[aria-pressed="true"] { background: var(--accent); color: var(--sur-accent); box-shadow: none; }
+
+.ic { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+.champ {
+  display: block; width: 100%; padding: 14px 16px; border-radius: var(--r-carte); border: 0;
+  background: rgba(255, 255, 255, .06); box-shadow: inset 0 0 0 1px var(--ligne);
+  font-size: 15px; transition: box-shadow .2s, background-color .2s;
+}
+.champ::placeholder { color: var(--doux); }
+.champ:focus { outline: none; box-shadow: inset 0 0 0 1.5px var(--lavande); background: rgba(255, 255, 255, .09); }
+
+/* Messages en bas de l'écran (annuler une décision, fin du scrap…) */
+.toast {
+  position: fixed; left: 50%; bottom: 28px; z-index: 50;
+  display: flex; align-items: center; gap: 14px;
+  padding: 10px 10px 10px 20px; border-radius: 999px; font-size: 14px;
+  background: rgba(30, 23, 42, .92);
+  -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  box-shadow: inset 0 0 0 1px var(--ligne), 0 16px 40px rgba(5, 3, 9, .5);
+  transform: translate(-50%, 140%); opacity: 0;
+  transition: transform .45s var(--ressort), opacity .25s;
+  max-width: calc(100vw - 32px);
+}
+.toast.visible { transform: translate(-50%, 0); opacity: 1; }
+.toast .texte { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.toast button { padding: 8px 14px; border-radius: 999px; font-weight: 600; background: rgba(255, 255, 255, .1); white-space: nowrap; }
+.toast button:hover { background: rgba(255, 255, 255, .18); }
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}

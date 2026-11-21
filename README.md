@@ -180,7 +180,7 @@ Pour l'arrêter : `Ctrl + C` dans le terminal.
   suggèrent un changement (ex. 4 offres écartées pour « Trop long (6 mois) » ce mois-ci → « Ne plus garder les
   offres de 6 mois ? ») : **Oui** l'applique (annulable), **Non** ne revient plus. Rien ne change sans ton Oui ; **Enregistrer** l'écrit dans config.yaml (copie dans
   config.yaml.bak) et « Annuler » dans le message du bas la remet. Échap referme sans rien changer. À droite,
-  **Modifier en parlant** : dis « accepte aussi les stages de 6 mois » ou « suis aussi Alan » (ou clique une des
+  **Ajuster mon profil** (la conversation) : dis « accepte aussi les stages de 6 mois » ou « suis aussi Alan » (ou clique une des
   suggestions) et l'agent (Gemini, gratuit) modifie le profil lui-même ; seul le dernier échange reste affiché ; chaque changement est vérifié (dates cohérentes, départements
   d'Île-de-France…) et s'annule depuis la conversation. Garde-fou : si un bot annonce un changement qui
   n'a pas eu lieu, il est relancé une fois, puis sa réponse est remplacée par une erreur (« Je n'ai rien modifié… ») ;

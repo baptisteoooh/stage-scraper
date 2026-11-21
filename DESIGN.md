@@ -68,7 +68,7 @@ Thème sombre seulement (`color-scheme: dark`).
   par un filet, sans cartes ; au-delà de 3 éléments, un compteur `+6` (`.en-plus`). Les réglages techniques
   (recherches, filtres fins) sont repliés sous un lien. Le chat ne montre que le dernier échange (les anciens
   derrière « Voir les N messages précédents ») et 3 suggestions en un clic tirées du profil. Le chat est une
-  carte de verre posée dans la page (coins 18px, léger dégradé lavande en haut), les messages de l'étudiant en
+  carte de verre posée dans la page (coins 18px, léger dégradé lavande en haut, titre « Ajuster mon profil » sans icône), les messages de l'étudiant en
   lavande translucide, la saisie une seule pilule avec le bouton d'envoi dedans (éteint tant qu'elle est vide).
 - **À revoir** (`.a-revoir`, Mon profil) : encadré lavande translucide en haut de la fiche, titre en petites
   capitales lavande avec un compteur ; chaque proposition = constat en gris, question en clair, **Oui** (pilule

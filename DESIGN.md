@@ -66,7 +66,8 @@ Thème sombre seulement (`color-scheme: dark`).
   note à droite, le titre (3 lignes max), puis en bas sur une même ligne : où tu en es à gauche, l'action à droite
   (boutons tous à 36 px de haut, donc toujours au même endroit). La teinte dit ce qu'il y a à faire : bleu `#BCD3F7`
   = préparer, lavande `#D3C0F5` = lettre à envoyer, rose `#F5BBD6` = relance, menthe `#B6E8C8` = entretien, mauve
-  `#CFC6DD` = rien à faire. « Préparer » / « Ouvrir » : bouton translucide ; ce qui presse : bouton plein.
+  `#CFC6DD` = rien à faire. Teinte franche (20 % + halo 42 %) : en dessous, le bleu se perdait dans le fond
+  violet. Bouton plein de la couleur de la carte.
   Survol : voile lumineux déjà posé dont seule l'opacité change, et 2 px de levée (l'animation d'arrivée est en
   `backwards` pour ne pas bloquer le survol).
 - **Bulles de conversation** (`.bulle.ia` / `.bulle.moi`) et zone de saisie (`.saisie`), communes au dossier

@@ -16,8 +16,8 @@
   position: relative; isolation: isolate; display: flex; flex-direction: column; min-height: 200px;
   padding: 22px 24px; border-radius: 16px; text-align: left; cursor: pointer;
   background:
-    radial-gradient(130% 110% at 100% 100%, color-mix(in oklab, var(--a) 30%, transparent), transparent 72%),
-    color-mix(in oklab, var(--a) 11%, rgba(255, 255, 255, .04));
+    radial-gradient(130% 110% at 100% 100%, color-mix(in oklab, var(--a) 42%, transparent), transparent 75%),
+    color-mix(in oklab, var(--a) 20%, rgba(255, 255, 255, .03));
   box-shadow: 0 12px 30px rgba(5, 3, 9, .16);
   /* fill backwards : l'arrivée ne laisse rien derrière elle, le survol n'est plus bloqué par l'animation */
   animation: entre .45s var(--sortie) backwards; animation-delay: calc(var(--i, 0) * 35ms);
@@ -51,7 +51,7 @@
 }
 /* Bas de carte : où tu en es à gauche, l'action à droite, centrés sur la même ligne et toujours au même endroit. */
 .dossier .bas { margin-top: auto; padding-top: 14px; display: flex; align-items: center; gap: 14px; }
-.dossier .situation { flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.45; color: color-mix(in oklab, var(--a) 60%, var(--doux)); }
+.dossier .situation { flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.45; color: color-mix(in oklab, var(--a) 75%, var(--doux)); }
 .dossier .fl { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .3s var(--sortie); }
 .dossier:hover .fl { transform: translateX(3px); }
 .dossier .agir {
@@ -60,8 +60,6 @@
   background: var(--a); color: var(--sur-accent);
   transition: filter .2s, transform .15s var(--sortie);
 }
-/* « Préparer » et « Ouvrir » sont le cas courant : bouton translucide ; ce qui presse a la couleur pleine. */
-.dossier[data-action="preparer"] .agir, .dossier:not([data-action]) .agir { background: color-mix(in oklab, var(--a) 24%, transparent); color: var(--a); }
 .dossier .agir:hover { filter: brightness(1.07); }
 .dossier .agir:active { transform: scale(.96); }
 

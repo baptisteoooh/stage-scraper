@@ -16,15 +16,15 @@
   position: relative; isolation: isolate; display: flex; flex-direction: column; min-height: 200px;
   padding: 22px 24px; border-radius: 16px; text-align: left; cursor: pointer;
   background:
-    radial-gradient(130% 110% at 100% 100%, color-mix(in oklab, var(--a) 30%, transparent), transparent 72%),
-    color-mix(in oklab, var(--a) 11%, rgba(255, 255, 255, .04));
+    radial-gradient(130% 110% at 100% 100%, color-mix(in oklab, var(--a) 14%, transparent), transparent 70%),
+    color-mix(in oklab, var(--a) 4%, rgba(255, 255, 255, .03));
   box-shadow: 0 12px 30px rgba(5, 3, 9, .16);
   /* fill backwards : l'arrivée ne laisse rien derrière elle, le survol n'est plus bloqué par l'animation */
   animation: entre .45s var(--sortie) backwards; animation-delay: calc(var(--i, 0) * 35ms);
   transition: transform .4s var(--sortie);
 }
-.dossier[data-action="preparer"] { --a: #BCD3F7; --b: #A6C6FA; }
-.dossier[data-action="envoyer"] { --a: #D3C0F5; --b: #C6ABF8; }
+.dossier[data-action="preparer"] { --a: #A9D2F5; --b: #8CC8F4; }
+.dossier[data-action="envoyer"] { --a: #D2B8F4; --b: #C8A2F4; }
 .dossier[data-action="relancer"] { --a: #F5BBD6; --b: #F7A6CB; }
 .dossier[data-action="entretien"] { --a: #B6E8C8; --b: #98E2B6; }
 /* Le survol : un voile lumineux déjà posé dont seule l'opacité change (rien à redessiner à chaque image). */

@@ -64,10 +64,10 @@ Thème sombre seulement (`color-scheme: dark`).
 - **Carte de Ma sélection** (`.dossier`, `selection.css`) : pas de trait de contour (un filet de 1 px crénelait sur
   les coins arrondis), une teinte pastel et une ombre floue ; coins 16 px. Une ligne « entreprise · lieu » avec la
   note à droite, le titre (3 lignes max), puis en bas sur une même ligne : où tu en es à gauche, l'action à droite
-  (boutons tous à 36 px de haut, donc toujours au même endroit). La teinte dit ce qu'il y a à faire : bleu `#BCD3F7`
-  = préparer, lavande `#D3C0F5` = lettre à envoyer, rose `#F5BBD6` = relance, menthe `#B6E8C8` = entretien, mauve
-  `#CFC6DD` = rien à faire. Fond discret (11 % + halo 30 %, BAP trouve un fond plus teinté trop clair) ; le
-  bouton porte la couleur, plein et un cran plus vif (`--b` : bleu `#A6C6FA`, lavande `#C6ABF8`, rose `#F7A6CB`,
+  (boutons tous à 36 px de haut, donc toujours au même endroit). La teinte dit ce qu'il y a à faire : bleu `#A9D2F5`
+  = préparer, lavande `#D2B8F4` = lettre à envoyer, rose `#F5BBD6` = relance, menthe `#B6E8C8` = entretien, mauve
+  `#CFC6DD` = rien à faire. Fond sombre à peine teinté (4 % + halo 14 % : BAP trouve tout fond plus teinté trop clair) ; le
+  bouton porte la couleur, plein et un cran plus vif (`--b` : bleu ciel `#8CC8F4`, violet `#C8A2F4` (teintes bien écartées pour qu'on les distingue), rose `#F7A6CB`,
   menthe `#98E2B6`).
   Survol : voile lumineux déjà posé dont seule l'opacité change, et 2 px de levée (l'animation d'arrivée est en
   `backwards` pour ne pas bloquer le survol).

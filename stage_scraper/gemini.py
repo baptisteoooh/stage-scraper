@@ -45,14 +45,16 @@ class ClientGemini:
         return texte_de(contenu), usage
 
     def appeler(self, modele: str, systeme: str, contents: list[dict], schema: dict | None = None,
-                reflexion: str | None = None, outils: list[dict] | None = None) -> tuple[dict, dict]:
+                reflexion: str | None = None, outils: list[dict] | None = None,
+                forcer_outil: bool = False) -> tuple[dict, dict]:
         """Un appel avec toute la conversation (`contents`) et d'éventuels outils.
+        `forcer_outil` : le modèle DOIT appeler un outil (il ne peut pas répondre par du texte).
 
         Renvoie (contenu de la réponse : {role: 'model', parts: [...]}, compteur de tokens). Les
         parts peuvent être du texte ou des appels d'outils ({functionCall: {name, args}}).
         """
         config = {}
-        if schema:
+        if schema and not (outils and forcer_outil):   # Gemini refuse « appel d'outil obligatoire » + réponse JSON
             config.update(responseMimeType="application/json", responseJsonSchema=schema)
         if reflexion:
             config["thinkingConfig"] = {"thinkingLevel": reflexion}
@@ -60,6 +62,8 @@ class ClientGemini:
                  "generationConfig": config}
         if outils:
             corps["tools"] = [{"functionDeclarations": outils}]
+            if forcer_outil:
+                corps["toolConfig"] = {"functionCallingConfig": {"mode": "ANY"}}
 
         for essai in range(len(self.attentes) + 1):
             self._patienter()

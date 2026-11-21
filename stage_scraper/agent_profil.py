@@ -11,6 +11,7 @@
   réponse est remplacée par un message d'erreur honnête. Elle ne peut donc jamais dire « c'est fait » à tort.
 """
 import json
+import re
 
 from . import db, garde_fou, gemini, profil, reglages, requetes, scoring
 from .config import secret
@@ -31,6 +32,10 @@ SCHEMA = {
     },
     "required": ["reponse", "suggestions", "annonce_modification"],
 }
+
+RELANCE_REFUS = ("[Contrôle automatique] Tu refuses sans avoir essayé : tu n'as appelé aucun outil. Si la demande "
+                 "est une modification du profil, appelle modifier_profil : c'est le code qui vérifie et te dira si "
+                 "c'est impossible, et pourquoi. Ne refuse qu'avec la raison qu'il te donne.")
 
 RELANCE = ("[Contrôle automatique] Ta réponse annonce un changement, mais le profil n'a PAS changé : tu n'as appliqué "
            "aucune modification (aucun appel de modifier_profil accepté). Si la demande est claire, appelle "
@@ -74,7 +79,10 @@ RÈGLES
 - Si sa demande est ambiguë ou qu'il manque une information pour la traduire en valeur précise (« plus tard » : quelle date ? « la data » :
   analyst, science ou engineering ?), ne modifie rien : pose UNE question courte, avec 2 à 4 réponses possibles dans « suggestions ».
 - Dates au format AAAA-MM-JJ. « mi-avril » = le 15, « début mai » = le 1er (ou le 10 pour une borne « au plus tard »), « fin août » = le 31.
-  Garde la cohérence : début au plus tôt ≤ début idéal ≤ début au plus tard < fin au plus tard.
+  Garde la cohérence : début au plus tôt ≤ début idéal ≤ début au plus tard < fin au plus tard. Si une nouvelle date sort de
+  cette fenêtre, décale aussi la borne concernée DANS LE MÊME appel (les changements d'un appel sont vérifiés ensemble), et dis-le.
+- Durée : « accepte les stages de 6 mois » = duree_max 6. Le champ six_mois ne règle que le sort des offres de 6 mois fixes
+  quand la durée max est inférieure à 6.
 - Domaines : la liste est dans l'ordre de préférence, et le premier rend une offre très intéressante. Pour changer la
   place d'un domaine : action « deplacer » avec sa nouvelle « position » (1 = en tête).
 - Tu peux modifier TOUS les champs du profil ci-dessous. Listes : « ajouter », « retirer », « deplacer » (avec « position »)
@@ -82,9 +90,13 @@ RÈGLES
 - Entreprises suivies (valeur = le nom de l'entreprise) : « ajouter », « retirer », ou « definir » pour changer son détail avec
   les champs facultatifs groupe ({', '.join(profil.GROUPES)}), nouveau_nom, alias, outil (aucun, ashby, workday) et adresse_ou_id.
   Ne devine jamais l'outil de recrutement ni l'adresse : ne les règle que si l'étudiant te les donne.
+- Contrats : « stage » et « cdd » (CDD = fixed-term contract).
 - Offres de 6 mois fixes (six_mois) : {', '.join(f'« {c} » = {l}' for c, l in profil.SIX_MOIS.items())}.
-- Départements : seulement ceux d'Île-de-France ({', '.join(f'{c} {n}' for c, n in profil.DEPARTEMENTS.items())}). Si on te demande
-  une autre région, dis que l'outil ne couvre pour l'instant que l'Île-de-France.
+- Lieu, zone, où = le champ departements. Ces départements sont TOUS en Île-de-France : {', '.join(f'{c} {n}' for c, n in profil.DEPARTEMENTS.items())}.
+  « juste le 92 », « seulement Paris » → definir departements avec ces seuls codes (ex. valeur « 92 »). Seule une ville ou une
+  région hors de cette liste (Lyon, Bordeaux…) est impossible : l'outil ne couvre pour l'instant que l'Île-de-France.
+- Ne refuse JAMAIS une modification du profil sans avoir appelé modifier_profil : c'est le code qui vérifie chaque valeur et
+  te dit si c'est impossible, et pourquoi. Tu n'expliques un refus qu'avec la raison qu'il te renvoie.
 - Si un changement est refusé, lis la raison et corrige, ou explique-la simplement à l'étudiant.
 - HONNÊTETÉ (règle absolue) : ne dis JAMAIS que tu as changé quelque chose si tu n'as pas appelé modifier_profil et reçu
   « applique: true » pour ce changement. Si tu ne peux pas faire ce qu'il demande, dis-le clairement (« Je n'ai pas pu… »)
@@ -118,33 +130,43 @@ def demander(conn, chemin_config, config: dict, message: str, historique: list[d
 
     donnees = reglages.lire(chemin_config)
     avant = profil.lire(donnees)
+    demande = " ".join([m["texte"] for m in (historique or [])[-MESSAGES_GARDES:] if m["role"] == "user"] + [message])
     contents = _conversation(historique or [])
     contents.append({"role": "user", "parts": [gemini.partie_texte(message)]})
     reglages_chat = config.get("chat", {})
     modele = reglages_chat.get("modele", "gemini-3.5-flash-lite")
     debut = requetes.maintenant()
     bilan = {"tokens_entree": 0, "tokens_sortie": 0, "cout_usd": 0.0}
-    refus, erreur, nb_appels, relance = [], None, 0, False
+    refus, erreur, nb_appels, relance, forcer = [], None, 0, False, False
     try:
         for tour in range(TOURS_MAX + 2):   # + 1 tour pour la relance du garde-fou
             systeme = consignes(profil.lire(donnees), requetes.maintenant()[:10])   # le profil à jour à chaque tour
+            options = {"forcer_outil": True} if forcer and tour <= TOURS_MAX else {}
+            forcer = False
             contenu, usage = client.appeler(modele, systeme, contents, schema=SCHEMA,
                                             reflexion=reglages_chat.get("reflexion"),
-                                            outils=OUTILS if tour <= TOURS_MAX else None)
+                                            outils=OUTILS if tour <= TOURS_MAX else None, **options)
             nb_appels += 1
             scoring.ajouter_usage(bilan, usage, modele)
             appels = gemini.appels_outils(contenu)
             if appels:
                 contents.append(contenu)
                 contents.append({"role": "user", "parts": [
-                    {"functionResponse": {"name": a["name"], "response": _executer(donnees, a, refus)}} for a in appels]})
+                    {"functionResponse": {"name": a["name"], "response": _executer(donnees, a, refus, demande)}} for a in appels]})
                 continue
             resultat = _lire(gemini.texte_de(contenu))
-            if not relance and tour < TOURS_MAX and _annonce(resultat) and profil.lire(donnees) == avant:
-                relance = True   # elle dit l'avoir fait, mais rien n'a bougé : on lui laisse une chance de le faire
-                contents.append(contenu)
-                contents.append({"role": "user", "parts": [{"text": RELANCE}]})
-                continue
+            if not relance and tour < TOURS_MAX and profil.lire(donnees) == avant:
+                consigne = None
+                if _annonce(resultat):   # elle dit l'avoir fait, mais rien n'a bougé : on lui laisse une chance de le faire
+                    consigne = RELANCE
+                elif tour == 0 and garde_fou.annonce_refus(resultat.get("reponse")):   # refus sans avoir rien essayé
+                    consigne = RELANCE_REFUS
+                if consigne:
+                    # elle a annoncé un changement : au tour suivant, elle est OBLIGÉE d'appeler l'outil
+                    relance, forcer = True, consigne == RELANCE
+                    contents.append(contenu)
+                    contents.append({"role": "user", "parts": [{"text": consigne}]})
+                    continue
             break
     except gemini.ErreurGemini as e:
         erreur = str(e)
@@ -163,7 +185,8 @@ def demander(conn, chemin_config, config: dict, message: str, historique: list[d
         reglages.ecrire(donnees, chemin_config)
     suggestions = [str(s)[:60] for s in resultat.get("suggestions") or [] if str(s).strip()][:4]
     reponse, erreur_agent = resultat.get("reponse") or "", False
-    if not changements and _annonce(resultat):   # garde-fou : jamais « c'est fait » quand rien n'a changé
+    reponse_muette = refus and "?" not in reponse and not garde_fou.annonce_refus(reponse)
+    if not changements and (_annonce(resultat) or reponse_muette):   # garde-fou : jamais « c'est fait » quand rien n'a changé
         erreur_agent, suggestions = True, []
         reponse = ("Je n'ai rien modifié : je n'ai pas réussi à appliquer ta demande"
                    + (f" ({' ; '.join(refus)})" if refus else "")
@@ -191,23 +214,48 @@ def _conversation(historique: list[dict]) -> list[dict]:
     return contents
 
 
-def _executer(donnees, appel: dict, refus: list[str]) -> dict:
-    """Applique les changements demandés un par un : chacun est accepté ou refusé avec sa raison."""
+def _executer(donnees, appel: dict, refus: list[str], demande: str = "") -> dict:
+    """Applique les changements d'un appel ENSEMBLE (ex. décaler une borne et le début idéal) : chaque valeur est
+    d'abord vérifiée seule, puis la cohérence de l'ensemble ; si elle échoue, rien de l'appel n'est appliqué."""
     if appel["name"] != "modifier_profil":
         return {"erreur": f"outil inconnu : {appel['name']}"}
-    resultats = []
+    resultats, valides = [], {}
+    travail = profil.lire(donnees)   # profil de travail : plusieurs changements d'une même liste s'enchaînent
     for ch in (appel.get("args", {}).get("changements") or [])[:CHANGEMENTS_MAX]:
         champ, action, valeur = ch.get("champ"), ch.get("action"), str(ch.get("valeur") or "")
         try:
-            nouvelle = _valeur(profil.lire(donnees), champ, action, valeur, ch.get("position"), ch)
-            appliques = profil.appliquer(donnees, {champ: nouvelle})
-            resultats.append({"champ": champ, "applique": True,
-                              "nouvelle_valeur": profil.lire(donnees)[champ] if appliques else "(inchangé)"})
+            nouvelle = _valeur(travail, champ, action, valeur, ch.get("position"), {**ch, "_demande": demande})
+            travail[champ] = profil.normaliser(champ, nouvelle)
+            valides[champ] = nouvelle
+            resultats.append({"champ": champ, "applique": True})
         except profil.ProfilInvalide as e:
             refus.append(str(e))
             resultats.append({"champ": champ, "applique": False, "raison": str(e)})
+    _decaler_bornes(travail, valides, resultats)
+    if valides:
+        try:
+            profil.appliquer(donnees, valides)
+        except profil.ProfilInvalide as e:   # incohérence d'ensemble : rien n'est appliqué
+            refus.append(str(e))
+            resultats = [{**r, "applique": False, "raison": r.get("raison") or f"rien appliqué : {e}"} for r in resultats]
     p = profil.lire(donnees)
+    for r in resultats:
+        if r["applique"]:
+            r["nouvelle_valeur"] = p[r["champ"]]
     return {"resultats": resultats, "alertes": profil.alertes(p)}
+
+
+def _decaler_bornes(travail: dict, valides: dict, resultats: list[dict]) -> None:
+    """Un nouveau début idéal hors de la fenêtre de début : la borne dépassée le suit (c'est ce que l'étudiant veut dire)."""
+    if "debut_ideal" not in valides:
+        return
+    ideal = travail["debut_ideal"]
+    for borne, depasse in (("debut_au_plus_tard", ideal > travail["debut_au_plus_tard"]),
+                           ("debut_au_plus_tot", ideal < travail["debut_au_plus_tot"])):
+        if depasse and borne not in valides:
+            valides[borne] = travail[borne] = ideal
+            resultats.append({"champ": borne, "applique": True,
+                              "note": "décalé automatiquement pour garder le début idéal dans la fenêtre : dis-le à l'étudiant"})
 
 
 def _valeur(p: dict, champ: str, action: str, valeur: str, position=None, details: dict | None = None):
@@ -220,11 +268,18 @@ def _valeur(p: dict, champ: str, action: str, valeur: str, position=None, detail
     if genre == "liste":
         actuelle = p[champ]
         if action == "definir":
-            elements = [x.strip() for x in valeur.replace(";", "\n").split("\n")]
-            return [_departement(x) for x in elements] if champ == "departements" else elements
+            separateurs = re.sub(r"[;|]", "\n", valeur)   # Gemini sépare parfois par « | »
+            if champ in ("departements", "contrats"):   # « Paris, Hauts-de-Seine et Val-de-Marne », « 75 / 92 »
+                separateurs = re.sub(r"[,/]|\s+(?:et|and)\s+", "\n", separateurs)
+            elements = [x.strip() for x in separateurs.split("\n") if x.strip()]
+            if champ == "departements":
+                return [_departement(x) for x in elements]
+            return [_contrat(x) for x in elements] if champ == "contrats" else elements
         element = valeur.strip()
         if champ == "departements":
             element = _departement(element)
+        if champ == "contrats":
+            element = _contrat(element)
         if action == "ajouter":
             return actuelle + [element]
         if action == "retirer":
@@ -254,9 +309,22 @@ def _valeur(p: dict, champ: str, action: str, valeur: str, position=None, detail
 
 
 def _departement(texte: str) -> str:
-    """« Hauts-de-Seine », « 92 » ou « hauts-de-seine (92) » -> « 92 »."""
+    """« Hauts-de-Seine », « les Hauts-de-Seine », « 92 », « Paris (75) » ou « 75 Paris » -> le code."""
     t = texte.strip().lower()
-    return next((c for c, n in profil.DEPARTEMENTS.items() if t in (c, n.lower(), f"{n.lower()} ({c})")), texte.strip())
+    codes = set(re.findall(r"\b(\d{2})\b", t))
+    if len(codes) > 1:   # jamais en garder un seul en silence
+        raise profil.ProfilInvalide(f"« {texte} » contient plusieurs départements : sépare-les par « ; »")
+    if codes and next(iter(codes)) in profil.DEPARTEMENTS:
+        return next(iter(codes))
+    t = re.sub(r"^(?:les|le|la|l['’]|dans\s+(?:les|le|la|l['’])?)\s*", "", t).strip(" .")
+    return next((c for c, n in profil.DEPARTEMENTS.items() if t == n.lower()), texte.strip())
+
+
+def _contrat(texte: str) -> str:
+    t = texte.strip().lower()
+    if t in ("cdd", "fixed-term", "fixed term", "fixed-term contract", "fixed-term contracts", "contrat à durée déterminée"):
+        return "cdd"
+    return "stage" if t in ("stage", "stages", "internship", "internships") else texte.strip()
 
 
 def _groupe(texte: str | None) -> str | None:
@@ -288,10 +356,18 @@ def _entreprises(actuelles: list[dict], action: str, valeur: str, details: dict)
         modif["nom"] = str(details["nouveau_nom"]).strip()
     if details.get("alias") is not None:
         modif["alias"] = str(details["alias"]).strip()
+    demande = str(details.get("_demande") or "").lower()
     if details.get("outil") is not None:
-        modif["outil"] = "" if str(details["outil"]).strip().lower() in ("", "aucun", "none") else str(details["outil"]).strip().lower()
+        outil = str(details["outil"]).strip().lower()
+        outil = "" if outil in ("", "aucun", "none") else outil
+        if outil and outil not in demande:   # garde-fou : l'outil de recrutement ne se devine pas
+            raise profil.ProfilInvalide(f"l'étudiant n'a pas dit que {nom} utilise {outil} : ne devine pas l'outil")
+        modif["outil"] = outil
     if details.get("adresse_ou_id") is not None:
-        modif["adresse_ou_id"] = str(details["adresse_ou_id"]).strip()
+        adresse = str(details["adresse_ou_id"]).strip()
+        if adresse and adresse.lower() not in demande:
+            raise profil.ProfilInvalide(f"l'étudiant n'a pas donné l'adresse « {adresse} » : ne la devine pas")
+        modif["adresse_ou_id"] = adresse
     if existante is not None:
         return [{**e, **modif} if e is existante else e for e in actuelles]
     if action == "definir" and not modif.get("groupe"):

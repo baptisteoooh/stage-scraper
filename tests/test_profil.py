@@ -24,7 +24,8 @@ class FauxAgent:
     def __init__(self, *reponses):
         self.reponses, self.systemes, self.contents = list(reponses), [], []
 
-    def appeler(self, modele, systeme, contents, schema=None, reflexion=None, outils=None):
+    def appeler(self, modele, systeme, contents, schema=None, reflexion=None, outils=None, forcer_outil=False):
+        self.forces = getattr(self, "forces", []) + [forcer_outil]
         self.systemes.append(systeme)
         self.contents.append(list(contents))
         r = self.reponses.pop(0)
@@ -183,6 +184,10 @@ def _agent(copie, tmp_path, faux, message):
 
 def test_garde_fou_relance_puis_deplace(copie, tmp_path):
     """Le cas réel : l'IA dit « J'ai remonté la bioinformatique » sans rien faire. Relancée, elle le fait."""
+    donnees = reglages.lire(copie)   # ordre de départ connu (la vraie config peut déjà l'avoir en 4e)
+    profil.appliquer(donnees, {"domaines": ["IA / machine learning", "Data science", "Data analyst", "Data engineering",
+                                            "Logiciel embarqué", "Bioinformatique"]})
+    reglages.ecrire(donnees, copie)
     faux = FauxAgent(
         {"reponse": "J'ai remonté la bioinformatique à la quatrième place.", "suggestions": [], "annonce_modification": True},
         {"outil": [{"champ": "domaines", "action": "deplacer", "valeur": "bioinformatique", "position": 4}]},
@@ -193,6 +198,7 @@ def test_garde_fou_relance_puis_deplace(copie, tmp_path):
     assert r["profil"]["domaines"][3] == "Bioinformatique" and r["erreur"] is False
     assert [c["champ"] for c in r["changements"]] == ["domaines"]
     assert profil.lire(reglages.lire(copie))["domaines"][3] == "Bioinformatique"
+    assert faux.forces[:2] == [False, True]   # relancée : l'appel de l'outil est obligatoire
 
 
 def test_garde_fou_remplace_le_mensonge(copie, tmp_path):
@@ -217,6 +223,30 @@ def test_garde_fou_refus_explique(copie, tmp_path):
     )
     r = _agent(copie, tmp_path, faux, "bioinformatique en 40")
     assert r["erreur"] is True and "position 40 impossible" in r["reponse"]
+
+
+def test_garde_fou_refus_sans_essayer(copie, tmp_path):
+    """Le cas réel : « change la zone juste au 92 » refusé sans appeler l'outil. Relancée, elle essaie et ça marche."""
+    faux = FauxAgent(
+        {"reponse": "Je ne peux garder que les départements d'Île-de-France, j'ai donc conservé l'ensemble.", "suggestions": []},
+        {"outil": [{"champ": "departements", "action": "definir", "valeur": "92"}]},
+        {"reponse": "Ta zone est maintenant limitée aux Hauts-de-Seine.", "suggestions": []},
+    )
+    r = _agent(copie, tmp_path, faux, "change la zone juste au 92")
+    assert "Tu refuses sans avoir essayé" in faux.contents[1][-1]["parts"][0]["text"]
+    assert r["profil"]["departements"] == ["92"] and r["erreur"] is False
+    assert not any(faux.forces)   # un refus n'est jamais transformé de force en changement
+
+
+def test_garde_fou_vrai_refus_apres_essai(copie, tmp_path):
+    """Lyon : elle essaie, le code refuse, elle explique avec la vraie raison (pas d'erreur, rien de changé)."""
+    faux = FauxAgent(
+        {"outil": [{"champ": "departements", "action": "ajouter", "valeur": "69"}]},
+        {"reponse": "Je ne peux pas : l'outil ne couvre que l'Île-de-France.", "suggestions": []},
+    )
+    r = _agent(copie, tmp_path, faux, "cherche aussi à Lyon")
+    assert r["changements"] == [] and r["erreur"] is False and "Île-de-France" in r["refus"][0]
+    assert len(faux.systemes) == 2   # pas de relance : elle a vraiment essayé
 
 
 def test_garde_fou_laisse_passer_les_questions(copie, tmp_path):
@@ -285,7 +315,8 @@ def test_le_bot_peut_modifier_tout_le_profil(copie):
     taille = agent_profil.CHANGEMENTS_MAX   # au plus 20 changements par appel de l'outil : plusieurs appels
     for i in range(0, len(CHANGEMENTS_COMPLETS), taille):
         r = agent_profil._executer(donnees, {"name": "modifier_profil",
-                                             "args": {"changements": CHANGEMENTS_COMPLETS[i:i + taille]}}, refus)
+                                             "args": {"changements": CHANGEMENTS_COMPLETS[i:i + taille]}}, refus,
+                                   "Alan est sur ashby, identifiant alan")
         assert all(x["applique"] for x in r["resultats"]), r
     assert refus == [], refus
     p = profil.lire(donnees)
@@ -308,3 +339,71 @@ def test_bot_refus_clairs_entreprises(copie):
         {"champ": "entreprises", "action": "ajouter", "valeur": "Qonto", "groupe": "pirates"},
     ]}}, refus)
     assert "n'est pas dans tes entreprises suivies" in refus[0] and "groupe inconnu" in refus[1]
+
+
+def test_bot_ne_devine_pas_l_outil(copie):
+    donnees = reglages.lire(copie)
+    refus = []
+    agent_profil._executer(donnees, {"name": "modifier_profil", "args": {"changements": [
+        {"champ": "entreprises", "action": "ajouter", "valeur": "Alan", "groupe": "scale_up", "outil": "ashby"}]}},
+        refus, "suis aussi Alan, une scale-up")
+    assert "ne devine pas" in refus[0]
+    assert all(e["nom"] != "Alan" for e in profil.lire(donnees)["entreprises"])
+
+
+def test_un_appel_est_verifie_d_un_bloc(copie):
+    """Début idéal après le début au plus tard : possible si la borne bouge dans le même appel, dans n'importe quel ordre."""
+    donnees = reglages.lire(copie)
+    profil.appliquer(donnees, {"debut_au_plus_tot": "2027-05-01", "debut_ideal": "2027-05-01",
+                               "debut_au_plus_tard": "2027-05-10", "fin_au_plus_tard": "2027-08-31"})
+    refus = []
+    r = agent_profil._executer(donnees, {"name": "modifier_profil", "args": {"changements": [
+        {"champ": "debut_ideal", "action": "definir", "valeur": "2027-05-15"},
+        {"champ": "debut_au_plus_tard", "action": "definir", "valeur": "2027-05-20"}]}}, refus)
+    assert refus == [] and profil.lire(donnees)["debut_ideal"] == "2027-05-15"
+    r = agent_profil._executer(donnees, {"name": "modifier_profil", "args": {"changements": [
+        {"champ": "debut_ideal", "action": "definir", "valeur": "2027-09-15"},   # après la fin au plus tard
+        {"champ": "competences", "action": "ajouter", "valeur": "Rust"}]}}, refus)
+    assert not any(x["applique"] for x in r["resultats"]) and "rien appliqué" in r["resultats"][1]["raison"]
+    assert "Rust" not in profil.lire(donnees)["competences"]
+
+
+def test_debut_ideal_emmene_sa_borne(copie):
+    donnees = reglages.lire(copie)
+    profil.appliquer(donnees, {"debut_au_plus_tot": "2027-05-01", "debut_ideal": "2027-05-01",
+                               "debut_au_plus_tard": "2027-05-10", "fin_au_plus_tard": "2027-08-31"})
+    refus = []
+    r = agent_profil._executer(donnees, {"name": "modifier_profil", "args": {"changements": [
+        {"champ": "debut_ideal", "action": "definir", "valeur": "2027-05-15"}]}}, refus)
+    p = profil.lire(donnees)
+    assert refus == [] and (p["debut_ideal"], p["debut_au_plus_tard"]) == ("2027-05-15", "2027-05-15")
+    assert "décalé automatiquement" in r["resultats"][1]["note"]
+    agent_profil._executer(donnees, {"name": "modifier_profil", "args": {"changements": [
+        {"champ": "debut_ideal", "action": "definir", "valeur": "2027-04-20"}]}}, refus)
+    assert profil.lire(donnees)["debut_au_plus_tot"] == "2027-04-20"
+
+
+@pytest.mark.parametrize("texte, codes", [
+    ("Paris, Hauts-de-Seine", ["75", "92"]),
+    ("Paris et les Hauts-de-Seine", ["75", "92"]),
+    ("75 Paris; 92 Hauts-de-Seine", ["75", "92"]),
+    ("Paris (75), Val-de-Marne (94)", ["75", "94"]),
+    ("75 | 92", ["75", "92"]),     # ce que Gemini envoie vraiment
+    ("75 / 92 / 94", ["75", "92", "94"]),
+])
+def test_departements_en_toutes_lettres(copie, texte, codes):
+    donnees = reglages.lire(copie)
+    refus = []
+    agent_profil._executer(donnees, {"name": "modifier_profil", "args": {"changements": [
+        {"champ": "departements", "action": "definir", "valeur": texte}]}}, refus)
+    assert refus == [] and profil.lire(donnees)["departements"] == codes
+
+
+def test_garde_fou_refus_tu(copie, tmp_path):
+    """Le cas réel : le code refuse, mais la réponse annonce le changement avec une tournure non détectée."""
+    faux = FauxAgent(
+        {"outil": [{"champ": "contrats", "action": "definir", "valeur": "contrats courts"}]},
+        {"reponse": "Je ne prends plus les stages mais uniquement les CDD.", "suggestions": []},
+    )
+    r = _agent(copie, tmp_path, faux, "only fixed-term contracts")
+    assert r["erreur"] is True and r["reponse"].startswith("Je n'ai rien modifié")

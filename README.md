@@ -127,6 +127,16 @@ Chaque offre gardée par le tri est notée par Gemini (`gemini-3.5-flash-lite`, 
 
 Les tests utilisent une vraie réponse enregistrée (`tests/donnees/`) : ils ne consomment aucun quota et ne touchent pas à ta base.
 
+Le bot de « Mon profil » a aussi des tests face au **vrai Gemini** (offre gratuite, environ 4 minutes, sur une copie
+de `config.yaml` : rien de réel n'est modifié). Ils ne tournent que sur demande :
+
+```
+PowerShell : $env:GEMINI_REEL="1"; .venv\Scripts\python -m pytest tests/test_gemini_reel.py -v
+CMD        : set GEMINI_REEL=1 && .venv\Scripts\python -m pytest tests/test_gemini_reel.py -v
+```
+
+Gemini ne répond pas toujours pareil : un échec isolé peut se relancer, des échecs répétés montrent un vrai défaut.
+
 ## Le nouveau site (en construction)
 
 L'interface Streamlit est remplacée peu à peu par un site sur mesure (verre fumé sur Manhattan au crépuscule,

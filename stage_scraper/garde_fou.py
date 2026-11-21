@@ -30,6 +30,18 @@ def annonce_action(texte: str | None) -> bool:
     return bool(texte) and any(m.search(texte) for m in _ANNONCES)
 
 
+# Un refus (« je ne peux garder que… », « impossible », « I can't ») : légitime seulement après avoir essayé.
+_REFUS = re.compile(
+    r"\bje\s+ne\s+(?:peux|pourrai|pourrais|sais)\b|\bimpossible\b|\bje\s+n['’]\s?ai\s+pas\s+pu\b|"
+    r"\bne\s+(?:peut|peuvent)\s+(?:pas|qu)|\bpas\s+possible\b|\bj['’]\s?ai\s+(?:donc\s+)?(?:conserv|gard)|"
+    r"\bi\s+(?:can['’]?t|cannot|couldn['’]?t|am\s+unable|was\s+unable)\b|\bnot\s+possible\b", re.I)
+
+
+def annonce_refus(texte: str | None) -> bool:
+    """Vrai si le texte refuse ou dit ne pas pouvoir faire (« Je ne peux garder que les départements… »)."""
+    return bool(texte) and bool(_REFUS.search(texte))
+
+
 # Ce que l'Assistant (lecture seule) pourrait prétendre avoir changé.
 _OBJETS_MODIFIABLES = re.compile(
     r"\b(?:profil|candidature|statut|s[ée]lection|corbeille|relance|mail|e-mail|courriel|crit[èe]res?|domaines?|"

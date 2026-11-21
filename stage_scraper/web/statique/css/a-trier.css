@@ -6,10 +6,10 @@
 /* ---------------------------------------------------------------- la scène : flèches + paquet */
 .scene {
   flex: 1; min-height: 0; position: relative;
-  display: grid; grid-template-columns: 1fr minmax(0, 500px) 1fr; align-items: center; gap: 24px;
+  display: grid; grid-template-columns: 1fr minmax(0, 600px) 1fr; align-items: center; gap: 24px;
   padding: 0 28px;
 }
-.pile { position: relative; width: 100%; height: min(calc(100% - 30px), 540px); align-self: center; margin-bottom: 30px; }
+.pile { position: relative; width: 100%; height: min(calc(100% - 30px), 680px); align-self: center; margin-bottom: 30px; }
 
 .cote-g, .cote-d {
   display: flex; flex-direction: column; align-items: center; gap: 12px;
@@ -29,43 +29,67 @@
 .cote-g:active i, .cote-d:active i { transform: scale(.94); }
 
 /* ---------------------------------------------------------------- les cartes */
+/* Carte sans contour (comme Ma sélection) : verre sombre et ombre floue. La note est en couleur :
+   vert à partir de 8, violet de 5 à 7, gris en dessous. */
 .carte {
+  --n: #9E92AD;
   position: absolute; inset: 0;
   display: flex; flex-direction: column;
-  padding: 28px 30px 22px; border-radius: var(--r-carte);
-  background: var(--verre-fort);
+  padding: 26px 30px 20px; border-radius: 18px;
+  background: rgba(28, 21, 38, .94);
   -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), inset 0 0 0 1px var(--ligne), 0 24px 50px rgba(5, 3, 9, .45);
+  box-shadow: 0 24px 50px rgba(5, 3, 9, .42);
   transform-origin: 50% 100%;
   transition: transform .5s var(--ressort), opacity .3s;
   user-select: none; -webkit-user-select: none;
   will-change: transform;
 }
-.carte.pos0 {
-  z-index: 3; cursor: grab;
-  box-shadow: inset 0 0 0 1.5px rgba(205, 184, 232, .75), 0 30px 60px rgba(5, 3, 9, .5);
-  transform-origin: 50% 85%;
-}
+.carte[data-niveau="haut"] { --n: #4BC98A; }
+.carte[data-niveau="moyen"] { --n: #B48CF5; }
+.carte.pos0 { z-index: 3; cursor: grab; box-shadow: 0 30px 60px rgba(5, 3, 9, .5); transform-origin: 50% 85%; }
 .carte.pos0.tenue { cursor: grabbing; transition: none; }
 .carte.pos1 { z-index: 2; transform: translateY(14px) scale(.955); }
-.carte.pos2 { z-index: 1; transform: translateY(28px) scale(.91); background: rgba(30, 23, 42, .78); }
+.carte.pos2 { z-index: 1; transform: translateY(28px) scale(.91); background: rgba(28, 21, 38, .8); }
 .carte.pos2 > * { opacity: 0; }
 .carte.pos1 > *, .carte.pos2 > * { transition: opacity .3s; }
 .carte.pos1 > :not(.tampon) { opacity: calc(.25 + var(--revele, 0) * .75); }
 .carte.nouvelle { opacity: 0; transform: translateY(40px) scale(.86); }
 
+.carte .haut { flex: none; display: flex; align-items: baseline; gap: 12px; font-size: 14px; color: var(--doux); }
+.carte .qui { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.carte .qui b { display: inline; font-size: inherit; font-weight: 600; color: var(--texte); }
+.carte .score { flex: none; font-family: var(--titres); font-size: 30px; font-weight: 600; line-height: 1; color: var(--n); font-variant-numeric: tabular-nums; }
+.carte .score small { font-size: 16px; font-weight: 500; color: var(--faible); margin-left: 1px; }
 .carte h3 {
   font-family: var(--titres); font-size: clamp(21px, 1.9vw, 26px); font-weight: 600; line-height: 1.22; letter-spacing: -.03em;
-  margin: 22px 0 14px; flex: none;
+  margin: 14px 0 12px; flex: none; text-wrap: balance;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
-.resume { font-size: 16px; line-height: 1.55; color: #EDE7F3; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
-.pourquoi { flex: none; margin-top: 12px; font-size: 14px; line-height: 1.5; color: var(--doux); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.pied { flex: none; margin-top: auto; padding-top: 16px; display: flex; align-items: center; gap: 16px; font-size: 14px; font-weight: 500; }
-.pied a, .pied button { padding: 6px 0; transition: color .2s; }
+.carte .puces { margin-bottom: 14px; gap: 6px; }
+.carte .puces span { padding: 4px 10px; font-size: 12.5px; font-weight: 500; color: var(--doux); background: rgba(255, 255, 255, .06); box-shadow: none; }
+.carte .puces .ia { color: #10141A; background: #B48CF5; }
+.carte .puces .cdd { color: #10141A; background: #4CC3D6; }
+.carte .puces .inconnu { color: var(--faible); }
+/* Le milieu de la carte : tout est là ; s'il déborde, il défile (molette) et s'efface en bas au lieu d'être coupé. */
+.defile {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+  padding-bottom: 18px; margin-bottom: -4px;
+  -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(180deg, #000 calc(100% - 28px), transparent);
+}
+.resume { font-size: 15.5px; line-height: 1.6; color: #E6DFEE; white-space: pre-line; }
+.pourquoi {
+  margin-top: 12px; padding: 11px 14px; border-radius: 12px; font-size: 14px; line-height: 1.5; color: var(--doux);
+  background: color-mix(in oklab, var(--n) 11%, rgba(255, 255, 255, .03));
+}
+.pourquoi b { font-weight: 600; color: var(--n); }
+.extrait { margin-top: 16px; }
+.extrait h4 { margin-bottom: 6px; font-size: 12px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--faible); }
+.extrait p { font-size: 14px; line-height: 1.6; color: var(--doux); }
+.pied { flex: none; padding-top: 12px; display: flex; align-items: center; gap: 18px; font-size: 14px; font-weight: 500; }
+.pied a, .pied button { padding: 6px 0; white-space: nowrap; transition: color .2s; }
 .pied a:hover, .pied button:hover { color: #fff; text-decoration: underline; text-underline-offset: 4px; }
 .pied .meta { margin-left: auto; font-size: 12px; font-weight: 400; color: var(--faible); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.etiquette { font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--lavande); margin-left: 8px; }
+.etiquette { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #4BC98A; margin-left: 8px; }
 
 /* Tampons qui apparaissent pendant le glissement */
 .tampon {
@@ -115,9 +139,7 @@
   .cote-g, .cote-d { display: none; }
 }
 @media (max-height: 820px) {
-  .carte h3 { -webkit-line-clamp: 2; margin: 18px 0 12px; }
-  .resume { -webkit-line-clamp: 3; }
-  .pourquoi { -webkit-line-clamp: 2; }
+  .carte h3 { -webkit-line-clamp: 2; margin: 12px 0 10px; }
 }
 @media (max-height: 760px) {
   .actions { padding-top: 18px; }

@@ -148,24 +148,26 @@ function clavierMenu(e) {
 
 // ======================================================================= cartes
 
+// Carte d'une offre : tout ce qu'il faut pour décider sans ouvrir les détails (résumé et raison de la note en
+// entier, extrait de l'annonce). Si c'est long, le milieu défile dans la carte au lieu d'être coupé.
 function contenuCarte(o) {
-  const note = o.score === null
-    ? h('div', { class: 'note attente', title: "Pas encore notée par l'IA" }, h('small', {}, 'Note'), h('b', {}, '—'))
-    : h('div', { class: 'note' }, h('small', {}, 'Note'), h('b', {}, String(o.score), h('span', {}, '/10')));
   const meta = [o.anciennete, o.site].filter(Boolean).join(' · ');
   return [
     h('span', { class: 'tampon oui', 'aria-hidden': 'true' }, 'Je candidate'),
     h('span', { class: 'tampon non', 'aria-hidden': 'true' }, 'Pas pour moi'),
     h('span', { class: 'tampon tard', 'aria-hidden': 'true' }, etat.section === 'plus_tard' ? 'À trier' : 'Plus tard'),
-    h('div', { class: 'tete' },
-      h('div', { class: 'initiale', 'aria-hidden': 'true' }, o.initiale),
-      h('div', { class: 'qui' }, h('b', {}, o.entreprise, o.nouvelle ? h('span', { class: 'etiquette' }, 'Nouvelle') : null),
-        h('small', {}, o.lieu)),
-      note),
+    h('div', { class: 'haut' },
+      h('span', { class: 'qui' }, h('b', {}, o.entreprise), o.lieu ? ` · ${o.lieu}` : '',
+        o.nouvelle ? h('span', { class: 'etiquette' }, 'Nouvelle') : null),
+      o.score === null
+        ? h('span', { class: 'score', title: "Pas encore notée par l'IA" }, '—')
+        : h('span', { class: 'score', 'aria-label': `Note ${o.score} sur 10` }, String(o.score), h('small', {}, '/10'))),
     h('h3', {}, o.titre),
     h('div', { class: 'puces' }, o.puces.map(p => h('span', { class: p.type }, p.texte))),
-    o.resume ? h('p', { class: 'resume' }, o.resume) : null,
-    o.pourquoi ? h('p', { class: 'pourquoi' }, `Pourquoi ${o.score}/10 : ${o.pourquoi}`) : null,
+    h('div', { class: 'defile' },
+      o.resume ? h('p', { class: 'resume' }, o.resume) : null,
+      o.pourquoi ? h('p', { class: 'pourquoi' }, h('b', {}, `Pourquoi ${o.score}/10`), ' ', o.pourquoi) : null,
+      o.extrait ? h('div', { class: 'extrait' }, h('h4', {}, "Dans l'annonce"), h('p', { translate: 'no' }, o.extrait)) : null),
     h('div', { class: 'pied' },
       o.lien ? h('a', { href: o.lien, target: '_blank', rel: 'noopener' }, "Voir l'annonce ↗") : null,
       h('button', { type: 'button', onclick: () => ouvrirFiche(o.id) }, 'Détails'),
@@ -173,8 +175,10 @@ function contenuCarte(o) {
   ];
 }
 
+function niveau(score) { return score === null ? 'aucun' : score >= 8 ? 'haut' : score >= 5 ? 'moyen' : 'bas'; }
+
 function nouvelleCarte(o, pos) {
-  return h('article', { class: `carte pos${pos}`, 'data-id': o.id, 'aria-label': `${o.titre}, ${o.entreprise}` },
+  return h('article', { class: `carte pos${pos}`, 'data-id': o.id, 'data-niveau': niveau(o.score), 'aria-label': `${o.titre}, ${o.entreprise}` },
     contenuCarte(o));
 }
 

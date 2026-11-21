@@ -41,7 +41,11 @@ Thème sombre seulement (`color-scheme: dark`).
 - Arrondis : carte **8 px** (`--r-carte`), panneaux 12 px, fenêtre 18 px ; pilules pour les filtres et
   boutons secondaires (`.pastille`) ; boutons ronds pour le tri.
 - Verre : `backdrop-filter: blur(24–30px)`, filet intérieur blanc à 10–12 %, ombre portée prune très douce.
-- La carte au-dessus du paquet a un **contour lavande** ; les deux suivantes dépassent dessous, floutées.
+- **Carte de À trier** (`.carte`, `a-trier.css`) : plus de contour (comme Ma sélection), verre sombre, coins 18 px,
+  ombre floue ; les deux suivantes dépassent dessous. Carte large (600 px, jusqu'à 680 px de haut) pour décider
+  sans ouvrir les détails : ligne « entreprise · lieu » avec la note en couleur (vert ≥ 8, violet 5–7, gris
+  dessous), titre, étiquettes (IA / data en violet plein), puis un milieu qui défile (`.defile`, effacé en bas) :
+  résumé en entier, « Pourquoi n/10 » dans un encart teinté de la couleur de la note, extrait de l'annonce.
 - Note affichée « NOTE 9/10 » (« SCORE » en anglais), grand chiffre Sora.
 
 ## Mouvement

@@ -56,13 +56,17 @@ Thème sombre seulement (`color-scheme: dark`).
 
 ## Composants
 - **Coquille** (`app.css`, `_menu.html`) : fenêtre de verre centrée, menu à gauche (marque, Lancer le scrap,
-  À trier / Ma sélection / Assistant, Plus : Réglages / Journal / Corbeille, encart « Dernier scrap »,
+  À trier / Ma sélection / Assistant, Plus : Mon profil / Réglages / Journal / Corbeille, encart « Dernier scrap »,
   sélecteur FR · EN). Sur téléphone (≤ 900 px) : barre du haut, menu masqué.
 - **Panneau de détail** (`.fiche`) : glisse depuis la droite, Échap pour fermer ; s'élargit à 1180 px pour le
   dossier de candidature (lettre et onglets à gauche, conversation à droite).
 - **Toast** en bas : message court + « Annuler » (toute décision s'annule).
 - **Bulles de conversation** (`.bulle.ia` / `.bulle.moi`) et zone de saisie (`.saisie`), communes au dossier
   et à l'Assistant.
+- **Phrases à valeurs cliquables** (Mon profil, `css/profil.css`) : la recherche s'écrit en phrases ; chaque
+  valeur (`.jeton`) est soulignée de lavande et ouvre une petite bulle d'édition (date, durée, choix) ; enregistré
+  tout de suite, « Annuler » dans le toast. Les rubriques modifiées par l'agent clignotent en lavande (`.flash`).
+  Les phrases sont écrites entières dans chaque langue (dans `profil.js`), pas morceau par morceau.
 - **Pastilles** d'information sur les cartes (`.puces`) : IA / data, CDD, durée, début, gratification ;
   « Durée ? » en gris si inconnue.
 

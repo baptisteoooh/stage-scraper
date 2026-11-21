@@ -1,22 +1,21 @@
-// Page Réglages : critères (ce qui est gardé ou écarté), entreprises suivies, mails, documents (CV, lettre
-// modèle) et « refaire le tri ». Les critères et les mails s'enregistrent dans config.yaml d'un seul bouton.
+// Page Réglages : mails, documents (CV, lettre
+// modèle) et « refaire le tri ». Les mails s'enregistrent dans config.yaml d'un seul bouton.
 import { $, h, api, toast, brancherScrap, majMenu } from './commun.js';
 
+// Les critères et les entreprises suivies sont dans « Mon profil » (/profil).
 const ONGLETS = [
-  { cle: 'criteres', nom: 'Critères' },
-  { cle: 'entreprises', nom: 'Entreprises suivies' },
   { cle: 'mails', nom: 'Mails' },
   { cle: 'documents', nom: 'Mes documents' },
   { cle: 'avance', nom: 'Avancé' },
 ];
 
-const etat = { onglet: 'criteres', d: null, initial: null, courant: null };
+const etat = { onglet: 'mails', d: null, initial: null, courant: null };
 
 const copie = (x) => JSON.parse(JSON.stringify(x));
 
 // Ce qui s'enregistre dans config.yaml (le reste de la réponse ne fait qu'informer)
 function modifiables(d) {
-  return { ...d.criteres, alerte_seuil_score: d.mails.alerte_seuil_score, envoi_actif: d.mails.envoi_actif };
+  return { alerte_seuil_score: d.mails.alerte_seuil_score, envoi_actif: d.mails.envoi_actif };
 }
 
 async function charger() {
@@ -26,6 +25,7 @@ async function charger() {
   etat.initial = modifiables(d);
   etat.courant = copie(etat.initial);
   const demande = location.hash.slice(1);
+  if (demande === 'criteres' || demande === 'entreprises') { location.replace('/profil'); return; }
   if (ONGLETS.some(o => o.cle === demande)) etat.onglet = demande;
   dessiner();
 }
@@ -49,7 +49,7 @@ function dessiner() {
     'aria-pressed': String(o.cle === etat.onglet),
     onclick: () => { etat.onglet = o.cle; history.replaceState(null, '', `#${o.cle}`); dessiner(); },
   }, o.nom)));
-  const contenu = { criteres, entreprises, mails, documents, avance }[etat.onglet]();
+  const contenu = { mails, documents, avance }[etat.onglet]();
   const zone = $('#reglages');
   zone.replaceChildren(h('div', { class: 'rubrique apparait' }, contenu));
   zone.scrollTop = 0;
@@ -58,88 +58,6 @@ function dessiner() {
 
 function bloc(titre, aide, ...contenu) {
   return h('section', { class: 'bloc' }, h('h2', {}, titre), aide ? h('p', { class: 'aide-liste' }, aide) : null, contenu);
-}
-
-// Liste de mots-clés modifiable : une pastille par mot, × pour retirer, Entrée pour ajouter.
-function listeMots(cle, placeholder) {
-  const mots = h('div', { class: 'mots' });
-  const champ = h('input', { class: 'champ ajout', type: 'text', placeholder, 'aria-label': placeholder });
-  const dessinerMots = () => mots.replaceChildren(...etat.courant[cle].map((m, i) => h('span', { class: 'mot', translate: 'no' }, m,
-    h('button', {
-      type: 'button', 'aria-label': `Retirer ${m}`,
-      onclick: () => { changer(cle, etat.courant[cle].filter((_, j) => j !== i)); dessinerMots(); },
-    }, '×'))), champ);
-  champ.addEventListener('keydown', (e) => {
-    if (e.key === 'Backspace' && !champ.value && etat.courant[cle].length) {
-      changer(cle, etat.courant[cle].slice(0, -1)); dessinerMots(); champ.focus(); return;
-    }
-    if (e.key !== 'Enter' && e.key !== ',') return;
-    e.preventDefault();
-    const v = champ.value.trim();
-    if (v && !etat.courant[cle].some(x => x.toLowerCase() === v.toLowerCase())) {
-      changer(cle, [...etat.courant[cle], v]); dessinerMots();
-    }
-    champ.value = ''; champ.focus();
-  });
-  dessinerMots();
-  return mots;
-}
-
-function criteres() {
-  const anciennete = h('input', { class: 'champ court', type: 'number', min: '1', max: '365', value: etat.courant.anciennete_max_jours });
-  anciennete.addEventListener('input', () => changer('anciennete_max_jours', Number(anciennete.value)));
-  return [
-    h('p', { class: 'aide-liste' }, "Ce que l'outil garde ou écarte. Enregistré dans config.yaml (l'ancienne version reste dans config.yaml.bak). "
-      + "Pour l'appliquer aux offres déjà collectées : Avancé › Refaire le tri."),
-    bloc('Ancienneté maximale', "Une offre publiée il y a plus longtemps est rangée dans « Expirées ».",
-      h('label', { class: 'ligne-champ' }, anciennete, h('span', {}, 'jours'))),
-    bloc('Types de contrat exclus', 'Un mot ou une expression par pastille. Entrée pour ajouter.', listeMots('contrats', 'Ajouter un type de contrat')),
-    bloc('Postes exclus', 'Cherchés dans le titre de l\'offre.', listeMots('postes', 'Ajouter un poste')),
-    bloc('Niveaux trop élevés', 'Cherchés dans le titre de l\'offre.', listeMots('niveaux', 'Ajouter un niveau')),
-  ];
-}
-
-// ======================================================================= entreprises suivies
-
-function entreprises() {
-  const lignes = h('div', { class: 'entreprises' });
-  const options = (dict, valeur) => Object.entries(dict).map(([v, nom]) => h('option', { value: v, selected: v === valeur }, nom));
-  const dessinerLignes = () => lignes.replaceChildren(
-    h('div', { class: 'entreprise entete', 'aria-hidden': 'true' },
-      h('span', {}, 'Nom'), h('span', {}, 'Groupe'), h('span', {}, 'Autres noms'), h('span', {}, 'Outil carrières'),
-      h('span', {}, 'Adresse ou identifiant'), h('span', {})),
-    ...etat.courant.entreprises_suivies.map((e, i) => {
-      const maj = (champ) => (ev) => {
-        const liste = copie(etat.courant.entreprises_suivies);
-        liste[i][champ] = ev.target.value;
-        changer('entreprises_suivies', liste);
-      };
-      return h('div', { class: 'entreprise' },
-        h('input', { class: 'champ', value: e.nom, 'aria-label': 'Nom', oninput: maj('nom') }),
-        h('select', { class: 'champ', 'aria-label': 'Groupe', onchange: maj('groupe') }, options(etat.d.groupes, e.groupe)),
-        h('input', { class: 'champ', value: e.alias, placeholder: 'séparés par des virgules', 'aria-label': 'Autres noms', oninput: maj('alias') }),
-        h('select', { class: 'champ', 'aria-label': 'Outil carrières', onchange: maj('outil') }, options(etat.d.outils, e.outil)),
-        h('input', { class: 'champ', value: e.adresse_ou_id, 'aria-label': 'Adresse ou identifiant', oninput: maj('adresse_ou_id') }),
-        h('button', {
-          class: 'retirer-ligne', type: 'button', 'aria-label': `Retirer ${e.nom || 'cette entreprise'}`,
-          onclick: () => { changer('entreprises_suivies', etat.courant.entreprises_suivies.filter((_, j) => j !== i)); dessinerLignes(); },
-        }, '×'));
-    }));
-  dessinerLignes();
-  return [
-    h('p', { class: 'aide-liste' }, "Leurs offres ont un bonus dans la note, et une offre de 6 mois chez elles va dans « À négocier ». "
-      + "Outil carrières : Ashby (avec l'identifiant de la page) ou Workday (avec l'adresse complète) ; laisser « Aucun » si inconnu."),
-    lignes,
-    h('button', {
-      class: 'pastille ajouter', type: 'button',
-      onclick: () => {
-        changer('entreprises_suivies', [...etat.courant.entreprises_suivies, { nom: '', groupe: 'scale_up', alias: '', outil: '', adresse_ou_id: '' }]);
-        dessiner();
-        const champs = document.querySelectorAll('.entreprise:last-child input');
-        champs[0]?.focus();
-      },
-    }, '+ Ajouter une entreprise'),
-  ];
 }
 
 // ======================================================================= mails
@@ -248,8 +166,9 @@ function avance() {
         api('/api/reglages').then(majMenu).catch(() => {});
       },
     }, 'Refaire le tri de toutes les offres'), resultat),
-    bloc('Autres paramètres', "Les domaines (et leur ordre de priorité), les secteurs, les sources et les modèles d'IA se règlent dans "
-      + 'le fichier config.yaml, à la racine du projet.'),
+    bloc('Ta recherche', 'Dates, durée, lieu, domaines, secteurs et entreprises suivies : tout est dans « Mon profil ».',
+      h('a', { class: 'pastille', href: '/profil' }, 'Ouvrir Mon profil')),
+    bloc('Autres paramètres', "Les sources et les modèles d'IA se règlent dans le fichier config.yaml, à la racine du projet."),
   ];
 }
 
@@ -263,11 +182,8 @@ async function enregistrer() {
   let r;
   try { r = await api('/api/reglages', modifs); } catch (e) { toast(`Pas enregistré : ${e.message}`); return; }
   await charger();
-  const critere = ['contrats', 'postes', 'niveaux', 'anciennete_max_jours', 'entreprises_suivies'].some(c => c in modifs);
   if (!r.changements.length) { toast('Aucun changement.'); return; }
-  toast(`Enregistré : ${r.changements.join(', ')}.`, critere ? [h('button', {
-    type: 'button', onclick: () => { etat.onglet = 'avance'; dessiner(); },
-  }, 'Refaire le tri')] : [], { duree: 7000 });
+  toast(`Enregistré : ${r.changements.join(', ')}.`, [], { duree: 7000 });
 }
 
 $('#enregistrer').addEventListener('click', enregistrer);

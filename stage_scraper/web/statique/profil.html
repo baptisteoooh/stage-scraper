@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mon profil · Stage Scraper</title>
+<link rel="icon" href="/statique/img/icone.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/statique/css/site.css">
+<link rel="stylesheet" href="/statique/css/app.css">
+<link rel="stylesheet" href="/statique/css/plus.css">
+<link rel="stylesheet" href="/statique/css/profil.css">
+<script type="module" src="/statique/js/profil.js"></script>
+</head>
+<body>
+<div class="fond uni" aria-hidden="true"></div>
+
+<div class="fenetre verre">
+  <!-- menu -->
+
+  <main class="principal page-profil">
+    <div class="barre">
+      <h1 class="titre-page">Mon profil</h1>
+      <span class="enregistre" id="enregistre" aria-live="polite">Enregistré automatiquement</span>
+      <button class="pastille ouvrir-chat" id="ouvrir-chat" type="button" aria-controls="chat" aria-expanded="false">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14v10H10l-5 4z"/></svg>Modifier en parlant</button>
+    </div>
+    <div class="profil-corps">
+      <div class="defile feuille" id="feuille"></div>
+
+      <aside class="chat-profil" id="chat" aria-label="Modifier ton profil en conversation">
+        <div class="chat-tete">
+          <div>
+            <h2>Modifier en parlant</h2>
+            <p>Dis ce que tu veux changer : je mets ton profil à jour.</p>
+          </div>
+          <button class="pastille petite" id="effacer" type="button" hidden>Effacer</button>
+          <button class="fermer-chat" id="fermer-chat" type="button" aria-label="Fermer la conversation">×</button>
+        </div>
+        <div class="fil-profil" id="fil" aria-live="polite"></div>
+        <form class="saisie" id="saisie">
+          <label class="sr-only" for="message">Ton message</label>
+          <textarea class="champ" id="message" rows="1" maxlength="1500" placeholder="Ex. : accepte aussi les stages de 6 mois"></textarea>
+          <button class="bouton principal" id="envoyer" type="submit" aria-label="Envoyer">↑</button>
+        </form>
+        <p class="mention">Gemini, gratuit · chaque changement s'annule</p>
+      </aside>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

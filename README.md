@@ -163,9 +163,18 @@ Pour l'arrêter : `Ctrl + C` dans le terminal.
 - **Journal** : crédit Claude restant, dépense du mois, et chaque scrap (clique un passage pour le détail
   source par source, erreurs comprises).
 - **Corbeille** : offres écartées par toi, par le tri, ou expirées. Rien n'est supprimé : « Remettre à trier ».
-- **Réglages** : critères (ancienneté, contrats, postes et niveaux exclus), entreprises suivies, mails (seuil
-  d'alerte, envoi, aperçus, mail de test), tes documents (CV, lettre modèle, et ce que l'IA en reçoit) et
-  « Refaire le tri ». Un seul bouton **Enregistrer** (ou Ctrl+S) écrit config.yaml (copie dans config.yaml.bak).
+- **Mon profil** : ta recherche écrite en phrases (« Un stage ou CDD qui commence entre le 1er avril et le
+  10 mai 2027… »), avec une frise des dates, les départements, les domaines dans l'ordre (étoile = très
+  intéressant), les secteurs, les entreprises suivies (clique une tuile pour son groupe ou la collecte directe),
+  les recherches envoyées aux sites et des filtres fins. Clique une valeur soulignée pour la changer : c'est
+  enregistré tout de suite dans config.yaml (copie dans config.yaml.bak) et « Annuler » la remet. À droite,
+  **Modifier en parlant** : dis « accepte aussi les stages de 6 mois » ou « suis aussi Alan » et l'agent (Gemini,
+  gratuit) modifie le profil lui-même ; chaque changement est vérifié (dates cohérentes, départements
+  d'Île-de-France…) et s'annule depuis la conversation. Le scoring et l'Assistant lisent ce profil : une
+  phrase « Ce que tu cherches » claire améliore les notes. Après un changement de critères, le bandeau
+  « Refaire le tri » applique les nouveaux critères aux offres déjà collectées.
+- **Réglages** : mails (seuil d'alerte, envoi, aperçus, mail de test), tes documents (CV, lettre modèle, et ce
+  que l'IA en reçoit) et « Refaire le tri ». **Enregistrer** (ou Ctrl+S) écrit config.yaml.
 - L'analyse face au CV, les conseils, la lettre et l'Assistant arrivent ensuite : en attendant, ils restent dans
   l'appli Streamlit ci-dessous (les deux utilisent la même base).
 
@@ -277,6 +286,8 @@ stage_scraper/
   claude.py            client Claude, prix, plafonds du crédit
   gemini.py            client de l'API Gemini
   chat_offres.py       assistant : chat sur les offres (agent qui lit les annonces)
+  profil.py            profil de recherche (Mon profil) : lecture, vérification, écriture de config.yaml
+  agent_profil.py      agent qui modifie le profil en conversation (outil modifier_profil)
   cv.py                texte anonymisé du CV et de la lettre modèle
   pipeline.py          un passage complet : collecte, tri, scoring
   appli.py             menu de l'appli Streamlit et page Assistant

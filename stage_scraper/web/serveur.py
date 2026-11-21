@@ -24,6 +24,8 @@ API
 - POST /api/corbeille/remettre {offre_id, liste} : remet une offre dans À trier
 - GET  /api/reglages  /  POST /api/reglages   critères, entreprises suivies, mails (écrit config.yaml)
 - GET  /api/reglages/apercu/{alerte|recap}     aperçu d'un mail ; POST /api/reglages/mail-test
+- GET  /api/profil  /  POST /api/profil {valeurs}   profil de recherche (critères, domaines, entreprises...)
+- POST /api/profil/message {texte}  /  POST /api/profil/effacer   le modifier en conversation (agent Gemini)
 - POST /api/reglages/retrier                   refait le tri de toutes les offres
 - GET|POST /api/reglages/documents/{cv|modele} texte anonymisé / dépôt du fichier (corps brut)
 """
@@ -42,7 +44,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import langue
-from .. import chat_offres, claude, db, decisions, dossier, expiration, notifications, presentation, reglages, requetes, selection
+from .. import agent_profil, chat_offres, claude, db, decisions, dossier, expiration, notifications, presentation, profil, reglages, requetes, selection
 from .. import cv as module_cv
 from ..config import CHEMIN_CONFIG, charger_config, chemin_projet, secret
 
@@ -121,6 +123,11 @@ def page_journal(request: Request):
 @app.get("/corbeille", include_in_schema=False)
 def page_corbeille(request: Request):
     return page_appli("corbeille", request)
+
+
+@app.get("/profil", include_in_schema=False)
+def page_profil(request: Request):
+    return page_appli("profil", request)
 
 
 @app.get("/assistant", include_in_schema=False)
@@ -677,6 +684,85 @@ def api_assistant_effacer():
     return {"messages": []}
 
 
+# =========================================================================== API : profil
+
+CONVERSATION_PROFIL = "profil"
+
+
+def _messages_profil(conn) -> list[dict]:
+    return [{"role": m["role"], "texte": m["texte"], "changements": m["donnees"].get("changements") or [],
+             "suggestions": m["donnees"].get("suggestions") or [], "refus": m["donnees"].get("refus") or []}
+            for m in dossier.messages(conn, CONVERSATION_PROFIL)]
+
+
+def _etat_profil() -> dict:
+    p = profil.lire(reglages.lire(chemin_config()))
+    return {"profil": p, "alertes": profil.alertes(p)}
+
+
+@app.get("/api/profil")
+def api_profil():
+    with connexion() as conn:
+        messages, menu = _messages_profil(conn), _menu(conn)
+    return {**_etat_profil(), "messages": messages, "menu": menu,
+            "champs": {c: {"libelle": l, "type": t} for c, (l, t) in profil.CHAMPS.items()},
+            "champs_tri": sorted(profil.CHAMPS_TRI), "departements": profil.DEPARTEMENTS,
+            "groupes": profil.GROUPES, "contrats": profil.CONTRATS, "six_mois": profil.SIX_MOIS,
+            "ia_prete": CLIENT_IA is not None or bool(secret("GEMINI_API_KEY"))}
+
+
+class ValeursProfil(BaseModel):
+    valeurs: dict
+
+
+@app.post("/api/profil")
+def api_profil_modifier(v: ValeursProfil):
+    """Modification à la main (ou annulation : la page renvoie les anciennes valeurs)."""
+    donnees = reglages.lire(chemin_config())
+    try:
+        changements = profil.appliquer(donnees, v.valeurs)
+    except profil.ProfilInvalide as e:
+        raise HTTPException(400, str(e)) from e
+    if changements:
+        reglages.ecrire(donnees, chemin_config())
+    return {**_etat_profil(), "changements": changements}
+
+
+class MessageProfil(BaseModel):
+    texte: str
+
+
+@app.post("/api/profil/message")
+def api_profil_message(m: MessageProfil):
+    """« Accepte aussi les stages de 6 mois » : l'agent met le profil à jour (Gemini, gratuit)."""
+    texte = m.texte.strip()
+    if not texte:
+        raise HTTPException(400, "Message vide")
+    if len(texte) > 1500:
+        raise HTTPException(400, "Message trop long (1 500 caractères au plus)")
+    with connexion() as conn:
+        historique = [{"role": x["role"], "texte": x["texte"],
+                       "changements": [f"{c['libelle']} : {c['apres']}" for c in x["changements"]]}
+                      for x in _messages_profil(conn)]
+        try:
+            r = agent_profil.demander(conn, chemin_config(), config_courante(), texte, historique, client=CLIENT_IA)
+        except agent_profil.AgentImpossible as e:
+            raise HTTPException(400, f"Pas de réponse : {e}") from e
+        dossier.ajouter_message(conn, CONVERSATION_PROFIL, "user", texte)
+        dossier.ajouter_message(conn, CONVERSATION_PROFIL, "assistant", r["reponse"] or "…", {
+            "changements": r["changements"], "suggestions": r["suggestions"], "refus": r["refus"]})
+        messages = _messages_profil(conn)
+    return {"profil": r["profil"], "alertes": r["alertes"], "changements": r["changements"], "messages": messages}
+
+
+@app.post("/api/profil/effacer")
+def api_profil_effacer():
+    """Nouvelle conversation (le profil ne bouge pas)."""
+    with connexion() as conn:
+        dossier.effacer_conversation(conn, CONVERSATION_PROFIL)
+    return {"messages": []}
+
+
 # =========================================================================== API : journal et corbeille
 
 COUT_DOSSIER = 0.08   # ~8 centimes par dossier Claude (analyse + lettre + quelques retouches)
@@ -726,7 +812,7 @@ def api_journal():
             "sources": [{"source": x["source"], "offres": x["nb_offres"], "nouvelles": x["nb_nouvelles"],
                          "erreur": x["erreurs"], "cout": x["cout_usd"]} for x in details.get(p["passage_id"], [])],
         } for p in passages],
-        "appels": [{"date": (a["date_debut"] or "")[:16], "ou": "Assistant" if a["source"] == "chat" else "Fiche",
+        "appels": [{"date": (a["date_debut"] or "")[:16], "ou": {"chat": "Assistant", "profil": "Mon profil"}.get(a["source"], "Fiche"),
                     "modele": a["modele"], "cout": a["cout_usd"], "erreur": a["erreurs"]} for a in appels],
     }
 

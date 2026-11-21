@@ -297,7 +297,7 @@ def journal(conn, limite: int = 200) -> list[dict]:
     return [dict(l) for l in conn.execute("SELECT * FROM runs ORDER BY id DESC LIMIT ?", (limite,))]
 
 
-APPELS_IA = ("dossier", "chat", "lettre")   # appels d'IA faits depuis l'appli (pas pendant un scrap)
+APPELS_IA = ("dossier", "chat", "lettre", "profil")   # appels d'IA faits depuis l'appli (pas pendant un scrap)
 
 
 def passages(conn, limite: int = 60) -> list[dict]:
@@ -338,7 +338,7 @@ def appels_ia(conn, limite: int = 200) -> list[dict]:
 
 
 def couts_ia(conn) -> dict:
-    ia = "source IN ('scoring', 'lettre', 'chat', 'dossier')"
+    ia = "source IN ('scoring', 'lettre', 'chat', 'dossier', 'profil')"
     total = conn.execute(f"SELECT COALESCE(SUM(cout_usd), 0) FROM runs WHERE {ia}").fetchone()[0]
     mois = conn.execute(f"SELECT COALESCE(SUM(cout_usd), 0) FROM runs WHERE {ia} AND date_debut >= ?",
                         (datetime.now().strftime("%Y-%m-01"),)).fetchone()[0]

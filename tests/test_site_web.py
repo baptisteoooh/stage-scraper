@@ -35,7 +35,7 @@ def client(base):
 
 
 def test_pages(client):
-    for chemin in ("/", "/a-trier", "/statique/css/site.css", "/statique/js/swipe.js", "/statique/img/fond-manhattan.jpg"):
+    for chemin in ("/", "/a-trier", "/profil", "/statique/js/profil.js", "/statique/css/site.css", "/statique/js/swipe.js", "/statique/img/fond-manhattan.jpg"):
         assert client.get(chemin).status_code == 200, chemin
     assert "Ton stage" in client.get("/").text
 

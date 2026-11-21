@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 from . import cv as module_cv
 from . import claude, db, gemini
+from . import profil as module_profil
 from .config import secret
 from .prefiltre import entreprise_suivie
 
@@ -122,8 +123,12 @@ def noter(client, reglages: dict, systeme: list, parties: list):
 def prompt_systeme(conn, config: dict) -> list:
     """Consignes fixes (mises en cache), avec le CV en pièce jointe s'il existe."""
     criteres, profil = config["criteres"], config["profil"]
-    domaines = "\n".join(f"  {d['priorite']}. {d['nom']}" for d in sorted(config["domaines"], key=lambda d: d["priorite"]))
-    suivies = ", ".join(e["nom"] for e in config.get("entreprises_suivies", []))
+    p = module_profil.lire(config)   # le profil de recherche (page « Mon profil »)
+    domaines = "\n".join(f"  {i}. {nom}" for i, nom in enumerate(p["domaines"], start=1))
+    suivies = ", ".join(e["nom"] for e in p["entreprises"])
+    favorites = [e["nom"] for e in p["entreprises"] if e["groupe"] == "priorite_absolue"]
+    phares = ", ".join(p["domaines_phares"])
+    contrats = " ou ".join(module_profil.CONTRATS[c] for c in p["contrats"])
     exemples = exemples_pas_interesse(conn, config["scoring"].get("exemples_pas_interesse_max", 10))
     seuils = config["scoring"]["seuils"]
 
@@ -132,30 +137,31 @@ def prompt_systeme(conn, config: dict) -> list:
 PROFIL
 - {profil['annee']} à l'{profil['ecole']}, majeure {profil['majeure']}.
 - Compétences : {', '.join(profil['competences'])}.
-- Cherche un stage dans la medtech / santé, de préférence un poste IA ou data.
+- Ce qu'il cherche : {p['recherche'] or 'un stage technique (voir domaines et secteurs ci-dessous)'}.
 
 CRITÈRES
 - Début entre le {criteres['dates']['debut_au_plus_tot']} et le {criteres['dates']['debut_au_plus_tard']} (idéal : {criteres['dates']['debut_ideal']}), fin au plus tard le {criteres['dates']['fin_au_plus_tard']}.
 - Durée : {criteres['duree']['min_mois']:g} à {criteres['duree']['max_mois']:g} mois. Les offres « 3 à 6 mois » et « 4 à 6 mois » conviennent. Une offre de 6 mois fixes ne convient que chez une entreprise suivie : elle va alors dans la section « À négocier ».
-- Lieu : Île-de-France, hybride ou télétravail acceptés.
-- Contrats acceptés : stage, ou CDD aux mêmes conditions de dates et de durée.
-- Exclus : alternance, apprentissage, CDI, VIE, stage de fin d'études / PFE, et tout poste non technique (marketing, commercial, vente, business development, RH...).
+- Lieu : {module_profil.zone(p)}.
+- Contrats acceptés : {contrats}{' (un CDD aux mêmes conditions de dates et de durée)' if 'cdd' in p['contrats'] else ''}.
+- Exclus : {', '.join(p['contrats_exclus'])} ; et tout poste non technique, par exemple : {', '.join(p['postes_exclus'])}.
 - Langues : français ou anglais.
 
 DOMAINES, du plus au moins intéressant
 {domaines}
-Un poste IA (intelligence artificielle, machine learning, deep learning, LLM, computer vision...) est très intéressant.
+{('Très intéressant (variantes comprises) : ' + phares + '.') if phares else ''}
 
 SECTEURS
-- Medtech / healthtech : cible principale. Biotech : bien. Pharma et assurance santé : moins intéressant (note réduite).
-- Hors santé : seulement si c'est un poste tech IA/data très pertinent, dans la section « Hors santé mais intéressant ». Sinon note basse.
-- Préférence pour les grosses startups et scale-ups ; les grands groupes restent intéressants.
+- Secteurs visés (cible principale) : {', '.join(p['secteurs_cible']) or 'non précisés'}.{(' Bien aussi : ' + ', '.join(p['secteurs_ok']) + '.') if p['secteurs_ok'] else ''}{(' Moins intéressant (note réduite) : ' + ', '.join(p['secteurs_moins']) + '.') if p['secteurs_moins'] else ''}
+- Section « Santé » = l'offre est dans un secteur visé ou qui va aussi (le nom de la section est historique).
+- Hors de ces secteurs : seulement si c'est un poste {' ou '.join(p['autres_secteurs_domaines']) or 'du domaine prioritaire'} très pertinent, dans la section « Hors santé mais intéressant ». Sinon note basse.
+{('- Tailles préférées : ' + ', '.join(p['tailles']) + ' ; les grands groupes restent intéressants.') if p['tailles'] else ''}
 
-ENTREPRISES SUIVIES (bonus ; Doctolib en priorité absolue, avec un bonus fort sur les postes IA)
+ENTREPRISES SUIVIES (bonus{(' ; ' + ', '.join(favorites) + ' en priorité absolue, avec un bonus fort sur les postes ' + (phares or 'des domaines prioritaires')) if favorites else ''})
 {suivies}
 
 NOTE (score de 0 à 10)
-- {seuils['a_postuler_vite']} à 10 : à postuler vite (santé + IA/data + critères respectés).
+- {seuils['a_postuler_vite']} à 10 : à postuler vite (secteur visé + domaine prioritaire + critères respectés).
 - {seuils['a_regarder']} à {seuils['a_postuler_vite'] - 1} : à regarder.
 - moins de {seuils['a_regarder']} : bof.
 
@@ -164,7 +170,7 @@ RÉPONSE
 - resume : 2 lignes maximum sur la mission.
 - pourquoi : une phrase qui explique la note.
 - duree et date_debut : telles que tu les lis dans l'offre, sinon null.
-- exclusion : si l'offre viole un critère dur (contrat exclu, poste non technique, dates ou durée incompatibles, hors Île-de-France), la raison en quelques mots ; sinon null.
+- exclusion : si l'offre viole un critère dur (contrat exclu, poste non technique, dates ou durée incompatibles, hors de la zone), la raison en quelques mots ; sinon null.
   Vérifie en particulier, en lisant toute la description (y compris la rubrique gratification ou profil recherché) :
   * stage de fin d'études : l'offre dit « stage de fin d'études », « PFE », « end of studies », ou ne vise que des étudiants en Master 2 / dernière année → exclusion, même chez une entreprise suivie ;
   * date de début : si le début possible se situe entièrement avant le {criteres['dates']['debut_au_plus_tot']} (ex. « entre février et mars ») → exclusion ;

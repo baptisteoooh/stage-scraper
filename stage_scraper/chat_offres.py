@@ -13,6 +13,7 @@ import json
 
 from . import cv as module_cv
 from . import db, gemini, requetes, scoring
+from . import profil as module_profil
 from .config import secret
 
 MESSAGES_GARDES = 10      # derniers messages de la conversation renvoyés à l'IA
@@ -82,11 +83,12 @@ def ligne_offre(o: dict) -> str:
 
 def consignes(config: dict, offres: list[dict], cv: str | None = None) -> str:
     profil, criteres = config["profil"], config["criteres"]
+    p = module_profil.lire(config)
     dates = criteres["dates"]
     bloc_cv = f"\n\nCV DE BAP (coordonnées retirées)\n<cv>\n{cv}\n</cv>" if cv else ""
     return f"""Tu es l'assistant personnel de recherche de stage de BAP, étudiant ingénieur en {profil['annee']} à l'{profil['ecole']} (majeure {profil['majeure']}).
 Compétences : {', '.join(profil['competences'])}. {"Son CV est à la fin de ces consignes : c'est la référence sur ce qu'il a fait." if cv else "Son CV n'est pas encore disponible."}
-Il cherche un stage IA / data dans la medtech ou la santé, en Île-de-France, début entre le {dates['debut_au_plus_tot']} et le {dates['debut_au_plus_tard']}, fin au plus tard le {dates['fin_au_plus_tard']}, durée {criteres['duree']['min_mois']:g} à {criteres['duree']['max_mois']:g} mois.
+Ce qu'il cherche : {p['recherche'] or 'un stage technique'} ; lieu : {module_profil.zone(p)} ; début entre le {dates['debut_au_plus_tot']} et le {dates['debut_au_plus_tard']}, fin au plus tard le {dates['fin_au_plus_tard']}, durée {criteres['duree']['min_mois']:g} à {criteres['duree']['max_mois']:g} mois.
 
 Tu es un vrai conseiller, pas un moteur de recherche : tu analyses, tu compares et tu donnes des conseils concrets.
 

@@ -9,44 +9,62 @@
   display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); align-content: start; gap: 16px;
   padding: 4px 28px 28px;
 }
+/* Une carte = une teinte douce, sans trait de contour (un filet de 1px sur un coin arrondi crénelait).
+   Ce qui presse prend sa couleur pastel : lavande = lettre à envoyer, ambre = relance, menthe = entretien. */
 .dossier {
-  position: relative; display: flex; flex-direction: column; min-height: 214px;
-  padding: 20px 22px 18px; border-radius: var(--r-carte); text-align: left; cursor: pointer;
-  background: var(--verre-fort);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), inset 0 0 0 1px var(--ligne), 0 14px 34px rgba(5, 3, 9, .3);
-  transition: transform .35s var(--ressort), box-shadow .25s;
-  animation: entre .5s var(--sortie) both; animation-delay: calc(var(--i, 0) * 40ms);
+  --a: transparent;
+  position: relative; isolation: isolate; display: flex; flex-direction: column; min-height: 196px;
+  padding: 23px 24px; border-radius: 16px; text-align: left; cursor: pointer;
+  background: rgba(255, 255, 255, .045);
+  box-shadow: 0 12px 30px rgba(5, 3, 9, .16);
+  /* fill backwards : l'arrivée ne laisse rien derrière elle, le survol n'est plus bloqué par l'animation */
+  animation: entre .45s var(--sortie) backwards; animation-delay: calc(var(--i, 0) * 35ms);
+  transition: transform .4s var(--sortie);
 }
-.dossier:hover { transform: translateY(-3px); box-shadow: inset 0 0 0 1.5px rgba(205, 184, 232, .75), 0 22px 44px rgba(5, 3, 9, .42); }
-.dossier:active { transform: translateY(-1px) scale(.99); }
-.dossier:focus-visible { outline-offset: 2px; }
-@keyframes entre { from { opacity: 0; transform: translateY(14px) scale(.98); } }
+.dossier[data-action="envoyer"] { --a: #DCCDF1; }
+.dossier[data-action="relancer"] { --a: #F2DFC0; }
+.dossier[data-action="entretien"] { --a: #C9E8D3; }
+.dossier[data-action] {
+  background:
+    radial-gradient(130% 110% at 100% 100%, color-mix(in oklab, var(--a) 22%, transparent), transparent 72%),
+    color-mix(in oklab, var(--a) 8%, rgba(255, 255, 255, .04));
+}
+/* Le survol : un voile lumineux déjà posé dont seule l'opacité change (rien à redessiner à chaque image). */
+.dossier::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; opacity: 0; pointer-events: none;
+  background: radial-gradient(120% 90% at 0% 0%, rgba(255, 255, 255, .07), rgba(255, 255, 255, .02) 70%);
+  box-shadow: 0 18px 40px rgba(5, 3, 9, .3);
+  transition: opacity .35s var(--sortie);
+}
+.dossier:hover { transform: translateY(-2px); }
+.dossier:hover::before, .dossier:focus-visible::before { opacity: 1; }
+.dossier:active { transform: translateY(0) scale(.99); transition-duration: .15s; }
+.dossier:focus-visible { outline: 2px solid var(--lavande); outline-offset: 3px; }
+@keyframes entre { from { opacity: 0; transform: translateY(10px); } }
 
-.dossier .initiale { width: 36px; height: 36px; font-size: 14px; }
-.dossier .note b { font-size: 24px; }
-.dossier .note b span { font-size: 13px; }
+.dossier .haut { display: flex; align-items: baseline; gap: 12px; font-size: 13px; color: var(--faible); }
+.dossier .qui { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dossier .qui b { display: inline; font-size: inherit; font-weight: 600; color: var(--doux); }
+.note-carte { flex: none; font-family: var(--titres); font-size: 15px; font-weight: 600; color: var(--lavande); font-variant-numeric: tabular-nums; }
+.note-carte small { font-size: 12px; font-weight: 500; color: var(--faible); margin-left: 1px; }
 .dossier h3 {
-  font-family: var(--titres); font-size: 18px; font-weight: 600; line-height: 1.28; letter-spacing: -.02em;
-  margin: 16px 0 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  flex: none; margin: 12px 0 8px; font-family: var(--titres); font-size: 17px; font-weight: 600; line-height: 1.32; letter-spacing: -.02em;
+  text-wrap: pretty; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
-.dossier .situation { font-size: 13.5px; line-height: 1.45; color: var(--doux); }
-.dossier .bas { margin-top: auto; padding-top: 16px; display: flex; align-items: center; gap: 10px; min-height: 52px; }
-.a-faire {
-  display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 500;
-  letter-spacing: .04em; text-transform: uppercase; color: var(--lavande);
+.dossier .situation { font-size: 13.5px; line-height: 1.45; color: var(--faible); }
+.dossier[data-action] .situation { color: color-mix(in oklab, var(--a) 70%, var(--doux)); }
+.dossier .bas { margin-top: auto; padding-top: 16px; display: flex; justify-content: flex-end; }
+.dossier .fl { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .3s var(--sortie); }
+.dossier:hover .fl { transform: translateX(3px); }
+.dossier .agir { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; white-space: nowrap; }
+.dossier .agir.lien { padding: 8px 2px; font-weight: 500; color: var(--doux); transition: color .25s; }
+.dossier:hover .agir.lien { color: var(--texte); }
+.dossier .agir.plein {
+  padding: 9px 16px; border-radius: 999px; font-weight: 600; background: var(--a); color: var(--sur-accent);
+  transition: filter .2s, transform .15s var(--sortie);
 }
-.a-faire::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-.a-faire.urgent { color: #F4D9A8; }
-.dossier .agir {
-  margin-left: auto; padding: 9px 15px; border-radius: 999px; font-size: 13.5px; font-weight: 600;
-  background: var(--accent); color: var(--sur-accent); white-space: nowrap;
-  transition: background-color .2s, transform .18s var(--sortie);
-}
-.dossier .agir:hover { background: #fff; }
-.dossier .agir:active { transform: scale(.96); }
-.dossier .ouvrir { margin-left: auto; font-size: 13.5px; font-weight: 500; color: var(--doux); }
-.dossier:hover .ouvrir { color: var(--texte); }
-.dossier .ailleurs { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--faible); }
+.dossier .agir.plein:hover { filter: brightness(1.06); }
+.dossier .agir.plein:active { transform: scale(.96); }
 
 /* La fiche qui quitte la grille (changement d'étape, retrait) */
 .dossier.part { animation: part .32s var(--sortie) forwards; pointer-events: none; }
@@ -107,7 +125,8 @@ input[type="date"].champ, input[type="datetime-local"].champ { color-scheme: dar
   #nouvelle span { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .dossier, .dossier.part { animation: none; }
+  .dossier, .dossier.part { animation: none; transition: none; }
+  .dossier:hover { transform: none; }
 }
 
 .compte { padding: 14px 28px 12px; font-size: 13px; color: var(--doux); letter-spacing: .03em; min-height: 45px; font-variant-numeric: tabular-nums; }

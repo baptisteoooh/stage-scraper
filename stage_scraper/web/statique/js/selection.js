@@ -49,28 +49,35 @@ function dessinerEtapes() {
 
 // ======================================================================= grille
 
+// Carte d'une offre. Ce qui presse (lettre à envoyer, relance, entretien) teinte toute la carte d'une couleur pastel
+// et porte un bouton plein ; « Préparer » reste un simple lien, pour que l'œil aille d'abord à ce qui presse.
+const PRESSE = ['envoyer', 'relancer', 'entretien'];
+function fleche() {
+  const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('class', 'fl'); s.setAttribute('aria-hidden', 'true');
+  s.innerHTML = '<path d="M5 12h13M13 6l6 6-6 6"/>';   // tracé fixe, jamais de donnée
+  return s;
+}
+
 function carte(f, i) {
-  const urgent = f.action === 'relancer';
+  const presse = PRESSE.includes(f.action);
   const agir = f.bouton ? h('button', {
-    class: 'agir', type: 'button',
+    class: presse ? 'agir plein' : 'agir lien', type: 'button',
     onclick: (e) => { e.stopPropagation(); agirSur(f); },
-  }, f.bouton) : h('span', { class: 'ouvrir' }, 'Ouvrir →');
+  }, f.bouton, fleche()) : h('span', { class: 'agir lien' }, 'Ouvrir', fleche());
   return h('article', {
-    class: 'dossier', tabindex: '0', role: 'button', 'data-id': f.id, style: `--i:${i};view-transition-name:d${f.id}`,
+    class: 'dossier', tabindex: '0', role: 'button', 'data-id': f.id, 'data-action': presse ? f.action : null,
+    style: `--i:${i};view-transition-name:d${f.id}`,
     'aria-label': `${f.entreprise} : ${f.titre}`,
     onclick: () => ouvrirFiche(f.id),
     onkeydown: (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); ouvrirFiche(f.id); } },
   },
-  h('div', { class: 'tete' }, h('div', { class: 'initiale' }, f.initiale),
-    h('div', { class: 'qui' }, h('b', {}, f.entreprise), h('small', {}, f.lieu || (f.trouvee_ailleurs ? 'Trouvée ailleurs' : ''))),
-    f.score === null ? null : h('div', { class: 'note' }, h('b', {}, String(f.score), h('span', {}, '/10')))),
+  h('div', { class: 'haut' },
+    h('span', { class: 'qui' }, h('b', {}, f.entreprise), ' · ', f.lieu || (f.trouvee_ailleurs ? 'Trouvée ailleurs' : '')),
+    f.score === null ? null : h('span', { class: 'note-carte' }, String(f.score), h('small', {}, '/10'))),
   h('h3', {}, f.titre),
   h('p', { class: 'situation' }, f.situation),
-  h('div', { class: 'bas' },
-    // Le badge ne sert que pour ce qui presse (relance, entretien) : « préparer » est le cas normal de l'étape.
-    urgent || f.action === 'entretien' ? h('span', { class: `a-faire${urgent ? ' urgent' : ''}` }, urgent ? 'Relance à faire' : 'Entretien à préparer')
-      : f.trouvee_ailleurs ? h('span', { class: 'ailleurs' }, 'Trouvée ailleurs') : null,
-    agir));
+  h('div', { class: 'bas' }, agir));
 }
 
 function messageRien() {

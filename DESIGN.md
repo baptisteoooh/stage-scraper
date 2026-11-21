@@ -61,6 +61,13 @@ Thème sombre seulement (`color-scheme: dark`).
 - **Panneau de détail** (`.fiche`) : glisse depuis la droite, Échap pour fermer ; s'élargit à 1180 px pour le
   dossier de candidature (lettre et onglets à gauche, conversation à droite).
 - **Toast** en bas : message court + « Annuler » (toute décision s'annule).
+- **Carte de Ma sélection** (`.dossier`, `selection.css`) : pas de trait de contour (un filet de 1 px crénelait sur
+  les coins arrondis), une teinte douce et une ombre floue ; coins 16 px. Une ligne « entreprise · lieu » avec la
+  note à droite, le titre (3 lignes max), la situation, puis l'action en bas à droite. Ce qui presse teinte toute la
+  carte d'un pastel et porte un bouton plein de la même couleur : lavande `#DCCDF1` = lettre à envoyer, ambre
+  `#F2DFC0` = relance, menthe `#C9E8D3` = entretien. « Préparer » et « Ouvrir » restent de simples liens fléchés.
+  Survol : voile lumineux déjà posé dont seule l'opacité change, et 2 px de levée (l'animation d'arrivée est en
+  `backwards` pour ne pas bloquer le survol).
 - **Bulles de conversation** (`.bulle.ia` / `.bulle.moi`) et zone de saisie (`.saisie`), communes au dossier
   et à l'Assistant.
 - **Fiche calme** (Mon profil, `stage_scraper/web/statique/css/profil.css`) : la phrase de recherche en grand, puis UNE ligne par

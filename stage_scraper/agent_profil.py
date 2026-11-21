@@ -50,6 +50,13 @@ OUTILS = [{
             "valeur": {"type": "string", "description": "Texte, nombre, date AAAA-MM-JJ, oui/non, ou un élément "
                                                          "de liste. Pour definir une liste : éléments séparés par « ; »."},
             "position": {"type": "integer", "description": "Pour deplacer seulement : la nouvelle place, 1 = en tête."},
+            "groupe": {"type": "string", "enum": list(profil.GROUPES),
+                       "description": "Entreprises seulement : le groupe de l'entreprise."},
+            "nouveau_nom": {"type": "string", "description": "Entreprises seulement : pour la renommer."},
+            "alias": {"type": "string", "description": "Entreprises seulement : ses autres noms, séparés par des virgules."},
+            "outil": {"type": "string", "enum": ["aucun", "ashby", "workday"],
+                      "description": "Entreprises seulement : l'outil de sa page carrières (collecte directe)."},
+            "adresse_ou_id": {"type": "string", "description": "Entreprises seulement : l'identifiant Ashby ou l'adresse Workday."},
         }, "required": ["champ", "action", "valeur"]},
     }}, "required": ["changements"]},
 }]
@@ -73,8 +80,12 @@ RÈGLES
   Garde la cohérence : début au plus tôt ≤ début idéal ≤ début au plus tard < fin au plus tard.
 - Domaines : la liste est dans l'ordre de préférence, et le premier rend une offre très intéressante. Pour changer la
   place d'un domaine : action « deplacer » avec sa nouvelle « position » (1 = en tête).
-- Entreprises suivies : « ajouter » avec le nom seul (ou « Nom : groupe » avec un groupe parmi {', '.join(profil.GROUPES)}).
-  Ne devine jamais l'outil de recrutement d'une entreprise : la collecte directe de ses offres se règle à la main.
+- Tu peux modifier TOUS les champs du profil ci-dessous. Listes : « ajouter », « retirer », « deplacer » (avec « position »)
+  ou « definir » la liste entière (éléments séparés par « ; »). Autres champs : « definir ». Vider un texte : valeur « ».
+- Entreprises suivies (valeur = le nom de l'entreprise) : « ajouter », « retirer », ou « definir » pour changer son détail avec
+  les champs facultatifs groupe ({', '.join(profil.GROUPES)}), nouveau_nom, alias, outil (aucun, ashby, workday) et adresse_ou_id.
+  Ne devine jamais l'outil de recrutement ni l'adresse : ne les règle que si l'étudiant te les donne.
+- Offres de 6 mois fixes (six_mois) : {', '.join(f'« {c} » = {l}' for c, l in profil.SIX_MOIS.items())}.
 - Départements : seulement ceux d'Île-de-France ({', '.join(f'{c} {n}' for c, n in profil.DEPARTEMENTS.items())}). Si on te demande
   une autre région, dis que l'outil ne couvre pour l'instant que l'Île-de-France.
 - Si un changement est refusé, lis la raison et corrige, ou explique-la simplement à l'étudiant.
@@ -191,7 +202,7 @@ def _executer(donnees, appel: dict, refus: list[str]) -> dict:
     for ch in (appel.get("args", {}).get("changements") or [])[:CHANGEMENTS_MAX]:
         champ, action, valeur = ch.get("champ"), ch.get("action"), str(ch.get("valeur") or "")
         try:
-            nouvelle = _valeur(profil.lire(donnees), champ, action, valeur, ch.get("position"))
+            nouvelle = _valeur(profil.lire(donnees), champ, action, valeur, ch.get("position"), ch)
             appliques = profil.appliquer(donnees, {champ: nouvelle})
             resultats.append({"champ": champ, "applique": True,
                               "nouvelle_valeur": profil.lire(donnees)[champ] if appliques else "(inchangé)"})
@@ -202,20 +213,21 @@ def _executer(donnees, appel: dict, refus: list[str]) -> dict:
     return {"resultats": resultats, "alertes": profil.alertes(p)}
 
 
-def _valeur(p: dict, champ: str, action: str, valeur: str, position=None):
+def _valeur(p: dict, champ: str, action: str, valeur: str, position=None, details: dict | None = None):
     """Traduit {action, valeur texte} en nouvelle valeur complète du champ."""
     if champ not in profil.CHAMPS:
         raise profil.ProfilInvalide(f"champ inconnu : {champ}")
     genre = profil.CHAMPS[champ][1]
     if genre == "entreprises":
-        return _entreprises(p["entreprises"], action, valeur)
+        return _entreprises(p["entreprises"], action, valeur, details or {})
     if genre == "liste":
         actuelle = p[champ]
         if action == "definir":
-            return [x.strip() for x in valeur.replace(";", "\n").split("\n")]
+            elements = [x.strip() for x in valeur.replace(";", "\n").split("\n")]
+            return [_departement(x) for x in elements] if champ == "departements" else elements
         element = valeur.strip()
-        if champ in ("departements",):
-            element = next((c for c, n in profil.DEPARTEMENTS.items() if element.lower() in (c, n.lower())), element)
+        if champ == "departements":
+            element = _departement(element)
         if action == "ajouter":
             return actuelle + [element]
         if action == "retirer":
@@ -238,24 +250,56 @@ def _valeur(p: dict, champ: str, action: str, valeur: str, position=None):
         raise profil.ProfilInvalide(f"action inconnue : {action}")
     if action != "definir":
         raise profil.ProfilInvalide(f"« {action} » ne s'applique qu'aux listes : utilise « definir »")
+    if genre == "choix":   # « Toujours exclues » ou « exclure » : les deux marchent
+        cle = valeur.strip().lower()
+        return next((c for c, libelle in profil.SIX_MOIS.items() if cle in (c, libelle.lower())), valeur)
     return valeur
 
 
-def _entreprises(actuelles: list[dict], action: str, valeur: str) -> list[dict]:
-    nom, _, groupe = valeur.partition(":")
-    nom, groupe = nom.strip(), groupe.strip().lower().replace(" ", "_").replace("-", "_")
+def _departement(texte: str) -> str:
+    """« Hauts-de-Seine », « 92 » ou « hauts-de-seine (92) » -> « 92 »."""
+    t = texte.strip().lower()
+    return next((c for c, n in profil.DEPARTEMENTS.items() if t in (c, n.lower(), f"{n.lower()} ({c})")), texte.strip())
+
+
+def _groupe(texte: str | None) -> str | None:
+    t = (texte or "").strip().lower().replace(" ", "_").replace("-", "_")
+    if not t:
+        return None
     groupe = next((g for g, libelle in profil.GROUPES.items()
-                   if groupe in (g, libelle.lower().replace(" ", "_").replace("-", "_"))), groupe or None)
+                   if t in (g, libelle.lower().replace(" ", "_").replace("-", "_"))), None)
+    if groupe is None:
+        raise profil.ProfilInvalide(f"groupe inconnu : {texte} (au choix : {', '.join(profil.GROUPES)})")
+    return groupe
+
+
+def _entreprises(actuelles: list[dict], action: str, valeur: str, details: dict) -> list[dict]:
+    nom, _, groupe_texte = valeur.partition(":")   # « Alan : scale-up » marche aussi
+    nom = nom.strip()
+    groupe = _groupe(details.get("groupe") or groupe_texte)
     existante = next((e for e in actuelles if e["nom"].lower() == nom.lower()), None)
     if action == "retirer":
         if existante is None:
             raise profil.ProfilInvalide(f"« {nom} » n'est pas dans tes entreprises suivies")
         return [e for e in actuelles if e is not existante]
-    if action == "ajouter" or action == "definir":
-        if existante is not None:   # déjà suivie : on change seulement son groupe
-            return [{**e, "groupe": groupe or e["groupe"]} if e is existante else e for e in actuelles]
-        return actuelles + [{"nom": nom, "groupe": groupe or "scale_up"}]
-    raise profil.ProfilInvalide(f"action inconnue : {action}")
+    if action not in ("ajouter", "definir"):
+        raise profil.ProfilInvalide(f"« {action} » ne s'applique pas aux entreprises : ajouter, retirer ou definir")
+    modif = {}
+    if groupe:
+        modif["groupe"] = groupe
+    if details.get("nouveau_nom"):
+        modif["nom"] = str(details["nouveau_nom"]).strip()
+    if details.get("alias") is not None:
+        modif["alias"] = str(details["alias"]).strip()
+    if details.get("outil") is not None:
+        modif["outil"] = "" if str(details["outil"]).strip().lower() in ("", "aucun", "none") else str(details["outil"]).strip().lower()
+    if details.get("adresse_ou_id") is not None:
+        modif["adresse_ou_id"] = str(details["adresse_ou_id"]).strip()
+    if existante is not None:
+        return [{**e, **modif} if e is existante else e for e in actuelles]
+    if action == "definir" and not modif.get("groupe"):
+        raise profil.ProfilInvalide(f"« {nom} » n'est pas dans tes entreprises suivies (utilise « ajouter »)")
+    return actuelles + [{"nom": nom, "groupe": "scale_up", **modif}]
 
 
 def _lire(brut: str) -> dict:

@@ -573,7 +573,12 @@ function difference(c) {
       for (const e of c.apres) {
         const ancienne = c.avant.find(x => x.nom === e.nom);
         if (ancienne && ancienne.groupe !== e.groupe) morceaux.push(h('span', { translate: 'no' }, `${e.nom} → `), h('span', {}, etat.d.groupes[e.groupe]));
+        if (ancienne && (ancienne.alias !== e.alias || ancienne.outil !== e.outil || ancienne.adresse_ou_id !== e.adresse_ou_id)) {
+          morceaux.push(h('span', { translate: 'no' }, `${e.nom} : `),
+            h('span', {}, e.outil ? `collecte directe ${OUTILS[e.outil]}` : 'détail modifié'));
+        }
       }
+      if (!morceaux.length) return [h('span', {}, 'nouvel ordre')];
     }
     if (!morceaux.length) {   // même éléments, autre ordre : on montre celui qui a le plus bougé
       const deplace = apres.map((x, j) => ({ x, de: avant.indexOf(x), a: j }))

@@ -237,3 +237,74 @@ def test_garde_fou_laisse_passer_les_questions(copie, tmp_path):
 def test_detecteur_d_annonces(texte, annonce):
     from stage_scraper import garde_fou
     assert garde_fou.annonce_action(texte) is annonce
+
+
+# --------------------------------------------------------------------------- le bot peut modifier TOUT le profil
+
+CHANGEMENTS_COMPLETS = [   # dans un ordre qui garde les dates cohérentes à chaque étape
+    {"champ": "recherche", "action": "definir", "valeur": "Un stage en robotique chirurgicale"},
+    {"champ": "ecole", "action": "definir", "valeur": "Centrale"},
+    {"champ": "annee", "action": "definir", "valeur": "3e année"},
+    {"champ": "majeure", "action": "definir", "valeur": "Robotique"},
+    {"champ": "competences", "action": "ajouter", "valeur": "ROS"},
+    {"champ": "contrats", "action": "definir", "valeur": "stage"},
+    {"champ": "fin_au_plus_tard", "action": "definir", "valeur": "2027-09-30"},
+    {"champ": "debut_au_plus_tard", "action": "definir", "valeur": "2027-06-01"},
+    {"champ": "debut_ideal", "action": "definir", "valeur": "2027-05-15"},
+    {"champ": "debut_au_plus_tot", "action": "definir", "valeur": "2027-05-02"},
+    {"champ": "duree_max", "action": "definir", "valeur": "6"},
+    {"champ": "duree_min", "action": "definir", "valeur": "4"},
+    {"champ": "six_mois", "action": "definir", "valeur": "Toujours exclues"},
+    {"champ": "departements", "action": "definir", "valeur": "Paris; Hauts-de-Seine"},
+    {"champ": "hybride", "action": "definir", "valeur": "non"},
+    {"champ": "full_remote", "action": "definir", "valeur": "non"},
+    {"champ": "domaines", "action": "ajouter", "valeur": "Robotique"},
+    {"champ": "domaines", "action": "deplacer", "valeur": "Robotique", "position": 1},
+    {"champ": "secteurs_cible", "action": "ajouter", "valeur": "robotique médicale"},
+    {"champ": "secteurs_ok", "action": "retirer", "valeur": "biotechnologie"},
+    {"champ": "secteurs_moins", "action": "definir", "valeur": "pharma; mutuelle"},
+    {"champ": "autres_secteurs_domaines", "action": "definir", "valeur": "Robotique"},
+    {"champ": "tailles", "action": "definir", "valeur": "PME"},
+    {"champ": "entreprises", "action": "ajouter", "valeur": "Alan", "groupe": "scale_up"},
+    {"champ": "entreprises", "action": "definir", "valeur": "Alan", "alias": "Alan Health", "outil": "ashby",
+     "adresse_ou_id": "alan"},
+    {"champ": "entreprises", "action": "definir", "valeur": "Doctolib", "nouveau_nom": "Doctolib SAS", "groupe": "grand_groupe"},
+    {"champ": "postes_exclus", "action": "ajouter", "valeur": "growth"},
+    {"champ": "contrats_exclus", "action": "retirer", "valeur": "alternance"},
+    {"champ": "niveaux_exclus", "action": "ajouter", "valeur": "expert"},
+    {"champ": "requetes", "action": "ajouter", "valeur": "stage robotique"},
+    {"champ": "requetes", "action": "deplacer", "valeur": "stage robotique", "position": 1},
+    {"champ": "anciennete_max_jours", "action": "definir", "valeur": "45"},
+]
+
+
+def test_le_bot_peut_modifier_tout_le_profil(copie):
+    donnees = reglages.lire(copie)
+    avant = profil.lire(donnees)
+    refus = []
+    taille = agent_profil.CHANGEMENTS_MAX   # au plus 20 changements par appel de l'outil : plusieurs appels
+    for i in range(0, len(CHANGEMENTS_COMPLETS), taille):
+        r = agent_profil._executer(donnees, {"name": "modifier_profil",
+                                             "args": {"changements": CHANGEMENTS_COMPLETS[i:i + taille]}}, refus)
+        assert all(x["applique"] for x in r["resultats"]), r
+    assert refus == [], refus
+    p = profil.lire(donnees)
+    oublies = [c for c in profil.CHAMPS if p[c] == avant[c]]
+    assert oublies == [], f"champs que le bot n'a pas pu changer : {oublies}"
+    assert p["departements"] == ["75", "92"] and p["six_mois"] == "exclure" and p["domaines"][0] == "Robotique"
+    alan = next(e for e in p["entreprises"] if e["nom"] == "Alan")
+    assert alan == {"nom": "Alan", "groupe": "scale_up", "alias": "Alan Health", "outil": "ashby", "adresse_ou_id": "alan"}
+    assert any(e["nom"] == "Doctolib SAS" and e["groupe"] == "grand_groupe" for e in p["entreprises"])
+    assert "Alan (Scale-up, autres noms : Alan Health, collecte directe : ashby alan)" in profil.en_texte(p)
+    reglages.ecrire(donnees, copie)                                   # et tout s'écrit dans config.yaml
+    assert profil.lire(reglages.lire(copie)) == p
+
+
+def test_bot_refus_clairs_entreprises(copie):
+    donnees = reglages.lire(copie)
+    refus = []
+    agent_profil._executer(donnees, {"name": "modifier_profil", "args": {"changements": [
+        {"champ": "entreprises", "action": "definir", "valeur": "Inconnue SA", "alias": "x"},
+        {"champ": "entreprises", "action": "ajouter", "valeur": "Qonto", "groupe": "pirates"},
+    ]}}, refus)
+    assert "n'est pas dans tes entreprises suivies" in refus[0] and "groupe inconnu" in refus[1]

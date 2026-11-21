@@ -352,7 +352,10 @@ def en_texte(p: dict) -> str:
     for champ, (libelle, genre) in CHAMPS.items():
         v = p[champ]
         if genre == "entreprises":
-            v = "; ".join(f"{e['nom']} ({GROUPES[e['groupe']]})" for e in v) or "aucune"
+            v = "; ".join(f"{e['nom']} ({GROUPES[e['groupe']]}"
+                          + (f", autres noms : {e['alias']}" if e.get("alias") else "")
+                          + (f", collecte directe : {e['outil']} {e.get('adresse_ou_id') or ''}".rstrip() if e.get("outil") else "")
+                          + ")" for e in v) or "aucune"
         elif genre == "liste":
             v = " | ".join(v) or "(vide)"
         elif genre == "booleen":

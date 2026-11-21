@@ -580,7 +580,9 @@
     "Collecte directe, autres noms": "Direct collection, other names",
     "Leurs offres ont un bonus dans la note, et une offre de 6 mois chez elles va dans « À négocier ». Collecte directe : si leur page carrières utilise Ashby ou Workday, leurs offres sont lues directement.": "Their offers get a score bonus, and a 6-month offer from them goes to “Negotiable”. Direct collection: if their careers page uses Ashby or Workday, their offers are read directly.",
     "Envoyées telles quelles aux sites. Pense au français et à l'anglais.": "Sent to the sites as they are. Think of French and English.",
-    "Refusé :": "Refused:"
+    "Refusé :": "Refused:",
+    "détail modifié": "details changed",
+    "nouvel ordre": "new order"
   },
   "motifs": {
     "{} · Stage Scraper": "{1} · Stage Scraper",
@@ -778,6 +780,7 @@
     "Entre le début au plus tôt et la fin au plus tard, il n'y a que {} mois : moins que ta durée minimale ({} mois).": "Between the earliest start and the latest end there are only {1} months: less than your minimum length ({2} months).",
     "Groupe de {}": "Group of {1}",
     "Ne plus suivre {}": "Stop following {1}",
-    "Collecte directe : {}": "Direct collection: {1}"
+    "Collecte directe : {}": "Direct collection: {1}",
+    "collecte directe {}": "direct collection {1}"
   }
 }

@@ -12,21 +12,21 @@
 /* Une carte = une teinte pastel, sans trait de contour (un filet de 1px sur un coin arrondi crénelait).
    La couleur dit ce qu'il y a à faire : bleu = préparer, lavande = lettre à envoyer, rose = relance, menthe = entretien. */
 .dossier {
-  --a: #CFC6DD;   /* rien à faire pour l'instant : mauve neutre */
+  --a: #CFC6DD; --b: #D4CAE3;   /* --a teinte la carte (pastel discret), --b colore le bouton (plus vif) ; ici : rien à faire */
   position: relative; isolation: isolate; display: flex; flex-direction: column; min-height: 200px;
   padding: 22px 24px; border-radius: 16px; text-align: left; cursor: pointer;
   background:
-    radial-gradient(130% 110% at 100% 100%, color-mix(in oklab, var(--a) 42%, transparent), transparent 75%),
-    color-mix(in oklab, var(--a) 20%, rgba(255, 255, 255, .03));
+    radial-gradient(130% 110% at 100% 100%, color-mix(in oklab, var(--a) 30%, transparent), transparent 72%),
+    color-mix(in oklab, var(--a) 11%, rgba(255, 255, 255, .04));
   box-shadow: 0 12px 30px rgba(5, 3, 9, .16);
   /* fill backwards : l'arrivée ne laisse rien derrière elle, le survol n'est plus bloqué par l'animation */
   animation: entre .45s var(--sortie) backwards; animation-delay: calc(var(--i, 0) * 35ms);
   transition: transform .4s var(--sortie);
 }
-.dossier[data-action="preparer"] { --a: #BCD3F7; }
-.dossier[data-action="envoyer"] { --a: #D3C0F5; }
-.dossier[data-action="relancer"] { --a: #F5BBD6; }
-.dossier[data-action="entretien"] { --a: #B6E8C8; }
+.dossier[data-action="preparer"] { --a: #BCD3F7; --b: #A6C6FA; }
+.dossier[data-action="envoyer"] { --a: #D3C0F5; --b: #C6ABF8; }
+.dossier[data-action="relancer"] { --a: #F5BBD6; --b: #F7A6CB; }
+.dossier[data-action="entretien"] { --a: #B6E8C8; --b: #98E2B6; }
 /* Le survol : un voile lumineux déjà posé dont seule l'opacité change (rien à redessiner à chaque image). */
 .dossier::before {
   content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; opacity: 0; pointer-events: none;
@@ -51,13 +51,13 @@
 }
 /* Bas de carte : où tu en es à gauche, l'action à droite, centrés sur la même ligne et toujours au même endroit. */
 .dossier .bas { margin-top: auto; padding-top: 14px; display: flex; align-items: center; gap: 14px; }
-.dossier .situation { flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.45; color: color-mix(in oklab, var(--a) 75%, var(--doux)); }
+.dossier .situation { flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.45; color: color-mix(in oklab, var(--a) 60%, var(--doux)); }
 .dossier .fl { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .3s var(--sortie); }
 .dossier:hover .fl { transform: translateX(3px); }
 .dossier .agir {
   flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 36px; padding: 0 15px;
   border-radius: 999px; font-size: 13.5px; font-weight: 600; white-space: nowrap;
-  background: var(--a); color: var(--sur-accent);
+  background: var(--b); color: var(--sur-accent);
   transition: filter .2s, transform .15s var(--sortie);
 }
 .dossier .agir:hover { filter: brightness(1.07); }

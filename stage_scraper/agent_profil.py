@@ -36,27 +36,24 @@ RELANCE = ("[Contrôle automatique] Ta réponse annonce un changement, mais le p
            "aucune modification (aucun appel de modifier_profil accepté). Si la demande est claire, appelle "
            "modifier_profil maintenant. Sinon, réponds honnêtement que tu ne l'as pas fait et pourquoi.")
 
+# Schéma volontairement simple (pas d'enum, pas de maxItems) : Gemini refuse les schémas trop complexes
+# (« too many states for serving »). Le code vérifie tout lui-même : champ inconnu, groupe, outil, nombre de changements.
 OUTILS = [{
     "name": "modifier_profil",
     "description": "Applique des changements au profil de recherche. Chaque changement est vérifié : "
                    "la réponse dit pour chacun s'il est appliqué ou pourquoi il est refusé.",
     "parameters": {"type": "object", "properties": {"changements": {
-        "type": "array", "maxItems": CHANGEMENTS_MAX,
+        "type": "array",
         "items": {"type": "object", "properties": {
-            "champ": {"type": "string", "enum": list(profil.CHAMPS)},
-            "action": {"type": "string", "enum": ["definir", "ajouter", "retirer", "deplacer"],
-                       "description": "definir : remplace la valeur ; ajouter / retirer : un élément d'une liste ; "
-                                      "deplacer : met un élément d'une liste à la place « position »."},
-            "valeur": {"type": "string", "description": "Texte, nombre, date AAAA-MM-JJ, oui/non, ou un élément "
-                                                         "de liste. Pour definir une liste : éléments séparés par « ; »."},
-            "position": {"type": "integer", "description": "Pour deplacer seulement : la nouvelle place, 1 = en tête."},
-            "groupe": {"type": "string", "enum": list(profil.GROUPES),
-                       "description": "Entreprises seulement : le groupe de l'entreprise."},
-            "nouveau_nom": {"type": "string", "description": "Entreprises seulement : pour la renommer."},
-            "alias": {"type": "string", "description": "Entreprises seulement : ses autres noms, séparés par des virgules."},
-            "outil": {"type": "string", "enum": ["aucun", "ashby", "workday"],
-                      "description": "Entreprises seulement : l'outil de sa page carrières (collecte directe)."},
-            "adresse_ou_id": {"type": "string", "description": "Entreprises seulement : l'identifiant Ashby ou l'adresse Workday."},
+            "champ": {"type": "string", "description": "Nom technique du champ (voir PROFIL ACTUEL)."},
+            "action": {"type": "string", "description": "definir, ajouter, retirer ou deplacer."},
+            "valeur": {"type": "string", "description": "La valeur, ou l'élément de liste concerné."},
+            "position": {"type": "integer", "description": "deplacer : nouvelle place (1 = en tête)."},
+            "groupe": {"type": "string", "description": "Entreprises : groupe."},
+            "nouveau_nom": {"type": "string", "description": "Entreprises : nouveau nom."},
+            "alias": {"type": "string", "description": "Entreprises : autres noms."},
+            "outil": {"type": "string", "description": "Entreprises : aucun, ashby ou workday."},
+            "adresse_ou_id": {"type": "string", "description": "Entreprises : identifiant ou adresse."},
         }, "required": ["champ", "action", "valeur"]},
     }}, "required": ["changements"]},
 }]

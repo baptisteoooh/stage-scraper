@@ -11,7 +11,7 @@ Refusé par BAP : look « site IA » (sphère, dégradé ou bouton violet), bleu
 coins droits ou coupés, coins trop ronds, police Unbounded, contour vert sur la carte.
 
 ## Fond
-- Photo de **Manhattan au crépuscule fournie par BAP** (`img/fond-manhattan.jpg`), floutée et assombrie à
+- Photo de **Manhattan au crépuscule fournie par BAP** (`stage_scraper/web/statique/img/fond-manhattan.jpg`), floutée et assombrie à
   gauche et en haut (`.fond`), version uniforme plus sombre sur les pages de travail (`.fond.uni`).
 - Le mauve vit dans la photo ; l'interface reste neutre (blanc cassé, lavande claire).
 
@@ -47,7 +47,7 @@ Thème sombre seulement (`color-scheme: dark`).
 ## Mouvement
 - Courbes : `--ressort` `cubic-bezier(.2, .9, .3, 1.15)` (léger rebond) et `--sortie`
   `cubic-bezier(.22, .8, .32, 1)`.
-- **Signature : le glissement de carte** (`js/swipe.js`, Pointer Events + Web Animations) : la carte suit le
+- **Signature : le glissement de carte** (`stage_scraper/web/statique/js/swipe.js`, Pointer Events + Web Animations) : la carte suit le
   doigt, s'incline, se teinte vert ou rose, part ; la suivante monte du paquet. Mesuré à ~60 images/s
   (écart médian 16,7 ms), en français comme en anglais.
 - Changement d'étape dans Ma sélection : View Transitions ; panneau de droite qui glisse ; entrées en fondu
@@ -63,7 +63,7 @@ Thème sombre seulement (`color-scheme: dark`).
 - **Toast** en bas : message court + « Annuler » (toute décision s'annule).
 - **Bulles de conversation** (`.bulle.ia` / `.bulle.moi`) et zone de saisie (`.saisie`), communes au dossier
   et à l'Assistant.
-- **Fiche calme** (Mon profil, `css/profil.css`) : rubriques séparées par un filet, sans cartes ; en lecture,
+- **Fiche calme** (Mon profil, `stage_scraper/web/statique/css/profil.css`) : rubriques séparées par un filet, sans cartes ; en lecture,
   des lignes « libellé gris : valeur » (`.lignes`) et rien de cliquable sauf un bouton **Modifier** discret par
   rubrique. Une seule rubrique s'ouvre à la fois (`.ouverte` : verre plus clair, contour lavande, ombre douce ;
   les autres passent à 34 % d'opacité et deviennent inertes) avec son pied **Annuler / Enregistrer** collé en
@@ -75,7 +75,7 @@ Thème sombre seulement (`color-scheme: dark`).
   « Durée ? » en gris si inconnue.
 
 ## Langues
-Français d'abord ; anglais via `statique/i18n/en.json` (voir README). Les offres et les textes de l'IA ne sont
+Français d'abord ; anglais via `stage_scraper/web/statique/i18n/en.json` (voir README). Les offres et les textes de l'IA ne sont
 jamais traduits (zones `translate="no"`).
 
 ## Contrôles

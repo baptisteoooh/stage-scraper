@@ -1,3 +1,4 @@
+import re
 """Site web (FastAPI) : pages, offres à trier, décisions et annulation, fiche détaillée."""
 from contextlib import closing
 
@@ -306,3 +307,13 @@ def test_assistant(client, ia):
 
     assert client.post("/api/assistant/effacer", json={}).json() == {"messages": []}
     assert client.get("/api/assistant").json()["messages"] == []
+
+
+def test_css_et_js_versionnes(client):
+    """Une vieille copie de site.css gardée par le navigateur ne doit jamais servir : l'adresse change avec le contenu."""
+    page = client.get("/profil").text
+    assert re.search(r'/statique/css/site\.css\?v=[0-9a-f]{10}"', page)
+    assert re.search(r'/statique/js/profil\.js\?v=[0-9a-f]{10}"', page)
+    assert '<script type="importmap">' in page and '"/statique/js/commun.js": "/statique/js/commun.js?v=' in page
+    assert page.index("importmap") < page.index('type="module"')
+    assert client.get(re.search(r'/statique/css/site\.css\?v=\w+', page).group(0)).status_code == 200

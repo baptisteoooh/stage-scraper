@@ -29,9 +29,12 @@ API
 - POST /api/reglages/retrier                   refait le tri de toutes les offres
 - GET|POST /api/reglages/documents/{cv|modele} texte anonymisé / dépôt du fichier (corps brut)
 """
+import hashlib
 import io
+import json
 import logging
 import os
+import re
 import secrets
 import threading
 from contextlib import asynccontextmanager, closing
@@ -74,6 +77,27 @@ async def _toujours_a_jour(request: Request, appel_suivant):
     return reponse
 
 
+_STATIQUE_DANS_PAGE = re.compile(r"(/statique/[\w/.-]+\.(?:css|js))(?=[\"'])")
+
+
+def _version(chemin: Path) -> str:
+    """Empreinte courte du contenu : elle change dès que le fichier change."""
+    return hashlib.md5(chemin.read_bytes()).hexdigest()[:10]
+
+
+def versionner(page: str) -> str:
+    """Donne à chaque CSS/JS une adresse qui change avec son contenu (site.css?v=…) : une vieille copie gardée par
+    le navigateur ne peut plus servir. L'« import map » fait de même pour les modules JS importés entre eux."""
+    def avec_version(m):
+        fichier = STATIQUE / m.group(1).removeprefix("/statique/")
+        return f"{m.group(1)}?v={_version(fichier)}" if fichier.is_file() else m.group(1)
+
+    page = _STATIQUE_DANS_PAGE.sub(avec_version, page)
+    modules = {f"/statique/js/{f.name}": f"/statique/js/{f.name}?v={_version(f)}" for f in sorted((STATIQUE / "js").glob("*.js"))}
+    carte = f'<script type="importmap">{json.dumps({"imports": modules})}</script>'
+    return page.replace("<head>", "<head>\n" + carte, 1)
+
+
 # =========================================================================== base
 
 def chemin_base() -> Path:
@@ -102,7 +126,8 @@ def connexion():
 @app.get("/", include_in_schema=False)
 def page_accueil(request: Request):
     page = (STATIQUE / "accueil.html").read_text(encoding="utf-8")
-    return HTMLResponse(langue.preparer_page(page, langue.langue_de(request)), headers={"Cache-Control": "no-cache"})
+    page = versionner(langue.preparer_page(page, langue.langue_de(request)))
+    return HTMLResponse(page, headers={"Cache-Control": "no-cache"})
 
 
 def page_appli(nom: str, request: Request | None = None) -> HTMLResponse:
@@ -111,7 +136,7 @@ def page_appli(nom: str, request: Request | None = None) -> HTMLResponse:
     menu = (STATIQUE / "_menu.html").read_text(encoding="utf-8")
     lien = f'<a href="/{nom}">'
     menu = menu.replace(lien, f'<a class="on" href="/{nom}" aria-current="page">')
-    page = langue.preparer_page(page.replace("<!-- menu -->", menu), langue.langue_de(request))
+    page = versionner(langue.preparer_page(page.replace("<!-- menu -->", menu), langue.langue_de(request)))
     return HTMLResponse(page, headers={"Cache-Control": "no-cache"})
 
 

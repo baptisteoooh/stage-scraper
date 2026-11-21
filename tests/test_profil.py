@@ -16,6 +16,16 @@ def copie(tmp_path, monkeypatch):
     chemin = tmp_path / "config.yaml"
     shutil.copyfile(CHEMIN_CONFIG, chemin)
     monkeypatch.setenv("STAGE_SCRAPER_CONFIG", str(chemin))   # jamais le vrai config.yaml
+    # BAP change son vrai profil (avec le bot, la page...) : la copie repart des critères de référence du cahier des charges
+    donnees = reglages.lire(chemin)
+    profil.appliquer(donnees, {
+        "contrats": ["stage", "cdd"], "departements": list(profil.DEPARTEMENTS), "hybride": True, "full_remote": True,
+        "debut_au_plus_tot": "2027-04-01", "debut_ideal": "2027-04-15", "debut_au_plus_tard": "2027-05-10",
+        "fin_au_plus_tard": "2027-08-31", "duree_min": 3, "duree_max": 5, "six_mois": "a_negocier",
+        "domaines": ["IA / machine learning", "Data science", "Data analyst", "Data engineering", "Logiciel embarqué",
+                     "Bioinformatique", "Qualité / réglementaire", "Conseil santé", "Product"],
+    })
+    reglages.ecrire(donnees, chemin)
     return chemin
 
 

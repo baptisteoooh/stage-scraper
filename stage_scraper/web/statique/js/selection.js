@@ -49,9 +49,10 @@ function dessinerEtapes() {
 
 // ======================================================================= grille
 
-// Carte d'une offre. Ce qui presse (lettre à envoyer, relance, entretien) teinte toute la carte d'une couleur pastel
-// et porte un bouton plein ; « Préparer » reste un simple lien, pour que l'œil aille d'abord à ce qui presse.
-const PRESSE = ['envoyer', 'relancer', 'entretien'];
+// Carte d'une offre, teintée d'un pastel selon ce qu'il y a à faire (bleu = préparer, lavande = lettre à envoyer,
+// rose = relance, menthe = entretien). En bas, sur une même ligne : où tu en es à gauche, l'action à droite.
+const ACTIONS = ['preparer', 'envoyer', 'relancer', 'entretien'];
+
 function fleche() {
   const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('class', 'fl'); s.setAttribute('aria-hidden', 'true');
@@ -60,13 +61,13 @@ function fleche() {
 }
 
 function carte(f, i) {
-  const presse = PRESSE.includes(f.action);
   const agir = f.bouton ? h('button', {
-    class: presse ? 'agir plein' : 'agir lien', type: 'button',
+    class: 'agir', type: 'button',
     onclick: (e) => { e.stopPropagation(); agirSur(f); },
-  }, f.bouton, fleche()) : h('span', { class: 'agir lien' }, 'Ouvrir', fleche());
+  }, f.bouton, fleche()) : h('span', { class: 'agir' }, 'Ouvrir', fleche());
   return h('article', {
-    class: 'dossier', tabindex: '0', role: 'button', 'data-id': f.id, 'data-action': presse ? f.action : null,
+    class: 'dossier', tabindex: '0', role: 'button', 'data-id': f.id,
+    'data-action': ACTIONS.includes(f.action) ? f.action : null,
     style: `--i:${i};view-transition-name:d${f.id}`,
     'aria-label': `${f.entreprise} : ${f.titre}`,
     onclick: () => ouvrirFiche(f.id),
@@ -76,8 +77,7 @@ function carte(f, i) {
     h('span', { class: 'qui' }, h('b', {}, f.entreprise), ' · ', f.lieu || (f.trouvee_ailleurs ? 'Trouvée ailleurs' : '')),
     f.score === null ? null : h('span', { class: 'note-carte' }, String(f.score), h('small', {}, '/10'))),
   h('h3', {}, f.titre),
-  h('p', { class: 'situation' }, f.situation),
-  h('div', { class: 'bas' }, agir));
+  h('div', { class: 'bas' }, h('p', { class: 'situation' }, f.situation), agir));
 }
 
 function messageRien() {

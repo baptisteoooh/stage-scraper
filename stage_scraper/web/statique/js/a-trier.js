@@ -5,8 +5,8 @@ import { $, h, api, toast, cacherToast, afficherScrap, brancherScrap, detailOffr
 
 const SECTIONS = [
   { cle: 'toutes', nom: 'Toutes les offres' },
-  { cle: 'Santé', nom: 'Santé' },
-  { cle: 'Hors santé mais intéressant', nom: 'Hors santé' },
+  { cle: 'Santé', nom: 'Mon secteur' },          // la section de l'IA garde son nom en base
+  { cle: 'Hors santé mais intéressant', nom: 'Autres secteurs' },
   { cle: 'À négocier', nom: 'À négocier' },
   { cle: 'plus_tard', nom: 'Plus tard' },
 ];
@@ -62,7 +62,7 @@ function compteSection(cle) {
     : !o.plus_tard && (etat.bof || !o.bof) && (cle === 'toutes' || o.section === cle)).length;
 }
 
-// Le bouton dit ce qui est affiché : « Santé 30 · meilleure note · Bof inclus ».
+// Le bouton dit ce qui est affiché : « Mon secteur 30 · meilleure note · Bof inclus ».
 function dessinerBarre() {
   $('#filtres-libelle').textContent = SECTIONS.find(s => s.cle === etat.section).nom;
   $('#filtres-nb').textContent = String(compteSection(etat.section));

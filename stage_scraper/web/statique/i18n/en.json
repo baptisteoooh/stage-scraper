@@ -430,7 +430,9 @@
     "Ordre": "Order",
     "meilleure note": "best score",
     "Bof inclus": "Meh included",
-    "Offres notées moins de 5/10": "Offers scored below 5/10"
+    "Offres notées moins de 5/10": "Offers scored below 5/10",
+    "Mon secteur": "My sector",
+    "Autres secteurs": "Other sectors"
   },
   "motifs": {
     "{} · Stage Scraper": "{1} · Stage Scraper",

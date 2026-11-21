@@ -74,8 +74,8 @@
   opacity: 0; pointer-events: none; z-index: 2; background: rgba(24, 18, 34, .94);
   box-shadow: 0 8px 20px rgba(5, 3, 9, .35);
 }
-.tampon.oui { left: 22px; color: var(--oui); box-shadow: inset 0 0 0 2px var(--oui), 0 8px 20px rgba(5, 3, 9, .35); transform: rotate(-12deg); }
-.tampon.non { right: 22px; color: var(--non); box-shadow: inset 0 0 0 2px var(--non), 0 8px 20px rgba(5, 3, 9, .35); transform: rotate(12deg); }
+.tampon.oui { right: 22px; color: var(--oui); box-shadow: inset 0 0 0 2px var(--oui), 0 8px 20px rgba(5, 3, 9, .35); transform: rotate(12deg); }
+.tampon.non { left: 22px; color: var(--non); box-shadow: inset 0 0 0 2px var(--non), 0 8px 20px rgba(5, 3, 9, .35); transform: rotate(-12deg); }
 .tampon.tard { left: 50%; top: auto; bottom: 90px; color: var(--lavande); box-shadow: inset 0 0 0 2px var(--lavande), 0 8px 20px rgba(5, 3, 9, .35); transform: translateX(-50%); }
 
 /* Plus rien à trier */

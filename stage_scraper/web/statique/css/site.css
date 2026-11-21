@@ -42,6 +42,25 @@ button { cursor: pointer; border: 0; background: none; }
 a { color: inherit; text-decoration: none; }
 :focus-visible { outline: 2px solid var(--lavande); outline-offset: 3px; }
 
+/* Surfaces du navigateur aux couleurs du site : sélection, curseur de saisie, barres de défilement.
+   Barre fine lavande, presque invisible au repos, plus nette quand le pointeur est sur la zone qui défile
+   (comme sur macOS). Pas de rail : le verre reste propre. */
+::selection { background: rgba(205, 184, 232, .38); color: #fff; }
+input, textarea { caret-color: var(--lavande); }
+/* Chrome, Edge, Safari : pilule sans flèches ni rail. */
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-button { display: none; }
+::-webkit-scrollbar-thumb { border: 4px solid transparent; border-radius: 999px; background: rgba(205, 184, 232, .14) padding-box; }
+*:hover::-webkit-scrollbar-thumb { background-color: rgba(205, 184, 232, .34); }
+::-webkit-scrollbar-thumb:hover { border-width: 3px; background-color: rgba(205, 184, 232, .55); }
+::-webkit-scrollbar-thumb:active { background-color: rgba(205, 184, 232, .7); }
+/* Firefox (pas de -webkit-) : la barre fine standard, mêmes couleurs. */
+@supports not selector(::-webkit-scrollbar) {
+  * { scrollbar-width: thin; scrollbar-color: rgba(205, 184, 232, .16) transparent; }
+  *:hover { scrollbar-color: rgba(205, 184, 232, .42) transparent; }
+}
+
 /* Fond : la photo floutée, assombrie à gauche et en haut pour garder le texte lisible. */
 .fond {
   position: fixed; inset: 0; z-index: -1;

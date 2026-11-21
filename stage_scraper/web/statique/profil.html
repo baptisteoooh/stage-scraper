@@ -22,7 +22,6 @@
   <main class="principal page-profil">
     <div class="barre">
       <h1 class="titre-page">Mon profil</h1>
-      <span class="enregistre" id="enregistre" aria-live="polite">Enregistré automatiquement</span>
       <button class="pastille ouvrir-chat" id="ouvrir-chat" type="button" aria-controls="chat" aria-expanded="false">
         <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14v10H10l-5 4z"/></svg>Modifier en parlant</button>
     </div>
@@ -31,18 +30,15 @@
 
       <aside class="chat-profil" id="chat" aria-label="Modifier ton profil en conversation">
         <div class="chat-tete">
-          <div>
-            <h2>Modifier en parlant</h2>
-            <p>Dis ce que tu veux changer : je mets ton profil à jour.</p>
-          </div>
+          <h2>Modifier en parlant</h2>
           <button class="pastille petite" id="effacer" type="button" hidden>Effacer</button>
-          <button class="fermer-chat" id="fermer-chat" type="button" aria-label="Fermer la conversation">×</button>
+          <button class="fermer-chat" id="fermer-chat" type="button" aria-label="Fermer la conversation"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         </div>
         <div class="fil-profil" id="fil" aria-live="polite"></div>
         <form class="saisie" id="saisie">
           <label class="sr-only" for="message">Ton message</label>
           <textarea class="champ" id="message" rows="1" maxlength="1500" placeholder="Ex. : accepte aussi les stages de 6 mois"></textarea>
-          <button class="bouton principal" id="envoyer" type="submit" aria-label="Envoyer">↑</button>
+          <button class="bouton principal" id="envoyer" type="submit" aria-label="Envoyer"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
         </form>
         <p class="mention">Gemini, gratuit · chaque changement s'annule</p>
       </aside>

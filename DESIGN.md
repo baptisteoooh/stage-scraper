@@ -63,10 +63,14 @@ Thème sombre seulement (`color-scheme: dark`).
 - **Toast** en bas : message court + « Annuler » (toute décision s'annule).
 - **Bulles de conversation** (`.bulle.ia` / `.bulle.moi`) et zone de saisie (`.saisie`), communes au dossier
   et à l'Assistant.
-- **Phrases à valeurs cliquables** (Mon profil, `css/profil.css`) : la recherche s'écrit en phrases ; chaque
-  valeur (`.jeton`) est soulignée de lavande et ouvre une petite bulle d'édition (date, durée, choix) ; enregistré
-  tout de suite, « Annuler » dans le toast. Les rubriques modifiées par l'agent clignotent en lavande (`.flash`).
-  Les phrases sont écrites entières dans chaque langue (dans `profil.js`), pas morceau par morceau.
+- **Fiche calme** (Mon profil, `css/profil.css`) : rubriques séparées par un filet, sans cartes ; en lecture,
+  des lignes « libellé gris : valeur » (`.lignes`) et rien de cliquable sauf un bouton **Modifier** discret par
+  rubrique. Une seule rubrique s'ouvre à la fois (`.ouverte` : verre plus clair, contour lavande, ombre douce ;
+  les autres passent à 34 % d'opacité et deviennent inertes) avec son pied **Annuler / Enregistrer** collé en
+  bas de l'écran. Les rubriques modifiées par l'agent s'éclairent un instant en lavande (`.flash`). Les valeurs
+  en phrases (dates, durées) sont écrites entières dans chaque langue (dans `profil.js`).
+- **Surfaces du navigateur** (`site.css`) : barres de défilement fines lavande sans rail (presque invisibles au
+  repos, plus nettes au survol de la zone), sélection de texte lavande, curseur de saisie lavande.
 - **Pastilles** d'information sur les cartes (`.puces`) : IA / data, CDD, durée, début, gratification ;
   « Durée ? » en gris si inconnue.
 

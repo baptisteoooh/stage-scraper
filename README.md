@@ -163,11 +163,11 @@ Pour l'arrêter : `Ctrl + C` dans le terminal.
 - **Journal** : crédit Claude restant, dépense du mois, et chaque scrap (clique un passage pour le détail
   source par source, erreurs comprises).
 - **Corbeille** : offres écartées par toi, par le tri, ou expirées. Rien n'est supprimé : « Remettre à trier ».
-- **Mon profil** : ta recherche écrite en phrases (« Un stage ou CDD qui commence entre le 1er avril et le
-  10 mai 2027… »), avec une frise des dates, les départements, les domaines dans l'ordre (étoile = très
-  intéressant), les secteurs, les entreprises suivies (clique une tuile pour son groupe ou la collecte directe),
-  les recherches envoyées aux sites et des filtres fins. Clique une valeur soulignée pour la changer : c'est
-  enregistré tout de suite dans config.yaml (copie dans config.yaml.bak) et « Annuler » la remet. À droite,
+- **Mon profil** : une fiche qui se lit d'un coup d'œil : ce que tu cherches (une phrase), quand (avec une
+  frise des dates), où, tes domaines dans l'ordre de préférence (le premier compte le plus dans la note), les
+  secteurs, les entreprises suivies, les recherches envoyées aux sites et des filtres fins. Chaque rubrique a
+  un bouton **Modifier** qui l'ouvre sur place ; **Enregistrer** l'écrit dans config.yaml (copie dans
+  config.yaml.bak) et « Annuler » dans le message du bas la remet. Échap referme sans rien changer. À droite,
   **Modifier en parlant** : dis « accepte aussi les stages de 6 mois » ou « suis aussi Alan » et l'agent (Gemini,
   gratuit) modifie le profil lui-même ; chaque changement est vérifié (dates cohérentes, départements
   d'Île-de-France…) et s'annule depuis la conversation. Le scoring et l'Assistant lisent ce profil : une

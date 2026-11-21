@@ -37,7 +37,7 @@ class FauxAgent:
 
 def test_lire_profil_de_bap(copie):
     p = profil.lire(reglages.lire(copie))
-    assert p["domaines"][0] == "IA / machine learning" and p["domaines_phares"] == ["IA / machine learning"]
+    assert p["domaines"][0] == "IA / machine learning" and "domaines_phares" not in p
     assert p["duree_min"] == 3 and p["duree_max"] == 5 and p["debut_ideal"] == "2027-04-15"
     assert set(p["departements"]) == set(profil.DEPARTEMENTS) and p["contrats"] == ["stage", "cdd"]
     assert p["entreprises"][0]["nom"] == "Doctolib" and p["entreprises"][0]["groupe"] == "priorite_absolue"
@@ -57,12 +57,14 @@ def test_appliquer_garde_les_commentaires(copie):
     assert "# Secteurs" in texte and "# Entreprises suivies" in texte and texte != texte_avant
     p = profil.lire(reglages.lire(copie))
     assert p["domaines"] == ["Data science", "IA / machine learning", "Robotique"]
-    assert p["domaines_phares"] == ["IA / machine learning"]   # gardé : le domaine existe toujours
+    texte = copie.read_text(encoding="utf-8")                  # le premier domaine devient le très intéressant
+    debut = texte.index("domaines:\n")
+    assert texte.index("tres_interessant: true", debut) < texte.index("- nom: IA / machine learning", debut)
     assert p["duree_max"] == 6 and p["departements"] == ["75", "92"]
     # un domaine retiré disparaît des listes qui en dépendent
     donnees = reglages.lire(copie)
     profil.appliquer(donnees, {"domaines": ["Robotique"]})
-    assert profil.lire(donnees)["domaines_phares"] == [] and profil.lire(donnees)["autres_secteurs_domaines"] == []
+    assert profil.lire(donnees)["autres_secteurs_domaines"] == []
 
 
 @pytest.mark.parametrize("valeurs, message", [
@@ -73,7 +75,7 @@ def test_appliquer_garde_les_commentaires(copie):
     ({"departements": ["69"]}, "Île-de-France"),
     ({"contrats": []}, "au moins un type de contrat"),
     ({"contrats": ["cdi"]}, "stage"),
-    ({"domaines_phares": ["Cuisine"]}, "n'est pas dans tes domaines"),
+    ({"autres_secteurs_domaines": ["Cuisine"]}, "n'est pas dans tes domaines"),
     ({"entreprises": [{"nom": "X", "groupe": "pirate"}]}, "groupe inconnu"),
     ({"inconnu": 1}, "champ inconnu"),
 ])

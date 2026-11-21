@@ -127,7 +127,7 @@ def prompt_systeme(conn, config: dict) -> list:
     domaines = "\n".join(f"  {i}. {nom}" for i, nom in enumerate(p["domaines"], start=1))
     suivies = ", ".join(e["nom"] for e in p["entreprises"])
     favorites = [e["nom"] for e in p["entreprises"] if e["groupe"] == "priorite_absolue"]
-    phares = ", ".join(p["domaines_phares"])
+    phares = p["domaines"][0] if p["domaines"] else ""   # le premier domaine compte le plus
     contrats = " ou ".join(module_profil.CONTRATS[c] for c in p["contrats"])
     exemples = exemples_pas_interesse(conn, config["scoring"].get("exemples_pas_interesse_max", 10))
     seuils = config["scoring"]["seuils"]

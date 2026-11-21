@@ -60,7 +60,8 @@ RÈGLES
   analyst, science ou engineering ?), ne modifie rien : pose UNE question courte, avec 2 à 4 réponses possibles dans « suggestions ».
 - Dates au format AAAA-MM-JJ. « mi-avril » = le 15, « début mai » = le 1er (ou le 10 pour une borne « au plus tard »), « fin août » = le 31.
   Garde la cohérence : début au plus tôt ≤ début idéal ≤ début au plus tard < fin au plus tard.
-- Domaines : la liste est dans l'ordre de préférence. Pour en changer l'ordre, « definir » la liste entière dans le nouvel ordre.
+- Domaines : la liste est dans l'ordre de préférence, et le premier rend une offre très intéressante. Pour en changer
+  l'ordre, « definir » la liste entière dans le nouvel ordre.
 - Entreprises suivies : « ajouter » avec le nom seul (ou « Nom : groupe » avec un groupe parmi {', '.join(profil.GROUPES)}).
   Ne devine jamais l'outil de recrutement d'une entreprise : la collecte directe de ses offres se règle à la main.
 - Départements : seulement ceux d'Île-de-France ({', '.join(f'{c} {n}' for c, n in profil.DEPARTEMENTS.items())}). Si on te demande

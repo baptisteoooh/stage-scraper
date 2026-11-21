@@ -40,7 +40,6 @@ CHAMPS = {
     "hybride": ("Hybride accepté", "booleen"),
     "full_remote": ("Télétravail complet accepté", "booleen"),
     "domaines": ("Domaines, par ordre de préférence", "liste"),
-    "domaines_phares": ("Domaines qui rendent une offre très intéressante", "liste"),
     "secteurs_cible": ("Secteurs visés", "liste"),
     "secteurs_ok": ("Secteurs qui vont aussi", "liste"),
     "secteurs_moins": ("Secteurs moins intéressants", "liste"),
@@ -85,7 +84,6 @@ def lire(donnees) -> dict:
         "departements": [str(x) for x in c["lieu"].get("departements") or []],
         "hybride": bool(c["lieu"].get("hybride")), "full_remote": bool(c["lieu"].get("full_remote")),
         "domaines": [str(d["nom"]) for d in domaines],
-        "domaines_phares": [str(d["nom"]) for d in domaines if d.get("tres_interessant")],
         "secteurs_cible": [str(x) for x in s.get("cible") or []],
         "secteurs_ok": [str(x) for x in s.get("ok") or []],
         "secteurs_moins": [str(x) for x in s.get("score_reduit") or []],
@@ -123,9 +121,8 @@ def appliquer(donnees, valeurs: dict) -> list[dict]:
     avant = lire(donnees)
     nouveau = {**avant, **{champ: normaliser(champ, v) for champ, v in valeurs.items()}}
     # Un domaine retiré disparaît aussi des listes qui en dépendent.
-    for dependant in ("domaines_phares", "autres_secteurs_domaines"):
-        if "domaines" in valeurs and dependant not in valeurs:
-            nouveau[dependant] = [d for d in nouveau[dependant] if d in nouveau["domaines"]]
+    if "domaines" in valeurs and "autres_secteurs_domaines" not in valeurs:
+        nouveau["autres_secteurs_domaines"] = [d for d in nouveau["autres_secteurs_domaines"] if d in nouveau["domaines"]]
     verifier(nouveau)
     changements = [{"champ": champ, "libelle": CHAMPS[champ][0], "avant": avant[champ], "apres": nouveau[champ]}
                    for champ in CHAMPS if nouveau[champ] != avant[champ]]
@@ -220,10 +217,9 @@ def verifier(p: dict) -> None:
         raise ProfilInvalide("garde au moins un département, ou accepte le télétravail complet")
     if not p["domaines"]:
         raise ProfilInvalide("garde au moins un domaine")
-    for dependant in ("domaines_phares", "autres_secteurs_domaines"):
-        inconnus = [d for d in p[dependant] if d not in p["domaines"]]
-        if inconnus:
-            raise ProfilInvalide(f"{CHAMPS[dependant][0]} : « {inconnus[0]} » n'est pas dans tes domaines")
+    inconnus = [d for d in p["autres_secteurs_domaines"] if d not in p["domaines"]]
+    if inconnus:
+        raise ProfilInvalide(f"{CHAMPS['autres_secteurs_domaines'][0]} : « {inconnus[0]} » n'est pas dans tes domaines")
     tot, ideal, tard, fin = (date.fromisoformat(p[c]) for c in ("debut_au_plus_tot", "debut_ideal",
                                                                  "debut_au_plus_tard", "fin_au_plus_tard"))
     if not tot <= tard:
@@ -276,8 +272,8 @@ def _ecrire(donnees, champ: str, valeur, profil: dict) -> None:
         _liste(c["lieu"], "departements", valeur, en_ligne=True)
     elif champ in ("hybride", "full_remote"):
         c["lieu"][champ] = valeur
-    elif champ in ("domaines", "domaines_phares"):
-        _ecrire_domaines(donnees, profil["domaines"], profil["domaines_phares"])
+    elif champ == "domaines":
+        _ecrire_domaines(donnees, profil["domaines"])
     elif champ in ("secteurs_cible", "secteurs_ok", "secteurs_moins", "autres_secteurs_domaines", "tailles"):
         cle = {"secteurs_cible": "cible", "secteurs_ok": "ok", "secteurs_moins": "score_reduit",
                "autres_secteurs_domaines": "hors_sante_domaines", "tailles": "taille_preferee"}[champ]
@@ -302,8 +298,10 @@ def _liste(parent, cle: str, valeurs: list, en_ligne: bool = False) -> None:
     parent[cle] = seq
 
 
-def _ecrire_domaines(donnees, noms: list[str], phares: list[str]) -> None:
-    """Domaines : la priorité suit l'ordre de la liste ; les autres champs d'un domaine sont gardés."""
+def _ecrire_domaines(donnees, noms: list[str]) -> None:
+    """Domaines : la priorité suit l'ordre de la liste, et le premier est le « très intéressant ».
+
+    Les autres champs d'un domaine (ajoutés à la main dans le fichier) sont gardés."""
     anciens = {d["nom"]: d for d in donnees.get("domaines") or []}
     nouveaux = []
     for i, nom in enumerate(noms, start=1):
@@ -312,7 +310,7 @@ def _ecrire_domaines(donnees, noms: list[str], phares: list[str]) -> None:
             d = CommentedMap()
             d["nom"] = nom
         d["priorite"] = i
-        if nom in phares:
+        if i == 1:
             d["tres_interessant"] = True
         elif "tres_interessant" in d:
             del d["tres_interessant"]

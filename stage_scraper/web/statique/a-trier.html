@@ -20,11 +20,16 @@
 
   <main class="principal">
     <div class="barre">
-      <div class="sections" role="group" aria-label="Afficher" id="sections"></div>
-      <button class="pastille" id="tri" type="button" title="Changer l'ordre des offres">
-        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/></svg>
-        <span>Plus récentes</span></button>
-      <button class="pastille" id="bof" type="button" aria-pressed="false" title="Offres notées moins de 5/10, masquées par défaut">Bof</button>
+      <div class="filtres">
+        <button class="pastille bouton-filtres" id="filtres" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="menu-filtres">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+          <span class="libelle" id="filtres-libelle">Toutes les offres</span>
+          <small class="nb" id="filtres-nb"></small>
+          <span class="details" id="filtres-details"></span>
+          <svg class="ic chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="menu-filtres" id="menu-filtres" role="menu" aria-label="Filtres" tabindex="-1"></div>
+      </div>
       <label class="recherche pastille">
         <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
         <span class="sr-only">Rechercher</span>

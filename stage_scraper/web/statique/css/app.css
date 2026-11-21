@@ -153,3 +153,8 @@
 .langue button:hover { color: var(--texte); }
 .cote .langue { order: 10; align-self: flex-start; margin: 12px 0 0 6px; }
 @media (max-width: 900px) { .cote .langue { order: 0; margin: 0; } .cote .scrap { order: 1; } }
+@media (max-width: 700px) {
+  .cote .marque { white-space: nowrap; }
+  .cote .scrap { padding: 10px; }
+  .cote .scrap span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}

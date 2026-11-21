@@ -56,7 +56,7 @@ export class Glisseur {
     this.actif = true;
     this.points = [{ x: e.clientX, y: e.clientY, t: e.timeStamp }];
     this.carte.setPointerCapture(e.pointerId);
-    this.carte.classList.add('saisie');
+    this.carte.classList.add('tenue');
     this._peindre();
   }
 
@@ -103,7 +103,7 @@ export class Glisseur {
     if (!this.actif) return;
     this.actif = false;
     cancelAnimationFrame(this.image); this.image = 0;
-    this.carte.classList.remove('saisie');
+    this.carte.classList.remove('tenue');
     if (this.carte.hasPointerCapture?.(e.pointerId)) this.carte.releasePointerCapture(e.pointerId);
     this._peindre();
     const { vx, vy } = this._vitesse();

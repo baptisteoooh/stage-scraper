@@ -424,7 +424,13 @@
     "Leurs offres ont un bonus dans la note, et une offre de 6 mois chez elles va dans « À négocier ». Outil carrières : Ashby (avec l'identifiant de la page) ou Workday (avec l'adresse complète) ; laisser « Aucun » si inconnu.": "Their offers get a score bonus, and a 6-month offer there goes into “To negotiate”. Careers tool: Ashby (with the page ID) or Workday (with the full address); leave “None” if unknown.",
     "GMAIL_ADRESSE manquant dans .env": "GMAIL_ADRESSE missing from .env",
     "CV enregistré.": "CV saved.",
-    "Ton CV et une lettre que tu as écrite (modèle de style). Ils restent sur ton ordinateur, dans profil/ (ignoré par Git). Les IA ne reçoivent que leur texte, sans ton nom ni tes coordonnées.": "Your CV and a letter you wrote (style model). They stay on your computer, in profil/ (ignored by Git). The AIs only get their text, without your name or contact details."
+    "Ton CV et une lettre que tu as écrite (modèle de style). Ils restent sur ton ordinateur, dans profil/ (ignoré par Git). Les IA ne reçoivent que leur texte, sans ton nom ni tes coordonnées.": "Your CV and a letter you wrote (style model). They stay on your computer, in profil/ (ignored by Git). The AIs only get their text, without your name or contact details.",
+    "Toutes les offres": "All offers",
+    "Filtres": "Filters",
+    "Ordre": "Order",
+    "meilleure note": "best score",
+    "Bof inclus": "Meh included",
+    "Offres notées moins de 5/10": "Offers scored below 5/10"
   },
   "motifs": {
     "{} · Stage Scraper": "{1} · Stage Scraper",
@@ -608,6 +614,7 @@
     "{n} offres notées": "{1} offers scored",
     "publiée il y a {n} j · {}": "posted {1} d ago · {2}",
     "publiée aujourd'hui · {}": "posted today · {1}",
-    "publiée hier · {}": "posted yesterday · {1}"
+    "publiée hier · {}": "posted yesterday · {1}",
+    "Montrer les Bof ({n})": "Show Meh offers ({1})"
   }
 }

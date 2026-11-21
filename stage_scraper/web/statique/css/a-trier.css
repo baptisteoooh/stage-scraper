@@ -46,7 +46,7 @@
   box-shadow: inset 0 0 0 1.5px rgba(205, 184, 232, .75), 0 30px 60px rgba(5, 3, 9, .5);
   transform-origin: 50% 85%;
 }
-.carte.pos0.saisie { cursor: grabbing; transition: none; }
+.carte.pos0.tenue { cursor: grabbing; transition: none; }
 .carte.pos1 { z-index: 2; transform: translateY(14px) scale(.955); }
 .carte.pos2 { z-index: 1; transform: translateY(28px) scale(.91); background: rgba(30, 23, 42, .78); }
 .carte.pos2 > * { opacity: 0; }
@@ -129,4 +129,51 @@
   .scene { flex: none; height: 520px; padding: 0 16px; }
   .carte { padding: 22px 20px 18px; }
   .aide { display: none; }
+}
+
+/* ---------------------------------------------------------------- menu des filtres */
+.barre .recherche { margin-left: auto; }
+.filtres { position: relative; min-width: 0; }
+.bouton-filtres { gap: 8px; max-width: 100%; }
+.bouton-filtres .nb { font-size: 12px; opacity: .7; font-variant-numeric: tabular-nums; }
+.bouton-filtres .details { font-size: 13px; color: var(--doux); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bouton-filtres .details:empty { display: none; }
+.bouton-filtres .details span + span::before { content: " · "; }
+.bouton-filtres .chevron { width: 16px; height: 16px; opacity: .7; transition: transform .3s var(--sortie); }
+.bouton-filtres[aria-expanded="true"] { background: rgba(255, 255, 255, .13); }
+.bouton-filtres[aria-expanded="true"] .chevron { transform: rotate(180deg); }
+
+.menu-filtres {
+  position: absolute; top: calc(100% + 8px); left: 0; z-index: 20; width: 300px; max-width: calc(100vw - 32px);
+  padding: 8px; border-radius: var(--r-panneau);
+  background: rgba(30, 23, 42, .97); -webkit-backdrop-filter: blur(30px); backdrop-filter: blur(30px);
+  box-shadow: inset 0 0 0 1px var(--ligne-forte), 0 24px 60px rgba(5, 3, 9, .55);
+  opacity: 0; visibility: hidden; transform: translateY(-6px) scale(.98); transform-origin: 24px 0;
+  transition: opacity .14s, transform .2s var(--sortie), visibility 0s .2s;
+}
+.menu-filtres.ouvert { opacity: 1; visibility: visible; transform: none; transition: opacity .16s, transform .26s var(--ressort), visibility 0s; }
+.menu-filtres h3 { font-size: 11.5px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--faible); padding: 8px 10px 6px; }
+.menu-filtres hr { border: 0; height: 1px; background: var(--ligne); margin: 6px 4px; }
+.menu-filtres [role^="menuitem"] {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border-radius: 6px;
+  font-size: 14.5px; text-align: left; transition: background-color .15s;
+}
+.menu-filtres [role^="menuitem"]:hover, .menu-filtres [role^="menuitem"]:focus-visible { background: rgba(255, 255, 255, .08); outline: none; }
+.menu-filtres .coche { display: grid; width: 16px; height: 16px; flex: none; opacity: 0; color: var(--lavande); }
+.menu-filtres [aria-checked="true"] .coche { opacity: 1; }
+.menu-filtres [aria-checked="true"] { font-weight: 600; }
+.menu-filtres .nom { flex: 1; min-width: 0; }
+.menu-filtres .nom small { display: block; font-size: 12px; font-weight: 400; color: var(--faible); margin-top: 1px; }
+.menu-filtres .nb { font-size: 13px; color: var(--doux); font-variant-numeric: tabular-nums; }
+.menu-filtres .interrupteur { width: 38px; height: 22px; padding: 2px; border-radius: 999px; background: rgba(255, 255, 255, .14); box-shadow: inset 0 0 0 1px var(--ligne); flex: none; transition: background-color .25s; }
+.menu-filtres .interrupteur i { display: block; width: 18px; height: 18px; border-radius: 50%; background: var(--texte); transition: transform .3s var(--ressort); }
+.menu-filtres [aria-checked="true"] .interrupteur { background: var(--lavande); }
+.menu-filtres [aria-checked="true"] .interrupteur i { transform: translateX(16px); background: var(--sur-accent); }
+
+@media (max-width: 700px) {
+  .bouton-filtres .details { display: none; }
+  .recherche input:focus, .recherche input:not(:placeholder-shown) { width: 120px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .menu-filtres, .menu-filtres.ouvert { transform: none; transition: opacity .12s, visibility 0s; }
 }

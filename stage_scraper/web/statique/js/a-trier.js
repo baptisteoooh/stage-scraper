@@ -4,12 +4,13 @@ import { Glisseur } from './swipe.js';
 import { $, h, api, toast, cacherToast, afficherScrap, brancherScrap, detailOffre } from './commun.js';
 
 const SECTIONS = [
-  { cle: 'toutes', nom: 'Toutes' },
+  { cle: 'toutes', nom: 'Toutes les offres' },
   { cle: 'Santé', nom: 'Santé' },
   { cle: 'Hors santé mais intéressant', nom: 'Hors santé' },
   { cle: 'À négocier', nom: 'À négocier' },
   { cle: 'plus_tard', nom: 'Plus tard' },
 ];
+const ORDRES = [{ cle: 'recentes', nom: 'Plus récentes' }, { cle: 'note', nom: 'Meilleure note' }];
 const RAISONS = ['Trop long (6 mois)', 'Commercial / pas technique', 'Pas mon domaine', 'Dates incompatibles',
   'Hors Île-de-France', 'Entreprise'];
 const ACTION = { droite: 'candidate', gauche: 'ecarte', haut: 'plus_tard' };
@@ -61,17 +62,88 @@ function compteSection(cle) {
     : !o.plus_tard && (etat.bof || !o.bof) && (cle === 'toutes' || o.section === cle)).length;
 }
 
+// Le bouton dit ce qui est affiché : « Santé 30 · meilleure note · Bof inclus ».
 function dessinerBarre() {
-  const zone = $('#sections');
-  zone.replaceChildren(...SECTIONS.map(s => h('button', {
-    class: 'pastille', type: 'button', 'aria-pressed': String(etat.section === s.cle),
-    onclick: () => { etat.section = s.cle; rafraichir(); },
-  }, s.nom, ' ', h('small', {}, String(compteSection(s.cle))))));
-  $('#tri span').textContent = etat.tri === 'note' ? 'Meilleure note' : 'Plus récentes';
-  const nbBof = etat.toutes.filter(o => o.bof && !o.plus_tard).length;
-  $('#bof').textContent = `Bof ${nbBof}`;
-  $('#bof').setAttribute('aria-pressed', String(etat.bof));
+  $('#filtres-libelle').textContent = SECTIONS.find(s => s.cle === etat.section).nom;
+  $('#filtres-nb').textContent = String(compteSection(etat.section));
+  $('#filtres-details').replaceChildren(
+    ...(etat.tri === 'note' ? [h('span', {}, 'meilleure note')] : []),
+    ...(etat.bof && etat.section !== 'plus_tard' ? [h('span', {}, 'Bof inclus')] : []));
   $('#nb-a-trier').textContent = compteSection('toutes') || '';
+  if (menuOuvert()) dessinerMenu();
+}
+
+// ======================================================================= menu des filtres
+
+// Coche d'un choix (un SVG doit être créé dans son propre espace de noms : on passe par innerHTML, texte fixe).
+function coche() {
+  const s = document.createElement('span');
+  s.className = 'coche';
+  s.setAttribute('aria-hidden', 'true');
+  s.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" '
+    + 'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  return s;
+}
+
+function element(role, choisi, contenu, choisir) {
+  return h('button', { type: 'button', role, 'aria-checked': String(choisi), tabindex: '-1', onclick: choisir }, contenu);
+}
+
+function dessinerMenu() {
+  const nbBof = etat.toutes.filter(o => o.bof && !o.plus_tard).length;
+  $('#menu-filtres').replaceChildren(
+    h('h3', { role: 'presentation' }, 'Afficher'),
+    ...SECTIONS.map(s => element('menuitemradio', etat.section === s.cle,
+      [coche(), h('span', { class: 'nom' }, s.nom), h('span', { class: 'nb' }, String(compteSection(s.cle)))],
+      () => choisir({ section: s.cle }))),
+    h('hr', { role: 'separator' }),
+    h('h3', { role: 'presentation' }, 'Ordre'),
+    ...ORDRES.map(o => element('menuitemradio', etat.tri === o.cle,
+      [coche(), h('span', { class: 'nom' }, o.nom)], () => choisir({ tri: o.cle }))),
+    h('hr', { role: 'separator' }),
+    element('menuitemcheckbox', etat.bof,
+      [h('span', { class: 'nom' }, `Montrer les Bof (${nbBof})`, h('small', {}, 'Offres notées moins de 5/10')),
+        h('span', { class: 'interrupteur', 'aria-hidden': 'true' }, h('i'))],
+      () => choisir({ bof: !etat.bof })));
+}
+
+function menuOuvert() { return $('#menu-filtres').classList.contains('ouvert'); }
+
+function ouvrirMenu() {
+  dessinerMenu();
+  $('#menu-filtres').classList.add('ouvert');
+  $('#filtres').setAttribute('aria-expanded', 'true');
+  const items = elementsMenu();
+  (items.find(b => b.getAttribute('aria-checked') === 'true') || items[0])?.focus();
+}
+
+function fermerMenu({ rendreFocus = true } = {}) {
+  if (!menuOuvert()) return false;
+  $('#menu-filtres').classList.remove('ouvert');
+  $('#filtres').setAttribute('aria-expanded', 'false');
+  if (rendreFocus) $('#filtres').focus();
+  return true;
+}
+
+function elementsMenu() { return [...$('#menu-filtres').querySelectorAll('[role^="menuitem"]')]; }
+
+// Un choix referme le menu (on voit tout de suite le paquet changer) ; l'interrupteur Bof aussi.
+function choisir(changement) {
+  Object.assign(etat, changement);
+  fermerMenu();
+  rafraichir({ distribuer: true });
+}
+
+function clavierMenu(e) {
+  const items = elementsMenu();
+  const i = items.indexOf(document.activeElement);
+  const aller = (n) => { e.preventDefault(); items[(n + items.length) % items.length].focus(); };
+  if (e.key === 'ArrowDown') aller(i + 1);
+  else if (e.key === 'ArrowUp') aller(i - 1);
+  else if (e.key === 'Home') aller(0);
+  else if (e.key === 'End') aller(items.length - 1);
+  else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fermerMenu(); }
+  else if (e.key === 'Tab') fermerMenu({ rendreFocus: false });
 }
 
 // ======================================================================= cartes
@@ -107,7 +179,9 @@ function nouvelleCarte(o, pos) {
 }
 
 // Reconstruit le paquet (après un filtre, un chargement, une annulation).
-function rafraichir() {
+// distribuer : après un changement de filtre, les cartes arrivent l'une après l'autre (on voit que ça a changé,
+// même quand la première carte reste la même).
+function rafraichir({ distribuer = false } = {}) {
   dessinerBarre();
   const liste = visibles();
   const pile = $('#pile');
@@ -117,6 +191,26 @@ function rafraichir() {
   liste.slice(0, 3).reverse().forEach((o, i, t) => pile.append(nouvelleCarte(o, t.length - 1 - i)));
   activerDessus();
   majCompte();
+  if (distribuer) distribuerPaquet();
+}
+
+// Le paquet entier apparaît d'un bloc (l'opacité s'applique au groupe : on ne voit pas une carte à travers
+// l'autre), et les cartes du dessous glissent à leur place juste après, comme un paquet qu'on redistribue.
+function distribuerPaquet() {
+  const pile = $('#pile');
+  const reduit = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const courbe = 'cubic-bezier(.22, .8, .32, 1)';
+  pile.animate(reduit ? [{ opacity: 0 }, { opacity: 1 }]
+    : [{ opacity: 0, translate: '0 22px', scale: '.98' }, { opacity: 1, translate: '0 0', scale: '1' }],
+  { duration: reduit ? 160 : 380, easing: courbe });
+  if (!reduit) {
+    for (const el of pile.querySelectorAll('.carte.pos1, .carte.pos2')) {
+      const pos = el.classList.contains('pos2') ? 2 : 1;
+      el.animate([{ translate: `0 ${-12 * pos}px` }, { translate: '0 0' }],
+        { duration: 420, delay: 120 + pos * 50, easing: 'cubic-bezier(.2, .9, .3, 1.15)', fill: 'backwards' });
+    }
+  }
+  $('#compte').animate([{ opacity: .2 }, { opacity: 1 }], { duration: 400, easing: 'ease-out' });
 }
 
 function majCompte() {
@@ -341,15 +435,22 @@ function brancher() {
   $('#fleche-non').addEventListener('click', () => decider('gauche'));
   $('#fiche-fermer').addEventListener('click', fermerFiche);
   brancherScrap(apresScrap);
-  $('#tri').addEventListener('click', () => { etat.tri = etat.tri === 'note' ? 'recentes' : 'note'; rafraichir(); });
-  $('#bof').addEventListener('click', () => { etat.bof = !etat.bof; rafraichir(); });
+  $('#filtres').addEventListener('click', () => (menuOuvert() ? fermerMenu() : ouvrirMenu()));
+  $('#filtres').addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' && !menuOuvert()) { e.preventDefault(); ouvrirMenu(); }
+  });
+  $('#menu-filtres').addEventListener('keydown', clavierMenu);
+  document.addEventListener('pointerdown', (e) => {
+    if (menuOuvert() && !e.target.closest('.filtres')) fermerMenu({ rendreFocus: false });
+  });
   let attente = 0;
   $('#recherche').addEventListener('input', (e) => {
     clearTimeout(attente);
-    attente = setTimeout(() => { etat.recherche = e.target.value; rafraichir(); }, 160);
+    attente = setTimeout(() => { etat.recherche = e.target.value; rafraichir({ distribuer: true }); }, 220);
   });
 
   document.addEventListener('keydown', (e) => {
+    if (menuOuvert()) return;                            // le menu des filtres gère ses touches
     if (e.key === 'Escape' && fermerFiche()) { e.preventDefault(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); annulerDerniere(); return; }
     if (e.target.closest('input, textarea') || e.altKey || e.ctrlKey || e.metaKey) return;

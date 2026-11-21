@@ -67,7 +67,12 @@ Thème sombre seulement (`color-scheme: dark`).
   rubrique (`.ligne-lue` : titre gris, résumé, **Modifier** discret ; toute la ligne ouvre la rubrique), séparées
   par un filet, sans cartes ; au-delà de 3 éléments, un compteur `+6` (`.en-plus`). Les réglages techniques
   (recherches, filtres fins) sont repliés sous un lien. Le chat ne montre que le dernier échange (les anciens
-  derrière « Voir les N messages précédents ») et 3 suggestions en un clic tirées du profil. Une seule rubrique s'ouvre à la fois (`.ouverte` : verre plus clair, contour lavande, ombre douce ;
+  derrière « Voir les N messages précédents ») et 3 suggestions en un clic tirées du profil. Le chat est une
+  carte de verre posée dans la page (coins 18px, léger dégradé lavande en haut), les messages de l'étudiant en
+  lavande translucide, la saisie une seule pilule avec le bouton d'envoi dedans (éteint tant qu'elle est vide).
+- **À revoir** (`.a-revoir`, Mon profil) : encadré lavande translucide en haut de la fiche, titre en petites
+  capitales lavande avec un compteur ; chaque proposition = constat en gris, question en clair, **Oui** (pilule
+  claire) et **Non** (texte). La proposition traitée se replie en douceur. Absent quand il n'y a rien à revoir. Une seule rubrique s'ouvre à la fois (`.ouverte` : verre plus clair, contour lavande, ombre douce ;
   les autres passent à 34 % d'opacité et deviennent inertes) avec son pied **Annuler / Enregistrer** collé en
   bas de l'écran. Les rubriques modifiées par l'agent s'éclairent un instant en lavande (`.flash`). Les valeurs
   en phrases (dates, durées) sont écrites entières dans chaque langue (dans `profil.js`).

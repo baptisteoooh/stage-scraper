@@ -8,6 +8,7 @@ const etat = {
   d: null, p: null, alertes: [], messages: [], enCours: false, triEnAttente: false, annules: new Set(),
   ouverte: null, brouillon: null,   // rubrique en cours de modification et ses valeurs pas encore enregistrées
   techniques: false, toutFil: false,   // réglages techniques dépliés ; tout l'historique de la conversation affiché
+  aRevoir: [],   // propositions tirées des offres écartées : [{cle, constat, question, valeurs}]
 };
 const GROUPES_TITRES = [
   ['priorite_absolue', 'Priorité absolue'], ['scale_up', 'Scale-ups'], ['grand_groupe', 'Grands groupes'], ['ecosysteme', 'Écosystèmes'],
@@ -130,14 +131,15 @@ function raccourcis(p) {
 async function charger() {
   const d = await api('/api/profil');
   majMenu(d.menu);
-  Object.assign(etat, { d, p: d.profil, alertes: d.alertes, messages: d.messages });
+  Object.assign(etat, { d, p: d.profil, alertes: d.alertes, messages: d.messages, aRevoir: d.a_revoir || [] });
   const section = (r) => h('section', { class: 'rubrique', id: `r-${r.id}`, 'aria-labelledby': `t-${r.id}` });
-  $('#feuille').replaceChildren(h('div', { id: 'bandeaux' }), ...RUBRIQUES.filter(r => !r.technique).map(section),
+  $('#feuille').replaceChildren(h('div', { id: 'bandeaux' }), h('div', { id: 'a-revoir' }), ...RUBRIQUES.filter(r => !r.technique).map(section),
     h('button', { class: 'techniques', id: 'techniques', type: 'button', 'aria-expanded': 'false', onclick: () => montrerTechniques(!etat.techniques) },
       icone(BAS), h('span', {})),
     ...RUBRIQUES.filter(r => r.technique).map(section));
   RUBRIQUES.forEach(r => dessinerRubrique(r));
   montrerTechniques(etat.techniques);
+  dessinerARevoir();
   dessinerBandeaux();
   dessinerFil();
 }
@@ -179,6 +181,48 @@ function dessinerBandeaux() {
       h('button', { class: 'pastille', type: 'button', onclick: refaireTri }, 'Refaire le tri'))] : []));
 }
 
+// « À revoir » : ce que tes offres écartées suggèrent de changer. Un clic sur Oui applique (annulable), Non ne revient plus.
+function dessinerARevoir() {
+  const zone = $('#a-revoir');
+  if (!zone) return;
+  if (!etat.aRevoir.length) { zone.replaceChildren(); return; }
+  zone.replaceChildren(h('section', { class: 'a-revoir', 'aria-labelledby': 't-a-revoir' },
+    h('h2', { id: 't-a-revoir' }, 'À revoir', h('span', { class: 'nb-revoir' }, String(etat.aRevoir.length))),
+    etat.aRevoir.map(prop => h('div', { class: 'proposition', 'data-cle': prop.cle },
+      h('div', { class: 'texte-prop', translate: 'no' }, h('p', { class: 'constat' }, prop.constat), h('p', { class: 'question' }, prop.question)),
+      h('div', { class: 'choix-prop' },
+        h('button', { class: 'pastille oui', type: 'button', onclick: (e) => repondre(prop, true, e.currentTarget) }, 'Oui'),
+        h('button', { class: 'non', type: 'button', onclick: (e) => repondre(prop, false, e.currentTarget) }, 'Non'))))));
+}
+
+async function repondre(prop, oui, bouton) {
+  const ligne = bouton.closest('.proposition');
+  ligne.querySelectorAll('button').forEach(b => { b.disabled = true; });
+  try {
+    const r = oui ? await api('/api/profil', { valeurs: prop.valeurs }) : await api('/api/profil/a-revoir/ignorer', { cle: prop.cle });
+    await replier(ligne);
+    if (oui) {
+      appliquer(r, { flash: true });
+      toast('Modifications enregistrées.', [h('button', { type: 'button', onclick: () => annuler(r.changements) }, 'Annuler')]);
+    } else {
+      etat.aRevoir = r.a_revoir;
+      dessinerARevoir();
+      toast('D\'accord, je ne te le proposerai plus.');
+    }
+  } catch (e) {
+    ligne.querySelectorAll('button').forEach(b => { b.disabled = false; });
+    toast(`Pas enregistré : ${e.message}`);
+  }
+}
+
+// La proposition traitée se replie en douceur avant de disparaître.
+function replier(el) {
+  if (reduit()) return Promise.resolve();
+  const haut = el.offsetHeight;
+  return el.animate([{ opacity: 1, height: `${haut}px` }, { opacity: 0, height: '0px', paddingTop: '0px', paddingBottom: '0px' }],
+    { duration: 280, easing: 'cubic-bezier(.2, .8, .2, 1)', fill: 'forwards' }).finished;
+}
+
 async function refaireTri(e) {
   const b = e.currentTarget;
   b.disabled = true; b.textContent = 'Tri en cours…';
@@ -195,6 +239,7 @@ async function refaireTri(e) {
 function appliquer(r, { flash = false } = {}) {
   etat.p = r.profil;
   etat.alertes = r.alertes;
+  if (r.a_revoir) { etat.aRevoir = r.a_revoir; dessinerARevoir(); }
   const champs = r.changements.map(c => c.champ);
   if (champs.some(c => etat.d.champs_tri.includes(c))) etat.triEnAttente = true;
   const touchees = RUBRIQUES.filter(x => champs.some(c => x.champs.includes(c) || x.aussi?.includes(c)));

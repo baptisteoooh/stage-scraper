@@ -136,17 +136,51 @@
 .bandeau p { flex: 1; }
 .bandeau .pastille { flex: none; }
 
-/* ---------------------------------------------------------------- conversation */
-.chat-profil { display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--ligne); background: rgba(20, 15, 28, .26); }
-.chat-tete { display: flex; align-items: center; gap: 10px; padding: 22px 18px 10px 22px; }
-.chat-tete h2 { flex: 1; font-family: var(--titres); font-size: 16px; font-weight: 600; letter-spacing: -.015em; }
-.pastille.petite { padding: 6px 11px; font-size: 12.5px; }
+/* ---------------------------------------------------------------- À revoir */
+#a-revoir:not(:empty) { padding: 6px 0 14px; }
+.a-revoir {
+  padding: 14px 16px 6px; border-radius: var(--r-panneau);
+  background: linear-gradient(180deg, rgba(205, 184, 232, .1), rgba(205, 184, 232, .04));
+  box-shadow: inset 0 0 0 1px rgba(205, 184, 232, .26);
+  animation: entre .4s var(--sortie) both;
+}
+.feuille .a-revoir h2 {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 4px;
+  font-family: inherit; font-size: 12.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--lavande);
+}
+.nb-revoir { min-width: 20px; padding: 1px 6px; border-radius: 999px; font-size: 11.5px; letter-spacing: 0; text-align: center; background: rgba(205, 184, 232, .18); }
+.proposition { display: flex; align-items: center; gap: 16px; padding: 12px 0; overflow: hidden; }
+.proposition + .proposition { border-top: 1px solid rgba(205, 184, 232, .14); }
+.texte-prop { flex: 1; min-width: 0; }
+.constat { font-size: 13.5px; line-height: 1.5; color: var(--doux); }
+.question { margin-top: 2px; font-size: 15px; font-weight: 500; line-height: 1.45; text-wrap: pretty; }
+.choix-prop { display: flex; align-items: center; gap: 4px; flex: none; }
+.choix-prop .oui { padding: 7px 16px; background: var(--accent); color: var(--sur-accent); box-shadow: none; font-weight: 600; }
+.choix-prop .oui:hover { background: #fff; }
+.choix-prop .non { padding: 7px 12px; border-radius: 999px; font-size: 14px; color: var(--doux); transition: background-color .2s, color .2s; }
+.choix-prop .non:hover { background: var(--verre-clair); color: var(--texte); }
+.choix-prop button[disabled] { opacity: .5; }
+
+/* ---------------------------------------------------------------- conversation : une carte de verre posée dans la page */
+.chat-profil {
+  display: flex; flex-direction: column; min-height: 0; margin: 4px 16px 16px 0; border-radius: 18px;
+  background: linear-gradient(180deg, rgba(205, 184, 232, .07), rgba(255, 255, 255, .025) 140px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), inset 0 0 0 1px rgba(255, 255, 255, .07);
+}
+.chat-tete { display: flex; align-items: center; gap: 9px; padding: 18px 16px 8px 20px; }
+.etincelle { width: 17px; height: 17px; flex: none; fill: var(--lavande); }
+.chat-tete h2 { flex: 1; font-family: var(--titres); font-size: 15px; font-weight: 600; letter-spacing: -.015em; }
+.effacer { padding: 5px 10px; border-radius: 999px; font-size: 12.5px; color: var(--faible); transition: background-color .2s, color .2s; }
+.effacer:hover { background: var(--verre-clair); color: var(--doux); }
 .fermer-chat { display: none; width: 36px; height: 36px; border-radius: 50%; place-items: center; color: var(--doux); }
 .fermer-chat:hover { background: var(--verre-clair); color: var(--texte); }
-.fil-profil { flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 12px; padding: 8px 18px 16px 22px; }
+.fil-profil { flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 10px; padding: 8px 14px 14px 20px; }
+.fil-profil > :first-child { margin-top: auto; }   /* peu de messages : ils restent près de la zone de saisie */
 .fil-profil .bulle { max-width: 94%; font-size: 14px; }
-.modifs { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, .1); display: flex; flex-direction: column; gap: 6px; white-space: normal; }
-.modif { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 8px; font-size: 13px; line-height: 1.45; }
+.fil-profil .bulle.moi { background: rgba(205, 184, 232, .2); color: var(--texte); box-shadow: inset 0 0 0 1px rgba(205, 184, 232, .22); }
+.fil-profil .bulle.ia { background: rgba(255, 255, 255, .055); }
+.modifs { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, .08); display: flex; flex-direction: column; gap: 6px; white-space: normal; }
+.modif { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 8px; font-size: 13px; line-height: 1.45; color: var(--doux); }
 .modif .puce-modif { width: 6px; height: 6px; margin-top: 7px; border-radius: 50%; background: var(--lavande); }
 .modif b { font-weight: 500; color: var(--texte); }
 .modif .avant { color: var(--faible); text-decoration: line-through; text-decoration-color: rgba(158, 146, 173, .6); }
@@ -159,15 +193,27 @@
 .refus b { font-weight: 600; }
 .bulle.ia.erreur-ia { background: rgba(242, 181, 191, .1); box-shadow: inset 0 0 0 1px rgba(242, 181, 191, .4); }
 .suggestions { display: flex; flex-wrap: wrap; gap: 6px; animation: entre .35s var(--sortie) both .1s; }
-.suggestions .pastille { padding: 7px 12px; font-size: 13px; text-align: left; }
-.accueil-profil { margin: auto 0 0; padding: 16px 0 4px; animation: entre .45s var(--sortie) both; }
-.accueil-profil p { margin-bottom: 14px; font-size: 14px; line-height: 1.6; color: var(--doux); }
-.fil-profil > :first-child { margin-top: auto; }   /* peu de messages : ils restent près de la zone de saisie */
+.fil-profil .suggestions .pastille {
+  padding: 6px 11px; font-size: 12.5px; text-align: left; color: var(--doux);
+  background: rgba(255, 255, 255, .04); box-shadow: inset 0 0 0 1px rgba(205, 184, 232, .2);
+}
+.fil-profil .suggestions .pastille:hover { color: var(--texte); background: rgba(205, 184, 232, .12); }
+.accueil-profil { padding: 16px 0 4px; animation: entre .45s var(--sortie) both; }
+.accueil-profil p { margin-bottom: 12px; font-size: 14px; line-height: 1.6; color: var(--doux); }
 .plus-anciens { align-self: center; padding: 4px 10px; font-size: 12.5px; color: var(--faible); transition: color .2s; }
 .plus-anciens:hover { color: var(--doux); }
-.chat-profil .saisie { padding: 10px 18px 4px 22px; }
-.chat-profil .saisie .ic { width: 19px; height: 19px; stroke-width: 2; }
-.chat-profil .mention { padding: 4px 22px 18px; font-size: 12px; color: var(--faible); }
+
+/* Saisie : une seule pilule, le bouton d'envoi dedans ; il ne s'allume que quand il y a quelque chose à envoyer. */
+.chat-profil .saisie {
+  align-items: flex-end; gap: 6px; margin: 4px 12px 0; padding: 5px 5px 5px 4px; border-radius: 22px;
+  background: rgba(255, 255, 255, .06); box-shadow: inset 0 0 0 1px var(--ligne); transition: box-shadow .2s, background-color .2s;
+}
+.chat-profil .saisie:focus-within { background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1.5px rgba(205, 184, 232, .7); }
+.chat-profil .saisie textarea.champ { min-height: 36px; padding: 8px 10px 8px 12px; font-size: 14px; background: none; box-shadow: none; }
+.chat-profil .saisie .bouton { width: 36px; height: 36px; border-radius: 50%; box-shadow: none; transition: opacity .2s, transform .2s var(--sortie); }
+.chat-profil .saisie:has(textarea:placeholder-shown) .bouton { opacity: .3; transform: scale(.92); }
+.chat-profil .saisie .ic { width: 17px; height: 17px; stroke-width: 2.2; }
+.chat-profil .mention { padding: 8px 20px 14px; font-size: 11.5px; text-align: center; color: var(--faible); }
 .chat-profil .erreur { font-size: 13px; color: var(--non); }
 
 @media (max-width: 1180px) {
@@ -194,15 +240,16 @@
   .ligne-entreprise select.champ { grid-column: 2 / -1; grid-row: 2; }
   .avance { margin-left: 0; }
   .chat-profil {
-    position: fixed; z-index: 40; left: 0; right: 0; bottom: 0; height: min(78vh, 640px);
-    border-left: 0; border-radius: 18px 18px 0 0; background: rgba(28, 21, 38, .97);
-    -webkit-backdrop-filter: blur(30px); backdrop-filter: blur(30px);
+    position: fixed; z-index: 40; left: 0; right: 0; bottom: 0; height: min(78vh, 640px); margin: 0;
+    border-radius: 18px 18px 0 0; background: #1C1526;   /* plein : un fond translucide laissait voir la fiche */
     box-shadow: inset 0 1px 0 var(--ligne-forte), 0 -20px 60px rgba(5, 3, 9, .5);
     transform: translateY(105%); visibility: hidden;
     transition: transform .45s var(--ressort), visibility 0s .45s;
   }
   .chat-profil.ouvert { transform: none; visibility: visible; transition: transform .45s var(--ressort), visibility 0s; }
   .fermer-chat { display: grid; }
+  .proposition { flex-direction: column; align-items: stretch; gap: 10px; }
+  .choix-prop .oui { padding: 8px 22px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .rubrique.flash { animation: none; }

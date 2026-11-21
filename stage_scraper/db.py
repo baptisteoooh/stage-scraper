@@ -191,6 +191,12 @@ CREATE TABLE IF NOT EXISTS messages (
     date            TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation, id);
+
+-- « À revoir » (Mon profil) : propositions refusées d'un « Non », qui ne reviennent plus.
+CREATE TABLE IF NOT EXISTS a_revoir_ignores (
+    cle         TEXT    PRIMARY KEY,
+    date        TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
 """
 
 

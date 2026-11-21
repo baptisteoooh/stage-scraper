@@ -176,7 +176,9 @@ Pour l'arrêter : `Ctrl + C` dans le terminal.
 - **Mon profil** : une fiche qui tient sur un écran : ce que tu cherches (une phrase), puis une ligne de résumé
   par rubrique (quand, où, domaines dans l'ordre de préférence, secteurs, entreprises suivies) ; les recherches
   envoyées aux sites et les filtres fins sont repliés sous « Réglages techniques ». Un clic sur une ligne (ou
-  sur **Modifier**) l'ouvre sur place avec tout le détail ; **Enregistrer** l'écrit dans config.yaml (copie dans
+  sur **Modifier**) l'ouvre sur place avec tout le détail. En haut, **À revoir** apparaît quand tes offres écartées
+  suggèrent un changement (ex. 4 offres écartées pour « Trop long (6 mois) » ce mois-ci → « Ne plus garder les
+  offres de 6 mois ? ») : **Oui** l'applique (annulable), **Non** ne revient plus. Rien ne change sans ton Oui ; **Enregistrer** l'écrit dans config.yaml (copie dans
   config.yaml.bak) et « Annuler » dans le message du bas la remet. Échap referme sans rien changer. À droite,
   **Modifier en parlant** : dis « accepte aussi les stages de 6 mois » ou « suis aussi Alan » (ou clique une des
   suggestions) et l'agent (Gemini, gratuit) modifie le profil lui-même ; seul le dernier échange reste affiché ; chaque changement est vérifié (dates cohérentes, départements
@@ -300,6 +302,7 @@ stage_scraper/
   chat_offres.py       assistant : chat sur les offres (agent qui lit les annonces)
   profil.py            profil de recherche (Mon profil) : lecture, vérification, écriture de config.yaml
   agent_profil.py      agent qui modifie le profil en conversation (outil modifier_profil)
+  a_revoir.py          « À revoir » : propositions de changement du profil tirées des offres écartées
   cv.py                texte anonymisé du CV et de la lettre modèle
   pipeline.py          un passage complet : collecte, tri, scoring
   appli.py             menu de l'appli Streamlit et page Assistant

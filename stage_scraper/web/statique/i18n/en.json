@@ -589,7 +589,12 @@
     "Masquer les réglages techniques": "Hide technical settings",
     "Dis-moi ce qui change, avec tes mots : je modifie ton profil.": "Tell me what changes, in your own words: I'll update your profile.",
     "Domaines": "Fields",
-    "Filtres fins": "Fine filters"
+    "Filtres fins": "Fine filters",
+    "À revoir": "To review",
+    "Oui": "Yes",
+    "Non": "No",
+    "D'accord, je ne te le proposerai plus.": "OK, I won't suggest it again.",
+    "Dis ce qui change…": "Say what changes…"
   },
   "motifs": {
     "{} · Stage Scraper": "{1} · Stage Scraper",

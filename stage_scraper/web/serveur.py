@@ -26,6 +26,7 @@ API
 - GET  /api/reglages/apercu/{alerte|recap}     aperçu d'un mail ; POST /api/reglages/mail-test
 - GET  /api/profil  /  POST /api/profil {valeurs}   profil de recherche (critères, domaines, entreprises...)
 - POST /api/profil/message {texte}  /  POST /api/profil/effacer   le modifier en conversation (agent Gemini)
+- POST /api/profil/a-revoir/ignorer {cle}   « Non » à une proposition « À revoir » (elle ne revient plus)
 - POST /api/reglages/retrier                   refait le tri de toutes les offres
 - GET|POST /api/reglages/documents/{cv|modele} texte anonymisé / dépôt du fichier (corps brut)
 """
@@ -47,7 +48,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import langue
-from .. import agent_profil, chat_offres, claude, db, decisions, dossier, expiration, notifications, presentation, profil, reglages, requetes, selection
+from .. import a_revoir, agent_profil, chat_offres, claude, db, decisions, dossier, expiration, notifications, presentation, profil, reglages, requetes, selection
 from .. import cv as module_cv
 from ..config import CHEMIN_CONFIG, charger_config, chemin_projet, secret
 
@@ -731,16 +732,19 @@ def _messages_profil(conn) -> list[dict]:
             for m in dossier.messages(conn, CONVERSATION_PROFIL)]
 
 
-def _etat_profil() -> dict:
+def _etat_profil(request: Request | None = None) -> dict:
+    """Le profil, ses alertes et les propositions « À revoir » (tirées des offres écartées)."""
     p = profil.lire(reglages.lire(chemin_config()))
-    return {"profil": p, "alertes": profil.alertes(p)}
+    with connexion() as conn:
+        propositions = a_revoir.propositions(conn, p, langue.langue_de(request) if request else "fr")
+    return {"profil": p, "alertes": profil.alertes(p), "a_revoir": propositions}
 
 
 @app.get("/api/profil")
-def api_profil():
+def api_profil(request: Request):
     with connexion() as conn:
         messages, menu = _messages_profil(conn), _menu(conn)
-    return {**_etat_profil(), "messages": messages, "menu": menu,
+    return {**_etat_profil(request), "messages": messages, "menu": menu,
             "champs": {c: {"libelle": l, "type": t} for c, (l, t) in profil.CHAMPS.items()},
             "champs_tri": sorted(profil.CHAMPS_TRI), "departements": profil.DEPARTEMENTS,
             "groupes": profil.GROUPES, "contrats": profil.CONTRATS, "six_mois": profil.SIX_MOIS,
@@ -752,7 +756,7 @@ class ValeursProfil(BaseModel):
 
 
 @app.post("/api/profil")
-def api_profil_modifier(v: ValeursProfil):
+def api_profil_modifier(v: ValeursProfil, request: Request):
     """Modification à la main (ou annulation : la page renvoie les anciennes valeurs)."""
     donnees = reglages.lire(chemin_config())
     try:
@@ -761,7 +765,18 @@ def api_profil_modifier(v: ValeursProfil):
         raise HTTPException(400, str(e)) from e
     if changements:
         reglages.ecrire(donnees, chemin_config())
-    return {**_etat_profil(), "changements": changements}
+    return {**_etat_profil(request), "changements": changements}
+
+
+class CleARevoir(BaseModel):
+    cle: str
+
+
+@app.post("/api/profil/a-revoir/ignorer")
+def api_a_revoir_ignorer(c: CleARevoir, request: Request):
+    with connexion() as conn:
+        a_revoir.ignorer(conn, c.cle)
+    return _etat_profil(request)
 
 
 class MessageProfil(BaseModel):
@@ -769,7 +784,7 @@ class MessageProfil(BaseModel):
 
 
 @app.post("/api/profil/message")
-def api_profil_message(m: MessageProfil):
+def api_profil_message(m: MessageProfil, request: Request):
     """« Accepte aussi les stages de 6 mois » : l'agent met le profil à jour (Gemini, gratuit)."""
     texte = m.texte.strip()
     if not texte:
@@ -789,7 +804,9 @@ def api_profil_message(m: MessageProfil):
             "changements": r["changements"], "suggestions": r["suggestions"], "refus": r["refus"],
             "erreur": r["erreur"]})
         messages = _messages_profil(conn)
-    return {"profil": r["profil"], "alertes": r["alertes"], "changements": r["changements"], "messages": messages}
+        propositions = a_revoir.propositions(conn, r["profil"], langue.langue_de(request))
+    return {"profil": r["profil"], "alertes": r["alertes"], "changements": r["changements"], "messages": messages,
+            "a_revoir": propositions}
 
 
 @app.post("/api/profil/effacer")

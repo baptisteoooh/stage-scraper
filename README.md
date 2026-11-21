@@ -170,7 +170,9 @@ Pour l'arrêter : `Ctrl + C` dans le terminal.
   config.yaml.bak) et « Annuler » dans le message du bas la remet. Échap referme sans rien changer. À droite,
   **Modifier en parlant** : dis « accepte aussi les stages de 6 mois » ou « suis aussi Alan » et l'agent (Gemini,
   gratuit) modifie le profil lui-même ; chaque changement est vérifié (dates cohérentes, départements
-  d'Île-de-France…) et s'annule depuis la conversation. Le scoring et l'Assistant lisent ce profil : une
+  d'Île-de-France…) et s'annule depuis la conversation. Garde-fou : si un bot annonce un changement qui
+  n'a pas eu lieu, il est relancé une fois, puis sa réponse est remplacée par une erreur (« Je n'ai rien modifié… ») ;
+  l'Assistant et le dossier signalent de même toute action annoncée mais pas faite. Le scoring et l'Assistant lisent ce profil : une
   phrase « Ce que tu cherches » claire améliore les notes. Après un changement de critères, le bandeau
   « Refaire le tri » applique les nouveaux critères aux offres déjà collectées.
 - **Réglages** : mails (seuil d'alerte, envoi, aperçus, mail de test), tes documents (CV, lettre modèle, et ce

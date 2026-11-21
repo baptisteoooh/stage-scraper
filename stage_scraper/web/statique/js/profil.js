@@ -27,6 +27,7 @@ const dateLongue = (iso, annee = true) => {
     .format(new Date(`${iso}T12:00:00`));
   return LANGUE === 'fr' ? texte.replace(/^1 /, '1er ') : texte;
 };
+const rang = (n) => (LANGUE === 'en' ? `${n}${[, 'st', 'nd', 'rd'][n % 100 > 10 && n % 100 < 14 ? 0 : n % 10] || 'th'}` : `${n}${n === 1 ? 're' : 'e'}`);
 const virgule = (n) => (LANGUE === 'en' ? String(n) : String(n).replace('.', ','));
 const mois = (n) => (LANGUE === 'en' ? `${n} month${n > 1 ? 's' : ''}` : `${virgule(n)} mois`);
 
@@ -41,6 +42,10 @@ const P = LANGUE === 'en' ? {
     : re ? 'Full remote accepted, not hybrid' : 'On site only'),
   autres: (n) => ` and ${n} more`, ailleurs: (l) => (l.length ? `Only ${l.join(', ')}` : 'Nothing'),
   jours: (n) => `${n} days`, rien: 'None', oui: 'yes', non: 'no',
+  entreprises: (n, prio) => `${n} compan${n > 1 ? 'ies' : 'y'} followed` + (prio.length ? ` · ${prio.join(', ')} as top priority` : ''),
+  recherches: (n) => `${n} search${n > 1 ? 'es' : ''} sent to the job sites`,
+  fins: (p) => `${p.postes_exclus.length} jobs, ${p.contrats_exclus.length} contract types and ${p.niveaux_exclus.length} `
+    + `seniority levels are ruled out. Offers older than ${p.anciennete_max_jours} days are ignored.`,
 } : {
   debut: (a, b, i) => `entre le ${a} et le ${b}, idéalement le ${i}`, fin: (d) => `au plus tard le ${d}`,
   duree: (a, b) => (a === b ? mois(a) : `${virgule(a)} à ${mois(b)}`),
@@ -51,6 +56,10 @@ const P = LANGUE === 'en' ? {
     : re ? 'Télétravail complet accepté, pas l\'hybride' : 'Sur place seulement'),
   autres: (n) => ` et ${n} autre${n > 1 ? 's' : ''}`, ailleurs: (l) => (l.length ? `Seulement ${l.join(', ')}` : 'Rien'),
   jours: (n) => `${n} jours`, rien: 'Aucun', oui: 'oui', non: 'non',
+  entreprises: (n, prio) => `${n} entreprise${n > 1 ? 's' : ''} suivie${n > 1 ? 's' : ''}` + (prio.length ? ` · ${prio.join(', ')} en priorité absolue` : ''),
+  recherches: (n) => `${n} recherche${n > 1 ? 's' : ''} envoyée${n > 1 ? 's' : ''} aux sites d'offres`,
+  fins: (p) => `${p.postes_exclus.length} postes, ${p.contrats_exclus.length} types de contrat et ${p.niveaux_exclus.length} `
+    + `niveaux sont écartés. Les offres de plus de ${p.anciennete_max_jours} jours sont ignorées.`,
 };
 
 function valeurTexte(champ, v) {
@@ -65,6 +74,13 @@ function valeurTexte(champ, v) {
 
 // « a, b, c et 4 autres » : une liste longue reste sur une ligne ou deux.
 const liste = (l, max = 8) => (l.length ? l.slice(0, max).join(', ') + (l.length > max ? P.autres(l.length - max) : '') : P.rien);
+
+// Quelques étiquettes au lieu d'une longue liste : les premières, puis « +4 » (le reste est dans « Modifier »).
+// `fortes` : celles à mettre en avant (entreprises en priorité absolue).
+const etiquettes = (l, max = 4, fortes = []) => (l.length
+  ? h('span', { class: 'etiquettes', translate: 'no' }, l.slice(0, max).map(x => h('span', { class: `etiquette${fortes.includes(x) ? ' forte' : ''}` }, x)),
+    l.length > max ? h('span', { class: 'etiquette plus', title: l.slice(max).join(', ') }, `+${l.length - max}`) : null)
+  : h('span', { class: 'vide-lu' }, P.rien));
 
 // ======================================================================= rubriques
 
@@ -120,33 +136,30 @@ function lireDomaines(p) {
 
 function lireSecteurs(p) {
   return lignes(
-    ['Visés', liste(p.secteurs_cible)],
-    ['Bien aussi', liste(p.secteurs_ok)],
-    ['Moins intéressants', liste(p.secteurs_moins)],
+    ['Visés', etiquettes(p.secteurs_cible)],
+    ['Bien aussi', etiquettes(p.secteurs_ok)],
+    ['Moins intéressants', etiquettes(p.secteurs_moins)],
     ['Ailleurs', P.ailleurs(p.autres_secteurs_domaines)],
-    p.tailles.length ? ['Tailles préférées', liste(p.tailles)] : null);
+    p.tailles.length ? ['Tailles préférées', etiquettes(p.tailles)] : null);
 }
 
+// Une ligne de résumé, puis les premières entreprises (priorité absolue d'abord, en lavande).
 function lireEntreprises(p) {
-  return lignes(...GROUPES_TITRES.map(([g, titre]) => {
-    const noms = p.entreprises.filter(e => e.groupe === g).map(e => e.nom);
-    return noms.length ? [titre, liste(noms, 12)] : null;
-  }));
-}
-
-function lireRecherches(p) {
+  const ordre = Object.fromEntries(GROUPES_TITRES.map(([g], i) => [g, i]));
+  const triees = [...p.entreprises].sort((a, b) => (ordre[a.groupe] ?? 9) - (ordre[b.groupe] ?? 9));
+  const prioritaires = triees.filter(e => e.groupe === 'priorite_absolue').map(e => e.nom);
   return [
-    h('p', { class: 'valeur-seule', translate: 'no' }, liste(p.requetes, 6)),
-    h('p', { class: 'precision' }, 'Envoyées à Google Jobs (quelques-unes par jour, à tour de rôle) et à Careerjet (toutes, à chaque scrap).'),
+    h('p', { class: 'resume-lu', translate: 'no' }, P.entreprises(p.entreprises.length, prioritaires)),
+    etiquettes(triees.map(e => e.nom), 7, prioritaires),
   ];
 }
 
+function lireRecherches(p) {
+  return [h('p', { class: 'resume-lu', translate: 'no' }, P.recherches(p.requetes.length)), etiquettes(p.requetes, 3)];
+}
+
 function lireFins(p) {
-  return lignes(
-    ['Postes exclus', liste(p.postes_exclus, 5)],
-    ['Contrats exclus', liste(p.contrats_exclus, 5)],
-    ['Niveaux exclus', liste(p.niveaux_exclus, 5)],
-    ['Ancienneté', `${P.jours(p.anciennete_max_jours)} max`]);
+  return h('p', { class: 'resume-lu', translate: 'no' }, P.fins(p));
 }
 
 // Frise : la fenêtre de début (bande), le début idéal (point), le stage idéal (barre) et la fin au plus tard.
@@ -562,7 +575,11 @@ function difference(c) {
         if (ancienne && ancienne.groupe !== e.groupe) morceaux.push(h('span', { translate: 'no' }, `${e.nom} → `), h('span', {}, etat.d.groupes[e.groupe]));
       }
     }
-    if (!morceaux.length) return [h('span', {}, 'nouvel ordre : '), h('span', { translate: 'no' }, apres.join(' › '))];
+    if (!morceaux.length) {   // même éléments, autre ordre : on montre celui qui a le plus bougé
+      const deplace = apres.map((x, j) => ({ x, de: avant.indexOf(x), a: j }))
+        .sort((u, v) => Math.abs(v.a - v.de) - Math.abs(u.a - u.de) || (u.a - u.de) - (v.a - v.de))[0];
+      return [h('span', { translate: 'no' }, `${deplace.x} : `), h('span', { class: 'avant' }, rang(deplace.de + 1)), ' → ', h('span', {}, rang(deplace.a + 1))];
+    }
     return morceaux.flatMap((m, i) => (i ? [' ', m] : [m]));
   }
   return [h('span', { class: 'avant', translate: 'no' }, valeurTexte(c.champ, c.avant)), ' → ',
@@ -587,7 +604,7 @@ function dessinerFil({ defiler = true } = {}) {
 
 function message(m, i) {
   if (m.role === 'user') return h('div', { class: 'bulle moi' }, h('p', { translate: 'no' }, m.texte));
-  return h('div', { class: 'bulle ia' },
+  return h('div', { class: `bulle ia${m.erreur ? ' erreur-ia' : ''}`, role: m.erreur ? 'alert' : null },
     h('p', { translate: 'no' }, texteRiche(m.texte)),
     m.changements.length ? h('div', { class: 'modifs' },
       m.changements.map(c => h('div', { class: 'modif' }, h('span', { class: 'puce-modif' }),
@@ -595,7 +612,7 @@ function message(m, i) {
       etat.annules.has(i) ? h('span', { class: 'annule' }, 'Annulé')
         : h('button', { class: 'annuler-modifs', type: 'button', onclick: () => annuler(m.changements, { depuisChat: i }) },
           m.changements.length > 1 ? 'Annuler ces changements' : 'Annuler ce changement')) : null,
-    m.refus?.length && !m.changements.length ? h('p', { class: 'refus' }, m.refus.join(' · ')) : null);
+    m.refus?.length && !m.erreur ? h('p', { class: 'refus' }, h('b', {}, 'Refusé : '), m.refus.join(' · ')) : null);
 }
 
 async function envoyer(t) {

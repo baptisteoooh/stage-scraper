@@ -50,6 +50,16 @@
 .valeur-seule { font-size: 15px; line-height: 1.55; text-wrap: pretty; }
 .precision { margin-top: 12px; font-size: 13px; line-height: 1.5; color: var(--faible); }
 
+/* Étiquettes et initiales : une liste se lit d'un coup d'œil, le détail est dans « Modifier ». */
+.etiquettes { display: flex; flex-wrap: wrap; gap: 6px; }
+.etiquette { padding: 3px 10px; border-radius: 999px; font-size: 13.5px; line-height: 1.5; background: rgba(255, 255, 255, .07); }
+.etiquette.plus { color: var(--doux); background: none; box-shadow: inset 0 0 0 1px var(--ligne); cursor: default; }
+.vide-lu { color: var(--faible); }
+.resume-lu { font-size: 15px; line-height: 1.55; color: var(--doux); text-wrap: pretty; }
+.resume-lu + .etiquettes { margin-top: 12px; }
+.etiquette.forte { background: rgba(205, 184, 232, .2); box-shadow: inset 0 0 0 1px rgba(205, 184, 232, .45); font-weight: 500; }
+.lignes > div { align-items: baseline; }
+
 .domaines-lus { list-style: none; columns: 2 220px; column-gap: 24px; }
 .domaines-lus li { display: flex; align-items: baseline; gap: 10px; break-inside: avoid; padding-bottom: 8px; font-size: 15px; line-height: 1.4; }
 .rang { flex: none; min-width: 16px; font-family: var(--titres); font-size: 13px; font-weight: 600; color: var(--faible); font-variant-numeric: tabular-nums; }
@@ -154,7 +164,9 @@
 .annuler-modifs { align-self: flex-start; margin-top: 4px; padding: 4px 0; font-size: 12.5px; font-weight: 600; color: var(--lavande); }
 .annuler-modifs:hover { text-decoration: underline; text-underline-offset: 3px; }
 .annule { font-size: 12.5px; color: var(--faible); }
-.refus { margin-top: 8px; font-size: 12.5px; color: #F4D9A8; }
+.refus { margin-top: 8px; font-size: 12.5px; line-height: 1.45; color: #F4D9A8; }
+.refus b { font-weight: 600; }
+.bulle.ia.erreur-ia { background: rgba(242, 181, 191, .1); box-shadow: inset 0 0 0 1px rgba(242, 181, 191, .4); }
 .suggestions { display: flex; flex-wrap: wrap; gap: 6px; animation: entre .35s var(--sortie) both .1s; }
 .suggestions .pastille { padding: 7px 12px; font-size: 13px; text-align: left; }
 .accueil-profil { margin: auto 0 0; padding: 16px 0 4px; animation: entre .45s var(--sortie) both; }

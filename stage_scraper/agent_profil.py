@@ -6,10 +6,13 @@
 - Les changements acceptés sont écrits dans config.yaml à la fin du message, en une fois.
 - Réponse finale : {reponse, suggestions} (suggestions = réponses rapides proposées à l'étudiant).
 - Rien n'est jamais perdu : la page reçoit pour chaque changement l'ancienne valeur, et peut tout annuler.
+- Garde-fou (garde_fou.py) : le code ne croit pas l'IA sur parole. Si sa réponse annonce un changement alors que le
+  profil n'a pas bougé, elle est relancée une fois (« tu n'as rien modifié ») ; si rien ne change encore, sa
+  réponse est remplacée par un message d'erreur honnête. Elle ne peut donc jamais dire « c'est fait » à tort.
 """
 import json
 
-from . import db, gemini, profil, reglages, requetes, scoring
+from . import db, garde_fou, gemini, profil, reglages, requetes, scoring
 from .config import secret
 
 MESSAGES_GARDES = 12
@@ -23,9 +26,15 @@ SCHEMA = {
         "suggestions": {"type": "array", "maxItems": 4, "items": {"type": "string"},
                         "description": "Réponses rapides que l'étudiant peut cliquer (quelques mots chacune), "
                                        "surtout quand tu poses une question. Sinon liste vide."},
+        "annonce_modification": {"type": "boolean",
+                                 "description": "true si ta réponse dit que tu as modifié le profil dans ce message."},
     },
-    "required": ["reponse", "suggestions"],
+    "required": ["reponse", "suggestions", "annonce_modification"],
 }
+
+RELANCE = ("[Contrôle automatique] Ta réponse annonce un changement, mais le profil n'a PAS changé : tu n'as appliqué "
+           "aucune modification (aucun appel de modifier_profil accepté). Si la demande est claire, appelle "
+           "modifier_profil maintenant. Sinon, réponds honnêtement que tu ne l'as pas fait et pourquoi.")
 
 OUTILS = [{
     "name": "modifier_profil",
@@ -35,10 +44,12 @@ OUTILS = [{
         "type": "array", "maxItems": CHANGEMENTS_MAX,
         "items": {"type": "object", "properties": {
             "champ": {"type": "string", "enum": list(profil.CHAMPS)},
-            "action": {"type": "string", "enum": ["definir", "ajouter", "retirer"],
-                       "description": "definir : remplace la valeur ; ajouter / retirer : un élément d'une liste."},
+            "action": {"type": "string", "enum": ["definir", "ajouter", "retirer", "deplacer"],
+                       "description": "definir : remplace la valeur ; ajouter / retirer : un élément d'une liste ; "
+                                      "deplacer : met un élément d'une liste à la place « position »."},
             "valeur": {"type": "string", "description": "Texte, nombre, date AAAA-MM-JJ, oui/non, ou un élément "
                                                          "de liste. Pour definir une liste : éléments séparés par « ; »."},
+            "position": {"type": "integer", "description": "Pour deplacer seulement : la nouvelle place, 1 = en tête."},
         }, "required": ["champ", "action", "valeur"]},
     }}, "required": ["changements"]},
 }]
@@ -60,13 +71,16 @@ RÈGLES
   analyst, science ou engineering ?), ne modifie rien : pose UNE question courte, avec 2 à 4 réponses possibles dans « suggestions ».
 - Dates au format AAAA-MM-JJ. « mi-avril » = le 15, « début mai » = le 1er (ou le 10 pour une borne « au plus tard »), « fin août » = le 31.
   Garde la cohérence : début au plus tôt ≤ début idéal ≤ début au plus tard < fin au plus tard.
-- Domaines : la liste est dans l'ordre de préférence, et le premier rend une offre très intéressante. Pour en changer
-  l'ordre, « definir » la liste entière dans le nouvel ordre.
+- Domaines : la liste est dans l'ordre de préférence, et le premier rend une offre très intéressante. Pour changer la
+  place d'un domaine : action « deplacer » avec sa nouvelle « position » (1 = en tête).
 - Entreprises suivies : « ajouter » avec le nom seul (ou « Nom : groupe » avec un groupe parmi {', '.join(profil.GROUPES)}).
   Ne devine jamais l'outil de recrutement d'une entreprise : la collecte directe de ses offres se règle à la main.
 - Départements : seulement ceux d'Île-de-France ({', '.join(f'{c} {n}' for c, n in profil.DEPARTEMENTS.items())}). Si on te demande
   une autre région, dis que l'outil ne couvre pour l'instant que l'Île-de-France.
 - Si un changement est refusé, lis la raison et corrige, ou explique-la simplement à l'étudiant.
+- HONNÊTETÉ (règle absolue) : ne dis JAMAIS que tu as changé quelque chose si tu n'as pas appelé modifier_profil et reçu
+  « applique: true » pour ce changement. Si tu ne peux pas faire ce qu'il demande, dis-le clairement (« Je n'ai pas pu… »)
+  avec la raison. Une réponse qui annonce un changement non appliqué est détectée et remplacée par un message d'erreur.
 - Ne propose pas de changements qu'il n'a pas demandés, mais tu peux signaler une incohérence (ex. une durée minimale plus longue
   que la période possible).
 
@@ -102,22 +116,28 @@ def demander(conn, chemin_config, config: dict, message: str, historique: list[d
     modele = reglages_chat.get("modele", "gemini-3.5-flash-lite")
     debut = requetes.maintenant()
     bilan = {"tokens_entree": 0, "tokens_sortie": 0, "cout_usd": 0.0}
-    refus, erreur, nb_appels = [], None, 0
+    refus, erreur, nb_appels, relance = [], None, 0, False
     try:
-        for tour in range(TOURS_MAX + 1):
+        for tour in range(TOURS_MAX + 2):   # + 1 tour pour la relance du garde-fou
             systeme = consignes(profil.lire(donnees), requetes.maintenant()[:10])   # le profil à jour à chaque tour
             contenu, usage = client.appeler(modele, systeme, contents, schema=SCHEMA,
                                             reflexion=reglages_chat.get("reflexion"),
-                                            outils=OUTILS if tour < TOURS_MAX else None)
+                                            outils=OUTILS if tour <= TOURS_MAX else None)
             nb_appels += 1
             scoring.ajouter_usage(bilan, usage, modele)
             appels = gemini.appels_outils(contenu)
-            if not appels:
-                break
-            contents.append(contenu)
-            contents.append({"role": "user", "parts": [
-                {"functionResponse": {"name": a["name"], "response": _executer(donnees, a, refus)}} for a in appels]})
-        resultat = _lire(gemini.texte_de(contenu))
+            if appels:
+                contents.append(contenu)
+                contents.append({"role": "user", "parts": [
+                    {"functionResponse": {"name": a["name"], "response": _executer(donnees, a, refus)}} for a in appels]})
+                continue
+            resultat = _lire(gemini.texte_de(contenu))
+            if not relance and tour < TOURS_MAX and _annonce(resultat) and profil.lire(donnees) == avant:
+                relance = True   # elle dit l'avoir fait, mais rien n'a bougé : on lui laisse une chance de le faire
+                contents.append(contenu)
+                contents.append({"role": "user", "parts": [{"text": RELANCE}]})
+                continue
+            break
     except gemini.ErreurGemini as e:
         erreur = str(e)
         raise AgentImpossible(erreur) from e
@@ -134,8 +154,19 @@ def demander(conn, chemin_config, config: dict, message: str, historique: list[d
     if changements:
         reglages.ecrire(donnees, chemin_config)
     suggestions = [str(s)[:60] for s in resultat.get("suggestions") or [] if str(s).strip()][:4]
-    return {"reponse": resultat.get("reponse") or "", "suggestions": suggestions, "changements": changements,
-            "refus": refus, "profil": apres, "alertes": profil.alertes(apres)}
+    reponse, erreur_agent = resultat.get("reponse") or "", False
+    if not changements and _annonce(resultat):   # garde-fou : jamais « c'est fait » quand rien n'a changé
+        erreur_agent, suggestions = True, []
+        reponse = ("Je n'ai rien modifié : je n'ai pas réussi à appliquer ta demande"
+                   + (f" ({' ; '.join(refus)})" if refus else "")
+                   + ". Reformule-la, ou fais-le avec le bouton « Modifier » de la rubrique.")
+    return {"reponse": reponse, "suggestions": suggestions, "changements": changements,
+            "refus": refus, "erreur": erreur_agent, "profil": apres, "alertes": profil.alertes(apres)}
+
+
+def _annonce(resultat: dict) -> bool:
+    """La réponse dit-elle qu'une modification a été faite ? (l'IA le déclare, ou sa phrase le dit)"""
+    return resultat.get("annonce_modification") is True or garde_fou.annonce_action(resultat.get("reponse"))
 
 
 def _conversation(historique: list[dict]) -> list[dict]:
@@ -144,6 +175,8 @@ def _conversation(historique: list[dict]) -> list[dict]:
         texte = m["texte"]
         if m.get("changements"):
             texte += "\n(changements appliqués : " + ", ".join(m["changements"]) + ")"
+        elif m["role"] != "user":
+            texte += "\n(aucun changement appliqué)"
         contents.append({"role": "user" if m["role"] == "user" else "model", "parts": [{"text": texte}]})
     while contents and contents[0]["role"] != "user":
         contents.pop(0)
@@ -158,7 +191,7 @@ def _executer(donnees, appel: dict, refus: list[str]) -> dict:
     for ch in (appel.get("args", {}).get("changements") or [])[:CHANGEMENTS_MAX]:
         champ, action, valeur = ch.get("champ"), ch.get("action"), str(ch.get("valeur") or "")
         try:
-            nouvelle = _valeur(profil.lire(donnees), champ, action, valeur)
+            nouvelle = _valeur(profil.lire(donnees), champ, action, valeur, ch.get("position"))
             appliques = profil.appliquer(donnees, {champ: nouvelle})
             resultats.append({"champ": champ, "applique": True,
                               "nouvelle_valeur": profil.lire(donnees)[champ] if appliques else "(inchangé)"})
@@ -169,7 +202,7 @@ def _executer(donnees, appel: dict, refus: list[str]) -> dict:
     return {"resultats": resultats, "alertes": profil.alertes(p)}
 
 
-def _valeur(p: dict, champ: str, action: str, valeur: str):
+def _valeur(p: dict, champ: str, action: str, valeur: str, position=None):
     """Traduit {action, valeur texte} en nouvelle valeur complète du champ."""
     if champ not in profil.CHAMPS:
         raise profil.ProfilInvalide(f"champ inconnu : {champ}")
@@ -190,6 +223,19 @@ def _valeur(p: dict, champ: str, action: str, valeur: str):
             if len(restants) == len(actuelle):
                 raise profil.ProfilInvalide(f"« {element} » n'est pas dans la liste")
             return restants
+        if action == "deplacer":
+            trouve = next((x for x in actuelle if x.lower() == element.lower()), None)
+            if trouve is None:
+                raise profil.ProfilInvalide(f"« {element} » n'est pas dans la liste")
+            try:
+                place = int(position)
+            except (TypeError, ValueError):
+                raise profil.ProfilInvalide("« deplacer » demande une position (1 = en tête)") from None
+            if not 1 <= place <= len(actuelle):
+                raise profil.ProfilInvalide(f"position {place} impossible : la liste a {len(actuelle)} éléments")
+            reste = [x for x in actuelle if x is not trouve]
+            return reste[:place - 1] + [trouve] + reste[place - 1:]
+        raise profil.ProfilInvalide(f"action inconnue : {action}")
     if action != "definir":
         raise profil.ProfilInvalide(f"« {action} » ne s'applique qu'aux listes : utilise « definir »")
     return valeur

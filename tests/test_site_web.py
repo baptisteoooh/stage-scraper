@@ -38,6 +38,8 @@ def test_pages(client):
     for chemin in ("/", "/a-trier", "/profil", "/statique/js/profil.js", "/statique/css/site.css", "/statique/js/swipe.js", "/statique/img/fond-manhattan.jpg"):
         assert client.get(chemin).status_code == 200, chemin
     assert "Ton stage" in client.get("/").text
+    # le navigateur revérifie toujours les fichiers du site : jamais de vieux CSS en cache
+    assert client.get("/statique/css/site.css").headers["cache-control"] == "no-cache"
 
 
 def test_offres_a_trier(client):

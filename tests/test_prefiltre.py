@@ -8,6 +8,9 @@ from stage_scraper.config import charger_config
 from stage_scraper.texte import contient
 
 CONFIG = charger_config()
+# Dates de référence du cahier des charges : les tests ne bougent pas quand on change ses dates dans « Mon profil ».
+CONFIG["criteres"]["dates"].update({"debut_au_plus_tot": "2027-04-01", "debut_ideal": "2027-04-15",
+                                    "debut_au_plus_tard": "2027-05-10", "fin_au_plus_tard": "2027-08-31"})
 AUJOURD_HUI = date(2026, 10, 28)
 
 

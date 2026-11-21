@@ -64,6 +64,16 @@ app = FastAPI(title="Stage Scraper", docs_url=None, redoc_url=None, lifespan=_de
 app.mount("/statique", StaticFiles(directory=STATIQUE), name="statique")
 
 
+@app.middleware("http")
+async def _toujours_a_jour(request: Request, appel_suivant):
+    """CSS, JS, images : le navigateur redemande toujours si le fichier a changé (réponse 304 sinon, très légère).
+    Sans ça, Chrome garde un vieux site.css pendant des heures et les changements de style n'apparaissent pas."""
+    reponse = await appel_suivant(request)
+    if request.url.path.startswith("/statique/"):
+        reponse.headers.setdefault("Cache-Control", "no-cache")
+    return reponse
+
+
 # =========================================================================== base
 
 def chemin_base() -> Path:
@@ -691,7 +701,8 @@ CONVERSATION_PROFIL = "profil"
 
 def _messages_profil(conn) -> list[dict]:
     return [{"role": m["role"], "texte": m["texte"], "changements": m["donnees"].get("changements") or [],
-             "suggestions": m["donnees"].get("suggestions") or [], "refus": m["donnees"].get("refus") or []}
+             "suggestions": m["donnees"].get("suggestions") or [], "refus": m["donnees"].get("refus") or [],
+             "erreur": bool(m["donnees"].get("erreur"))}
             for m in dossier.messages(conn, CONVERSATION_PROFIL)]
 
 
@@ -750,7 +761,8 @@ def api_profil_message(m: MessageProfil):
             raise HTTPException(400, f"Pas de réponse : {e}") from e
         dossier.ajouter_message(conn, CONVERSATION_PROFIL, "user", texte)
         dossier.ajouter_message(conn, CONVERSATION_PROFIL, "assistant", r["reponse"] or "…", {
-            "changements": r["changements"], "suggestions": r["suggestions"], "refus": r["refus"]})
+            "changements": r["changements"], "suggestions": r["suggestions"], "refus": r["refus"],
+            "erreur": r["erreur"]})
         messages = _messages_profil(conn)
     return {"profil": r["profil"], "alertes": r["alertes"], "changements": r["changements"], "messages": messages}
 

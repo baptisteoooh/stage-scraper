@@ -12,7 +12,7 @@
 import json
 
 from . import cv as module_cv
-from . import db, gemini, requetes, scoring
+from . import db, garde_fou, gemini, requetes, scoring
 from . import profil as module_profil
 from .config import secret
 
@@ -110,6 +110,9 @@ RÉPONSE (champ « reponse »)
 - Pour une recherche d'offres : quelques phrases de synthèse (combien d'offres correspondent vraiment, ce qui ressort, ce qui manque, ton conseil). Les offres elles-mêmes vont dans le champ « offres » : ne les énumère pas une à une dans le texte, elles sont affichées à part.
 - Cite une offre par son titre et son entreprise, jamais par son id.
 - Si l'information n'est pas dans l'offre, dis-le au lieu d'inventer.
+- HONNÊTETÉ (règle absolue) : tu ne peux RIEN modifier (profil, critères, candidatures, statuts, lettres, mails). Si BAP te le
+  demande, dis clairement que tu ne peux pas le faire et indique la page où le faire (Mon profil, Ma sélection…). N'affirme jamais
+  avoir fait une action que tu n'as pas faite.
 
 OFFRES À AFFICHER (champ « offres »)
 - Seulement quand BAP cherche des offres ou demande des suggestions : au plus 10, de la plus pertinente à la moins pertinente, avec une raison concrète et factuelle (sans qualificatif élogieux sur l'entreprise). Sinon, liste vide (inutile de remontrer une offre dont on parle déjà).
@@ -181,7 +184,10 @@ def demander(conn, config: dict, question: str, historique: list[dict] | None = 
             vus.add(oid)
         elif oid not in par_id:
             ignores += 1
-    return {"reponse": resultat.get("reponse") or "", "offres": choisies, "ignores": ignores, "lues": lues}
+    reponse = resultat.get("reponse") or ""
+    if garde_fou.annonce_modification_impossible(reponse):   # il prétend avoir modifié quelque chose : faux
+        reponse += garde_fou.AVERTISSEMENT_LECTURE_SEULE
+    return {"reponse": reponse, "offres": choisies, "ignores": ignores, "lues": lues}
 
 
 def _conversation(historique: list[dict]) -> list[dict]:

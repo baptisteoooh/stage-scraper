@@ -579,7 +579,8 @@
     "Ajouter une entreprise": "Add a company",
     "Collecte directe, autres noms": "Direct collection, other names",
     "Leurs offres ont un bonus dans la note, et une offre de 6 mois chez elles va dans « À négocier ». Collecte directe : si leur page carrières utilise Ashby ou Workday, leurs offres sont lues directement.": "Their offers get a score bonus, and a 6-month offer from them goes to “Negotiable”. Direct collection: if their careers page uses Ashby or Workday, their offers are read directly.",
-    "Envoyées telles quelles aux sites. Pense au français et à l'anglais.": "Sent to the sites as they are. Think of French and English."
+    "Envoyées telles quelles aux sites. Pense au français et à l'anglais.": "Sent to the sites as they are. Think of French and English.",
+    "Refusé :": "Refused:"
   },
   "motifs": {
     "{} · Stage Scraper": "{1} · Stage Scraper",

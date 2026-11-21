@@ -22,7 +22,7 @@ import re
 import unicodedata
 
 from . import cv as module_cv
-from . import claude, db, gemini, requetes
+from . import claude, db, garde_fou, gemini, requetes
 from .scoring import LONGUEUR_DESCRIPTION_MAX, ajouter_usage
 
 MESSAGES_GARDES = 10      # derniers messages de la conversation renvoyés à l'IA
@@ -80,18 +80,23 @@ SCHEMA_DIAGNOSTIC = {
     "required": ["adequation", "synthese", "pour", "contre", "alertes", "exigences", "conseils_cv", "a_apprendre"],
 }
 
+LETTRE_INCHANGEE = ("\n\nAttention : la lettre n'a pas été modifiée (aucune nouvelle version). "
+                    "Redemande-le en précisant ce que tu veux changer.")
+
 SCHEMA_LETTRE = {
     "type": "object",
     "properties": {
         "reponse": {"type": "string", "description": "Ce que tu dis à BAP dans la conversation."},
         "lettre": {"type": ["string", "null"], "description": "La lettre complète si tu l'as écrite ou modifiée, sinon null."},
+        "annonce_modification": {"type": "boolean",
+                                 "description": "true si ta réponse dit que tu as écrit ou modifié la lettre dans ce message."},
         "affirmations": {"type": "array", "items": {
             "type": "object",
             "properties": {"phrase": {"type": "string"},
                            "citation_cv": {"type": ["string", "null"], "description": "Passage exact du CV qui le prouve."}},
             "required": ["phrase", "citation_cv"]}},
     },
-    "required": ["reponse", "lettre", "affirmations"],
+    "required": ["reponse", "lettre", "affirmations", "annonce_modification"],
 }
 
 
@@ -497,6 +502,8 @@ def discuter(conn, config: dict, dossier: dict, demande: str, client=None) -> di
         alertes = verifier_lettre(brut.get("affirmations"), texte_cv)
         numero = ajouter_version(conn, dossier, lettre, demande, modele, alertes)
     reponse = (brut.get("reponse") or "").strip() or ("Lettre mise à jour." if numero else "…")
+    if numero is None and (brut.get("annonce_modification") is True or garde_fou.annonce_action(reponse)):
+        reponse += LETTRE_INCHANGEE   # garde-fou : l'IA annonce une modification que la lettre ne contient pas
     ajouter_message(conn, conversation, "assistant", reponse, {"version": numero, "modele": modele, "cout": cout})
     return {"reponse": reponse, "numero": numero, "alertes": alertes, "modele": modele, "cout": cout}
 

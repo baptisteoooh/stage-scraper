@@ -64,11 +64,10 @@ Thème sombre seulement (`color-scheme: dark`).
 - **Carte de Ma sélection** (`.dossier`, `selection.css`) : pas de trait de contour (un filet de 1 px crénelait sur
   les coins arrondis), une teinte pastel et une ombre floue ; coins 16 px. Une ligne « entreprise · lieu » avec la
   note à droite, le titre (3 lignes max), puis en bas sur une même ligne : où tu en es à gauche, l'action à droite
-  (boutons tous à 36 px de haut, donc toujours au même endroit). La teinte dit ce qu'il y a à faire : bleu `#A9D2F5`
-  = préparer, lavande `#D2B8F4` = lettre à envoyer, rose `#F5BBD6` = relance, menthe `#B6E8C8` = entretien, mauve
-  `#CFC6DD` = rien à faire. Fond sombre à peine teinté (4 % + halo 14 % : BAP trouve tout fond plus teinté trop clair) ; le
-  bouton porte la couleur, plein et un cran plus vif (`--b` : bleu ciel `#8CC8F4`, violet `#C8A2F4` (teintes bien écartées pour qu'on les distingue), rose `#F7A6CB`,
-  menthe `#98E2B6`).
+  (boutons tous à 36 px de haut, donc toujours au même endroit). La couleur dit ce qu'il y a à faire, franche (les pastels rendaient le tout fade) : vert `#4BC98A` = préparer,
+  violet `#B48CF5` = lettre à envoyer, rose `#F07AAE` = relance, turquoise `#4CC3D6` = entretien, mauve `#CFC6DD` = rien
+  à faire. Bouton plein de cette couleur, texte sombre `#10141A`. Le fond de la carte reste sombre (4 % de la couleur +
+  halo 14 % : BAP trouve tout fond plus teinté trop clair).
   Survol : voile lumineux déjà posé dont seule l'opacité change, et 2 px de levée (l'animation d'arrivée est en
   `backwards` pour ne pas bloquer le survol).
 - **Bulles de conversation** (`.bulle.ia` / `.bulle.moi`) et zone de saisie (`.saisie`), communes au dossier

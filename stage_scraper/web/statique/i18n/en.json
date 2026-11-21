@@ -582,7 +582,14 @@
     "Envoyées telles quelles aux sites. Pense au français et à l'anglais.": "Sent to the sites as they are. Think of French and English.",
     "Refusé :": "Refused:",
     "détail modifié": "details changed",
-    "nouvel ordre": "new order"
+    "nouvel ordre": "new order",
+    "Entreprises": "Companies",
+    "Recherches": "Searches",
+    "Réglages techniques": "Technical settings",
+    "Masquer les réglages techniques": "Hide technical settings",
+    "Dis-moi ce qui change, avec tes mots : je modifie ton profil.": "Tell me what changes, in your own words: I'll update your profile.",
+    "Domaines": "Fields",
+    "Filtres fins": "Fine filters"
   },
   "motifs": {
     "{} · Stage Scraper": "{1} · Stage Scraper",

@@ -1,19 +1,14 @@
-// Mon profil : une fiche calme qui se lit d'un coup d'œil. Chaque rubrique a un seul bouton « Modifier » qui
-// l'ouvre sur place (une à la fois) ; « Enregistrer » écrit config.yaml et le message en bas propose « Annuler ».
-// À droite, une conversation avec Gemini modifie le profil à ta place.
+// Mon profil : une fiche qui se lit en trois secondes. La phrase « ce que tu cherches », puis UNE ligne par rubrique
+// (titre, résumé, « Modifier ») ; le détail n'apparaît qu'en ouvrant la rubrique (une à la fois). Les réglages
+// techniques (recherches, filtres fins) sont repliés. « Enregistrer » écrit config.yaml, le message en bas propose
+// « Annuler ». À droite, une conversation avec Gemini modifie le profil : seul le dernier échange est affiché.
 import { $, h, api, toast, brancherScrap, majMenu, LOCALE, LANGUE } from './commun.js';
 
 const etat = {
   d: null, p: null, alertes: [], messages: [], enCours: false, triEnAttente: false, annules: new Set(),
   ouverte: null, brouillon: null,   // rubrique en cours de modification et ses valeurs pas encore enregistrées
+  techniques: false, toutFil: false,   // réglages techniques dépliés ; tout l'historique de la conversation affiché
 };
-
-const EXEMPLES = [
-  'Accepte aussi les stages de 6 mois',
-  'Je veux commencer plutôt début mai',
-  'Ajoute la robotique à mes domaines',
-  'Suis aussi Alan et Qonto',
-];
 const GROUPES_TITRES = [
   ['priorite_absolue', 'Priorité absolue'], ['scale_up', 'Scale-ups'], ['grand_groupe', 'Grands groupes'], ['ecosysteme', 'Écosystèmes'],
 ];
@@ -31,35 +26,37 @@ const rang = (n) => (LANGUE === 'en' ? `${n}${[, 'st', 'nd', 'rd'][n % 100 > 10 
 const virgule = (n) => (LANGUE === 'en' ? String(n) : String(n).replace('.', ','));
 const mois = (n) => (LANGUE === 'en' ? `${n} month${n > 1 ? 's' : ''}` : `${virgule(n)} mois`);
 
-// Les valeurs écrites en phrases, entières dans chaque langue (les libellés fixes passent par en.json).
+// Les résumés, entiers dans chaque langue (les libellés fixes passent par en.json).
 const P = LANGUE === 'en' ? {
-  debut: (a, b, i) => `between ${a} and ${b}, ideally ${i}`, fin: (d) => `by ${d} at the latest`,
-  duree: (a, b) => (a === b ? mois(a) : `${a} to ${mois(b)}`),
-  contrats: { 'stage,cdd': 'Internship or fixed-term contract', stage: 'Internship only', cdd: 'Fixed-term contract only' },
+  duree: (a, b) => (a === b ? mois(a) : `${a}–${mois(b)}`),
+  contrats: { 'stage,cdd': 'Internship or fixed-term', stage: 'Internship only', cdd: 'Fixed-term only' },
   six: { a_negocier: 'Negotiable at your followed companies', exclure: 'Always excluded' },
   toute: 'All of Île-de-France',
-  teletravail: (hy, re) => (hy && re ? 'Hybrid and full remote accepted' : hy ? 'Hybrid accepted, not full remote'
-    : re ? 'Full remote accepted, not hybrid' : 'On site only'),
-  autres: (n) => ` and ${n} more`, ailleurs: (l) => (l.length ? `Only ${l.join(', ')}` : 'Nothing'),
-  jours: (n) => `${n} days`, rien: 'None', oui: 'yes', non: 'no',
-  entreprises: (n, prio) => `${n} compan${n > 1 ? 'ies' : 'y'} followed` + (prio.length ? ` · ${prio.join(', ')} as top priority` : ''),
+  teletravail: (hy, re) => (hy && re ? 'hybrid or remote' : hy ? 'hybrid' : re ? 'remote' : 'on site'),
+  moins: (s) => `less: ${s}`, aucunSecteur: 'No target sector',
+  entreprises: (n, prio) => `${n} followed` + (prio ? ` · ${prio} first` : ''),
   recherches: (n) => `${n} search${n > 1 ? 'es' : ''} sent to the job sites`,
-  fins: (p) => `${p.postes_exclus.length} jobs, ${p.contrats_exclus.length} contract types and ${p.niveaux_exclus.length} `
-    + `seniority levels are ruled out. Offers older than ${p.anciennete_max_jours} days are ignored.`,
+  fins: (n, j) => `${n} exclusions · offers under ${j} days old`,
+  vide: 'Describe in one sentence the internship you want: the AI uses it to score offers.',
+  anciens: (n) => (n > 1 ? `See the ${n} previous messages` : 'See the previous message'),
+  jours: (n) => `${n} days`, rien: 'None', oui: 'yes', non: 'no',
+  raccourcis: { idf: 'Search all of Île-de-France', hybride: 'Accept hybrid too', six: 'Accept 6-month internships too',
+    domaine: 'Add a field', entreprise: 'Follow another company', tard: 'I want to start later' },
 } : {
-  debut: (a, b, i) => `entre le ${a} et le ${b}, idéalement le ${i}`, fin: (d) => `au plus tard le ${d}`,
   duree: (a, b) => (a === b ? mois(a) : `${virgule(a)} à ${mois(b)}`),
   contrats: { 'stage,cdd': 'Stage ou CDD', stage: 'Stage seulement', cdd: 'CDD seulement' },
   six: { a_negocier: 'À négocier chez tes entreprises suivies', exclure: 'Toujours exclues' },
   toute: 'Toute l\'Île-de-France',
-  teletravail: (hy, re) => (hy && re ? 'Hybride et télétravail complet acceptés' : hy ? 'Hybride accepté, pas le télétravail complet'
-    : re ? 'Télétravail complet accepté, pas l\'hybride' : 'Sur place seulement'),
-  autres: (n) => ` et ${n} autre${n > 1 ? 's' : ''}`, ailleurs: (l) => (l.length ? `Seulement ${l.join(', ')}` : 'Rien'),
-  jours: (n) => `${n} jours`, rien: 'Aucun', oui: 'oui', non: 'non',
-  entreprises: (n, prio) => `${n} entreprise${n > 1 ? 's' : ''} suivie${n > 1 ? 's' : ''}` + (prio.length ? ` · ${prio.join(', ')} en priorité absolue` : ''),
+  teletravail: (hy, re) => (hy && re ? 'hybride ou à distance' : hy ? 'hybride' : re ? 'à distance' : 'sur place'),
+  moins: (s) => `moins : ${s}`, aucunSecteur: 'Aucun secteur visé',
+  entreprises: (n, prio) => `${n} suivie${n > 1 ? 's' : ''}` + (prio ? ` · ${prio} en priorité` : ''),
   recherches: (n) => `${n} recherche${n > 1 ? 's' : ''} envoyée${n > 1 ? 's' : ''} aux sites d'offres`,
-  fins: (p) => `${p.postes_exclus.length} postes, ${p.contrats_exclus.length} types de contrat et ${p.niveaux_exclus.length} `
-    + `niveaux sont écartés. Les offres de plus de ${p.anciennete_max_jours} jours sont ignorées.`,
+  fins: (n, j) => `${n} exclusions · offres de moins de ${j} jours`,
+  vide: 'Décris en une phrase le stage que tu cherches : l\'IA s\'en sert pour noter les offres.',
+  anciens: (n) => (n > 1 ? `Voir les ${n} messages précédents` : 'Voir le message précédent'),
+  jours: (n) => `${n} jours`, rien: 'Aucun', oui: 'oui', non: 'non',
+  raccourcis: { idf: 'Cherche dans toute l\'Île-de-France', hybride: 'Accepte aussi l\'hybride', six: 'Accepte aussi les stages de 6 mois',
+    domaine: 'Ajoute un domaine', entreprise: 'Suis une autre entreprise', tard: 'Je veux commencer plus tard' },
 };
 
 function valeurTexte(champ, v) {
@@ -72,119 +69,60 @@ function valeurTexte(champ, v) {
   return String(v);
 }
 
-// « a, b, c et 4 autres » : une liste longue reste sur une ligne ou deux.
-const liste = (l, max = 8) => (l.length ? l.slice(0, max).join(', ') + (l.length > max ? P.autres(l.length - max) : '') : P.rien);
-
-// Quelques étiquettes au lieu d'une longue liste : les premières, puis « +4 » (le reste est dans « Modifier »).
-// `fortes` : celles à mettre en avant (entreprises en priorité absolue).
-const etiquettes = (l, max = 4, fortes = []) => (l.length
-  ? h('span', { class: 'etiquettes', translate: 'no' }, l.slice(0, max).map(x => h('span', { class: `etiquette${fortes.includes(x) ? ' forte' : ''}` }, x)),
-    l.length > max ? h('span', { class: 'etiquette plus', title: l.slice(max).join(', ') }, `+${l.length - max}`) : null)
-  : h('span', { class: 'vide-lu' }, P.rien));
-
-// ======================================================================= rubriques
+// « a · b · c +6 » : les premiers éléments, puis le nombre de ceux qu'on ne montre pas (ils sont dans « Modifier »).
+const premiers = (l, max, { fort = false } = {}) => [
+  ...l.slice(0, max).flatMap((x, i) => [i ? ' · ' : '', fort && !i ? h('b', {}, x) : x]),
+  l.length > max ? h('span', { class: 'en-plus', title: l.slice(max).join(', ') }, `+${l.length - max}`) : '',
+];
 
 const RUBRIQUES = [
-  { id: 'qui', titre: 'Ce que tu cherches', champs: ['recherche', 'ecole', 'annee', 'majeure', 'competences'], lecture: lireQui, edition: editerQui },
-  { id: 'quand', titre: 'Quand', champs: ['contrats', 'debut_au_plus_tot', 'debut_ideal', 'debut_au_plus_tard', 'fin_au_plus_tard', 'duree_min', 'duree_max', 'six_mois'], lecture: lireQuand, edition: editerQuand },
-  { id: 'ou', titre: 'Où', champs: ['departements', 'hybride', 'full_remote'], lecture: lireOu, edition: editerOu },
-  { id: 'domaines', titre: 'Domaines', champs: ['domaines'], lecture: lireDomaines, edition: editerDomaines },
-  { id: 'secteurs', titre: 'Secteurs', champs: ['secteurs_cible', 'secteurs_ok', 'secteurs_moins', 'autres_secteurs_domaines', 'tailles'], aussi: ['domaines'], lecture: lireSecteurs, edition: editerSecteurs },
-  { id: 'entreprises', titre: 'Entreprises suivies', champs: ['entreprises'], lecture: lireEntreprises, edition: editerEntreprises },
-  { id: 'recherches', titre: 'Recherches envoyées aux sites', champs: ['requetes'], lecture: lireRecherches, edition: editerRecherches },
-  { id: 'fins', titre: 'Filtres fins', champs: ['postes_exclus', 'contrats_exclus', 'niveaux_exclus', 'anciennete_max_jours'], lecture: lireFins, edition: editerFins },
+  { id: 'qui', titre: 'Ce que tu cherches', champs: ['recherche', 'ecole', 'annee', 'majeure', 'competences'], resume: resumeQui, edition: editerQui },
+  { id: 'quand', titre: 'Quand', champs: ['contrats', 'debut_au_plus_tot', 'debut_ideal', 'debut_au_plus_tard', 'fin_au_plus_tard', 'duree_min', 'duree_max', 'six_mois'], resume: resumeQuand, edition: editerQuand },
+  { id: 'ou', titre: 'Où', champs: ['departements', 'hybride', 'full_remote'], resume: resumeOu, edition: editerOu },
+  { id: 'domaines', titre: 'Domaines', champs: ['domaines'], resume: (p) => premiers(p.domaines, 3, { fort: true }), edition: editerDomaines },
+  { id: 'secteurs', titre: 'Secteurs', champs: ['secteurs_cible', 'secteurs_ok', 'secteurs_moins', 'autres_secteurs_domaines', 'tailles'], aussi: ['domaines'], resume: resumeSecteurs, edition: editerSecteurs },
+  { id: 'entreprises', titre: 'Entreprises', champs: ['entreprises'], resume: resumeEntreprises, edition: editerEntreprises },
+  { id: 'recherches', titre: 'Recherches', champs: ['requetes'], technique: true, resume: (p) => P.recherches(p.requetes.length), edition: editerRecherches },
+  { id: 'fins', titre: 'Filtres fins', champs: ['postes_exclus', 'contrats_exclus', 'niveaux_exclus', 'anciennete_max_jours'], technique: true, resume: resumeFins, edition: editerFins },
 ];
 const rubrique = (id) => RUBRIQUES.find(r => r.id === id);
 
-// Lignes « libellé : valeur » : la forme calme de presque toutes les rubriques.
-const lignes = (...paires) => h('dl', { class: 'lignes' }, paires.filter(Boolean).map(([libelle, valeur]) => h('div', {},
-  h('dt', {}, libelle), h('dd', { translate: 'no' }, valeur))));
-
-function lireQui(p) {
-  return [
-    h('p', { class: `phrase-recherche${p.recherche ? '' : ' vide'}`, translate: p.recherche ? 'no' : null },
-      p.recherche || 'Décris en une phrase le stage que tu cherches : l\'IA s\'en sert pour noter les offres.'),
-    lignes(['Études', [p.ecole, p.annee, p.majeure].filter(Boolean).join(' · ') || '—'], ['Compétences', liste(p.competences, 12)]),
-  ];
+function resumeQui(p) {
+  return h('p', { class: `phrase-recherche${p.recherche ? '' : ' vide'}`, translate: p.recherche ? 'no' : null }, p.recherche || P.vide);
 }
 
-function lireQuand(p) {
-  return [
-    lignes(
-      ['Contrat', P.contrats[p.contrats.join(',')]],
-      ['Début', P.debut(dateLongue(p.debut_au_plus_tot, false), dateLongue(p.debut_au_plus_tard), dateLongue(p.debut_ideal, false))],
-      ['Fin', P.fin(dateLongue(p.fin_au_plus_tard))],
-      ['Durée', P.duree(p.duree_min, p.duree_max)],
-      ['6 mois fixes', P.six[p.six_mois]]),
-    frise(p),
-  ];
+function resumeQuand(p) {
+  const debut = dateLongue(p.debut_ideal, p.debut_ideal.slice(0, 4) !== p.fin_au_plus_tard.slice(0, 4));
+  return `${P.contrats[p.contrats.join(',')]} · ${debut} → ${dateLongue(p.fin_au_plus_tard)} · ${P.duree(p.duree_min, p.duree_max)}`;
 }
 
-function lireOu(p) {
+function resumeOu(p) {
   const tous = Object.keys(etat.d.departements).every(c => p.departements.includes(c));
-  return lignes(
-    ['Zone', tous ? P.toute : liste(p.departements.map(c => etat.d.departements[c]))],
-    ['Télétravail', P.teletravail(p.hybride, p.full_remote)]);
+  return [...(tous ? [P.toute] : premiers(p.departements.map(c => etat.d.departements[c]), 2)), ' · ', P.teletravail(p.hybride, p.full_remote)];
 }
 
-function lireDomaines(p) {
-  return [
-    h('ol', { class: 'domaines-lus', translate: 'no' }, p.domaines.map((d, i) => h('li', {}, h('span', { class: 'rang' }, String(i + 1)), d))),
-    h('p', { class: 'precision' }, 'Dans l\'ordre de préférence : le premier compte le plus dans la note.'),
-  ];
+function resumeSecteurs(p) {
+  if (!p.secteurs_cible.length) return P.aucunSecteur;
+  return [...premiers(p.secteurs_cible, 2), p.secteurs_moins.length ? ` · ${P.moins(p.secteurs_moins[0])}` : ''];
 }
 
-function lireSecteurs(p) {
-  return lignes(
-    ['Visés', etiquettes(p.secteurs_cible)],
-    ['Bien aussi', etiquettes(p.secteurs_ok)],
-    ['Moins intéressants', etiquettes(p.secteurs_moins)],
-    ['Ailleurs', P.ailleurs(p.autres_secteurs_domaines)],
-    p.tailles.length ? ['Tailles préférées', etiquettes(p.tailles)] : null);
+function resumeEntreprises(p) {
+  const prio = p.entreprises.filter(e => e.groupe === 'priorite_absolue').map(e => e.nom);
+  return P.entreprises(p.entreprises.length, prio.slice(0, 2).join(', '));
 }
 
-// Une ligne de résumé, puis les premières entreprises (priorité absolue d'abord, en lavande).
-function lireEntreprises(p) {
-  const ordre = Object.fromEntries(GROUPES_TITRES.map(([g], i) => [g, i]));
-  const triees = [...p.entreprises].sort((a, b) => (ordre[a.groupe] ?? 9) - (ordre[b.groupe] ?? 9));
-  const prioritaires = triees.filter(e => e.groupe === 'priorite_absolue').map(e => e.nom);
-  return [
-    h('p', { class: 'resume-lu', translate: 'no' }, P.entreprises(p.entreprises.length, prioritaires)),
-    etiquettes(triees.map(e => e.nom), 7, prioritaires),
-  ];
+function resumeFins(p) {
+  return P.fins(p.postes_exclus.length + p.contrats_exclus.length + p.niveaux_exclus.length, p.anciennete_max_jours);
 }
 
-function lireRecherches(p) {
-  return [h('p', { class: 'resume-lu', translate: 'no' }, P.recherches(p.requetes.length)), etiquettes(p.requetes, 3)];
-}
-
-function lireFins(p) {
-  return h('p', { class: 'resume-lu', translate: 'no' }, P.fins(p));
-}
-
-// Frise : la fenêtre de début (bande), le début idéal (point), le stage idéal (barre) et la fin au plus tard.
-function frise(p) {
-  const jour = (iso) => new Date(`${iso}T12:00:00`).getTime();
-  const debutFrise = new Date(jour(p.debut_au_plus_tot)); debutFrise.setDate(1);
-  const finFrise = new Date(jour(p.fin_au_plus_tard)); finFrise.setMonth(finFrise.getMonth() + 1, 1);
-  const total = finFrise - debutFrise;
-  const x = (t) => `${((t - debutFrise) / total) * 100}%`;
-  const largeur = (a, b) => `${(Math.max(0, b - a) / total) * 100}%`;
-  const moisNoms = [];
-  for (const m = new Date(debutFrise); m < finFrise; m.setMonth(m.getMonth() + 1)) {
-    moisNoms.push(h('span', { class: 'mois', style: `left:${x(m.getTime())}` }, new Intl.DateTimeFormat(LOCALE, { month: 'short' }).format(m)));
-  }
-  const ideal = jour(p.debut_ideal);
-  const finStage = new Date(ideal); finStage.setMonth(finStage.getMonth() + Math.floor(p.duree_max));
-  if (p.duree_max % 1) finStage.setDate(finStage.getDate() + 15);
-  const finMin = new Date(ideal); finMin.setMonth(finMin.getMonth() + Math.floor(p.duree_min));
-  const trop = finMin.getTime() > jour(p.fin_au_plus_tard);
-  const finBarre = Math.min(finStage.getTime(), jour(p.fin_au_plus_tard));
-  return h('div', { class: 'frise', 'aria-hidden': 'true', translate: 'no' }, moisNoms,
-    h('span', { class: 'fenetre-debut', style: `left:${x(jour(p.debut_au_plus_tot))};width:${largeur(jour(p.debut_au_plus_tot), jour(p.debut_au_plus_tard))}` }),
-    h('span', { class: `stage${trop ? ' trop-long' : ''}`, style: `left:${x(ideal)};width:${largeur(ideal, finBarre)}` }),
-    h('span', { class: 'ideal', style: `left:${x(ideal)}` }),
-    h('span', { class: 'fin', style: `left:${x(jour(p.fin_au_plus_tard))}` }));
+// Suggestions en un clic sous la conversation : d'abord ce qui élargirait un profil restreint, puis des demandes courantes.
+function raccourcis(p) {
+  const R = P.raccourcis;
+  const l = [];
+  if (!Object.keys(etat.d.departements).every(c => p.departements.includes(c))) l.push(R.idf);
+  if (!p.hybride) l.push(R.hybride);
+  if (p.duree_max < 6) l.push(R.six);
+  return [...l, R.domaine, R.entreprise, R.tard].slice(0, 3);
 }
 
 // ======================================================================= dessin
@@ -193,10 +131,13 @@ async function charger() {
   const d = await api('/api/profil');
   majMenu(d.menu);
   Object.assign(etat, { d, p: d.profil, alertes: d.alertes, messages: d.messages });
-  $('#feuille').replaceChildren(h('div', { id: 'bandeaux' }), ...RUBRIQUES.map(r => h('section', {
-    class: 'rubrique', id: `r-${r.id}`, 'aria-labelledby': `t-${r.id}`,
-  })));
+  const section = (r) => h('section', { class: 'rubrique', id: `r-${r.id}`, 'aria-labelledby': `t-${r.id}` });
+  $('#feuille').replaceChildren(h('div', { id: 'bandeaux' }), ...RUBRIQUES.filter(r => !r.technique).map(section),
+    h('button', { class: 'techniques', id: 'techniques', type: 'button', 'aria-expanded': 'false', onclick: () => montrerTechniques(!etat.techniques) },
+      icone(BAS), h('span', {})),
+    ...RUBRIQUES.filter(r => r.technique).map(section));
   RUBRIQUES.forEach(r => dessinerRubrique(r));
+  montrerTechniques(etat.techniques);
   dessinerBandeaux();
   dessinerFil();
 }
@@ -207,13 +148,25 @@ function dessinerRubrique(r) {
   el.classList.toggle('ouverte', ouverte);
   el.classList.toggle('en-retrait', !!etat.ouverte && !ouverte);
   el.inert = !!etat.ouverte && !ouverte;   // une seule rubrique à la fois : les autres attendent
-  el.replaceChildren(
-    h('header', { class: 'rubrique-tete' },
-      h('h2', { id: `t-${r.id}` }, r.titre),
-      ouverte ? null : h('button', {
-        type: 'button', class: 'modifier', 'data-rubrique': r.id, 'aria-describedby': `t-${r.id}`, onclick: () => ouvrir(r.id),
-      }, 'Modifier')),
-    ouverte ? formulaire(r) : h('div', { class: 'lecture' }, r.lecture(etat.p)));
+  el.hidden = !!r.technique && !etat.techniques && !ouverte;
+  if (ouverte) {
+    el.replaceChildren(h('header', { class: 'rubrique-tete' }, h('h2', { id: `t-${r.id}` }, r.titre)), formulaire(r));
+    return;
+  }
+  // Une ligne : titre, résumé, « Modifier ». Un clic n'importe où sur la ligne l'ouvre aussi (le bouton reste pour le clavier).
+  const resume = r.resume(etat.p);
+  el.replaceChildren(h('header', { class: 'rubrique-tete ligne-lue', onclick: (e) => { if (!e.target.closest('button')) ouvrir(r.id); } },
+    h('h2', { id: `t-${r.id}`, class: r.id === 'qui' ? 'sr-only' : null }, r.titre),
+    resume instanceof Node ? resume : h('p', { class: 'resume', translate: 'no' }, resume),
+    h('button', { type: 'button', class: 'modifier', 'data-rubrique': r.id, 'aria-describedby': `t-${r.id}`, onclick: () => ouvrir(r.id) }, 'Modifier')));
+}
+
+function montrerTechniques(oui) {
+  etat.techniques = oui;
+  const b = $('#techniques');
+  b.setAttribute('aria-expanded', String(oui));
+  b.querySelector('span').textContent = oui ? 'Masquer les réglages techniques' : 'Réglages techniques';
+  RUBRIQUES.filter(r => r.technique).forEach(r => dessinerRubrique(r));
 }
 
 function dessinerBandeaux() {
@@ -246,8 +199,10 @@ function appliquer(r, { flash = false } = {}) {
   if (champs.some(c => etat.d.champs_tri.includes(c))) etat.triEnAttente = true;
   const touchees = RUBRIQUES.filter(x => champs.some(c => x.champs.includes(c) || x.aussi?.includes(c)));
   if (touchees.some(x => x.id === etat.ouverte)) fermer();   // l'agent a changé la rubrique ouverte : on la relit
+  if (flash && touchees.some(x => x.technique && x.champs.some(c => champs.includes(c)))) montrerTechniques(true);
   touchees.forEach(x => dessinerRubrique(x));
   dessinerBandeaux();
+  dessinerFil({ defiler: false });   // les suggestions en un clic dépendent du profil
   if (flash) {
     const vraies = RUBRIQUES.filter(x => champs.some(c => x.champs.includes(c)));
     vraies.forEach((x) => { const el = $(`#r-${x.id}`); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); });
@@ -258,8 +213,8 @@ function appliquer(r, { flash = false } = {}) {
 async function annuler(changements, { depuisChat = null } = {}) {
   try {
     const r = await api('/api/profil', { valeurs: Object.fromEntries(changements.map(c => [c.champ, c.avant])) });
+    if (depuisChat !== null) etat.annules.add(depuisChat);
     appliquer(r, { flash: true });
-    if (depuisChat !== null) { etat.annules.add(depuisChat); dessinerFil({ defiler: false }); }
     toast(changements.length > 1 ? 'Changements annulés.' : 'Changement annulé.');
   } catch (e) { toast(`Impossible d'annuler : ${e.message}`); }
 }
@@ -594,16 +549,23 @@ function difference(c) {
 function dessinerFil({ defiler = true } = {}) {
   const fil = $('#fil');
   $('#effacer').hidden = !etat.messages.length;
+  const puces = (l) => h('div', { class: 'suggestions' },
+    l.map(x => h('button', { class: 'pastille', type: 'button', translate: 'no', onclick: () => envoyer(x) }, x)));
   if (!etat.messages.length) {
     fil.replaceChildren(h('div', { class: 'accueil-profil' },
-      h('p', {}, 'Dis-moi ce qui change dans ta recherche, avec tes mots. Je modifie ton profil et tu vois le résultat à gauche.'),
-      h('div', { class: 'suggestions' }, EXEMPLES.map(x => h('button', { class: 'pastille', type: 'button', onclick: () => envoyer(x) }, x)))));
+      h('p', {}, 'Dis-moi ce qui change, avec tes mots : je modifie ton profil.'), puces(raccourcis(etat.p))));
     return;
   }
   const derniere = etat.messages.at(-1);
-  fil.replaceChildren(...etat.messages.map(message),
-    derniere.role !== 'user' && derniere.suggestions?.length ? h('div', { class: 'suggestions' },
-      derniere.suggestions.map(x => h('button', { class: 'pastille', type: 'button', translate: 'no', onclick: () => envoyer(x) }, x))) : '');
+  const proposees = derniere.role !== 'user' && derniere.suggestions?.length ? derniere.suggestions : raccourcis(etat.p);
+  // Seul le dernier échange est montré : les anciens messages sont repliés derrière un lien.
+  let debut = etat.toutFil ? 0 : Math.max(0, etat.messages.length - 2);
+  if (debut && etat.messages[debut].role !== 'user') debut -= 1;
+  fil.replaceChildren(
+    debut ? h('button', { class: 'plus-anciens', type: 'button', onclick: () => { etat.toutFil = true; dessinerFil({ defiler: false }); } },
+      P.anciens(debut)) : '',
+    ...etat.messages.slice(debut).map((m, j) => message(m, debut + j)),
+    puces(proposees));
   if (defiler) fil.scrollTop = fil.scrollHeight;
 }
 
@@ -637,8 +599,9 @@ async function envoyer(t) {
   try {
     const d = await api('/api/profil/message', { texte: contenu });
     etat.messages = d.messages;
-    dessinerFil();
+    etat.toutFil = false;
     appliquer(d, { flash: true });
+    dessinerFil();
   } catch (e) {
     fil.querySelector('.ecrit')?.remove();
     fil.lastElementChild?.remove();
@@ -660,6 +623,7 @@ $('#effacer').addEventListener('click', async () => {
   const d = await api('/api/profil/effacer', {});
   etat.messages = d.messages;
   etat.annules.clear();
+  etat.toutFil = false;
   dessinerFil();
 });
 

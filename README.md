@@ -173,13 +173,13 @@ Pour l'arrêter : `Ctrl + C` dans le terminal.
 - **Journal** : crédit Claude restant, dépense du mois, et chaque scrap (clique un passage pour le détail
   source par source, erreurs comprises).
 - **Corbeille** : offres écartées par toi, par le tri, ou expirées. Rien n'est supprimé : « Remettre à trier ».
-- **Mon profil** : une fiche qui se lit d'un coup d'œil : ce que tu cherches (une phrase), quand (avec une
-  frise des dates), où, tes domaines dans l'ordre de préférence (le premier compte le plus dans la note), les
-  secteurs, les entreprises suivies, les recherches envoyées aux sites et des filtres fins. Chaque rubrique a
-  un bouton **Modifier** qui l'ouvre sur place ; **Enregistrer** l'écrit dans config.yaml (copie dans
+- **Mon profil** : une fiche qui tient sur un écran : ce que tu cherches (une phrase), puis une ligne de résumé
+  par rubrique (quand, où, domaines dans l'ordre de préférence, secteurs, entreprises suivies) ; les recherches
+  envoyées aux sites et les filtres fins sont repliés sous « Réglages techniques ». Un clic sur une ligne (ou
+  sur **Modifier**) l'ouvre sur place avec tout le détail ; **Enregistrer** l'écrit dans config.yaml (copie dans
   config.yaml.bak) et « Annuler » dans le message du bas la remet. Échap referme sans rien changer. À droite,
-  **Modifier en parlant** : dis « accepte aussi les stages de 6 mois » ou « suis aussi Alan » et l'agent (Gemini,
-  gratuit) modifie le profil lui-même ; chaque changement est vérifié (dates cohérentes, départements
+  **Modifier en parlant** : dis « accepte aussi les stages de 6 mois » ou « suis aussi Alan » (ou clique une des
+  suggestions) et l'agent (Gemini, gratuit) modifie le profil lui-même ; seul le dernier échange reste affiché ; chaque changement est vérifié (dates cohérentes, départements
   d'Île-de-France…) et s'annule depuis la conversation. Garde-fou : si un bot annonce un changement qui
   n'a pas eu lieu, il est relancé une fois, puis sa réponse est remplacée par une erreur (« Je n'ai rien modifié… ») ;
   l'Assistant et le dossier signalent de même toute action annoncée mais pas faite. Le scoring et l'Assistant lisent ce profil : une

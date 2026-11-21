@@ -63,9 +63,11 @@ Thème sombre seulement (`color-scheme: dark`).
 - **Toast** en bas : message court + « Annuler » (toute décision s'annule).
 - **Bulles de conversation** (`.bulle.ia` / `.bulle.moi`) et zone de saisie (`.saisie`), communes au dossier
   et à l'Assistant.
-- **Fiche calme** (Mon profil, `stage_scraper/web/statique/css/profil.css`) : rubriques séparées par un filet, sans cartes ; en lecture,
-  des lignes « libellé gris : valeur » (`.lignes`) et rien de cliquable sauf un bouton **Modifier** discret par
-  rubrique. Une seule rubrique s'ouvre à la fois (`.ouverte` : verre plus clair, contour lavande, ombre douce ;
+- **Fiche calme** (Mon profil, `stage_scraper/web/statique/css/profil.css`) : la phrase de recherche en grand, puis UNE ligne par
+  rubrique (`.ligne-lue` : titre gris, résumé, **Modifier** discret ; toute la ligne ouvre la rubrique), séparées
+  par un filet, sans cartes ; au-delà de 3 éléments, un compteur `+6` (`.en-plus`). Les réglages techniques
+  (recherches, filtres fins) sont repliés sous un lien. Le chat ne montre que le dernier échange (les anciens
+  derrière « Voir les N messages précédents ») et 3 suggestions en un clic tirées du profil. Une seule rubrique s'ouvre à la fois (`.ouverte` : verre plus clair, contour lavande, ombre douce ;
   les autres passent à 34 % d'opacité et deviennent inertes) avec son pied **Annuler / Enregistrer** collé en
   bas de l'écran. Les rubriques modifiées par l'agent s'éclairent un instant en lavande (`.flash`). Les valeurs
   en phrases (dates, durées) sont écrites entières dans chaque langue (dans `profil.js`).

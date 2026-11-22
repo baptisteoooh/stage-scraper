@@ -153,7 +153,9 @@ Pour l'arrêter : `Ctrl + C` dans le terminal.
   La carte d'exemple se glisse déjà, pour essayer le geste.
 - **À trier** : une offre à la fois. Glisse la carte **à droite** (Intéressé : elle part dans Ma sélection),
   **à gauche** (Pas intéressé) ou **vers le haut** (Plus tard). Un geste vif suffit, même court. Mêmes décisions
-  avec les boutons ronds ou le clavier (← → ↑) ; **Ctrl+Z** annule. « Détails » (ou Entrée) fait grossir la carte au centre pour lire l'annonce complète.
+  avec les deux grandes flèches, le bouton « Plus tard » ou le clavier (← → ↑) ; **Ctrl+Z** annule. Toucher la carte, « Détails » ou
+  Entrée la fait grossir au centre pour lire l'annonce complète. Ordre par défaut : meilleure note (les offres pas encore notées
+  en dernier) ; le filtre choisi est retenu. Sur téléphone, une barre d'onglets en bas mène aux autres pages.
   Filtres en haut : Santé / Hors santé / À négocier / Plus tard, tri, offres « Bof » (moins de 5/10), recherche.
 - **Ma sélection** : les offres gardées, rangées par étape (En préparation, Envoyées, Entretien, Terminées).
   Une fiche par offre : changer d'étape (« C'est envoyé », « J'ai relancé »), dates, notes (gardées toutes seules),

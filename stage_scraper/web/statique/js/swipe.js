@@ -19,10 +19,11 @@ export class Glisseur {
    * @param {{auBouger?: Function, auLacher?: Function, haut?: boolean}} options
    *   auBouger({dx, dy, force, dir, retour}) : à chaque image (force de 0 à 1, dir : droite|gauche|haut|null)
    *   auLacher(dir, fin) : la carte part dans cette direction (fin : promesse tenue quand elle est sortie)
+   *   auTap() : un simple toucher / clic sur la carte, sans la faire glisser (ouvrir les détails)
    *   haut : autoriser le glissement vers le haut (Plus tard)
    */
-  constructor(carte, { auBouger = () => {}, auLacher = () => {}, haut = true } = {}) {
-    Object.assign(this, { carte, auBouger, auLacher, haut });
+  constructor(carte, { auBouger = () => {}, auLacher = () => {}, auTap = null, haut = true } = {}) {
+    Object.assign(this, { carte, auBouger, auLacher, auTap, haut });
     this.dx = 0; this.dy = 0; this.actif = false; this.points = []; this.anim = null; this.image = 0;
     this.parti = false;
     this._bas = this._bas.bind(this); this._bouge = this._bouge.bind(this); this._haut = this._haut.bind(this);
@@ -55,6 +56,7 @@ export class Glisseur {
     this.x0 = e.clientX - this.dx; this.y0 = e.clientY - this.dy;
     this.actif = true;
     this.points = [{ x: e.clientX, y: e.clientY, t: e.timeStamp }];
+    this.debut = { x: e.clientX, y: e.clientY, t: e.timeStamp };
     this.carte.setPointerCapture(e.pointerId);
     this.carte.classList.add('tenue');
     this._peindre();
@@ -113,8 +115,11 @@ export class Glisseur {
     if (this.dx > l * .32 || (vx > .5 && this.dx > 24)) dir = 'droite';
     else if (this.dx < -l * .32 || (vx < -.5 && this.dx < -24)) dir = 'gauche';
     else if (this.haut && Math.abs(dy) > Math.abs(this.dx) && (dy < -h * .26 || (vy < -.5 && dy < -24))) dir = 'haut';
-    if (dir) this.auLacher(dir, this.envoyer(dir, Math.hypot(vx, vy)));
-    else this.revenir();
+    if (dir) { this.auLacher(dir, this.envoyer(dir, Math.hypot(vx, vy))); return; }
+    this.revenir();
+    // Toucher sans bouger (pas un défilement annulé par le navigateur) : c'est un « tap ».
+    const d = this.debut;
+    if (this.auTap && e.type === 'pointerup' && d && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 8 && e.timeStamp - d.t < 500) this.auTap();
   }
 
   /** Fait partir la carte (geste, bouton ou clavier). Renvoie une promesse tenue quand elle est sortie. */

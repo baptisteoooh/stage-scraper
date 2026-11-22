@@ -670,7 +670,10 @@
     "Notation par l'IA en pause (clé Gemini absente) : les offres arrivent sans note.": "AI scoring is paused (no Gemini key): offers arrive without a score.",
     "Pour changer ce qui est écarté : Mon profil.": "To change what gets filtered out: My profile.",
     "gardée": "kept",
-    "notée 8+": "scored 8+"
+    "notée 8+": "scored 8+",
+    "{n} restantes": "{1} left",
+    "1 restante": "1 left",
+    "Non notée": "Not scored"
   },
   "motifs": {
     "{} · Stage Scraper": "{1} · Stage Scraper",

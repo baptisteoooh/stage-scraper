@@ -10,7 +10,7 @@ const SECTIONS = [
   { cle: 'À négocier', nom: 'À négocier' },
   { cle: 'plus_tard', nom: 'Plus tard' },
 ];
-const ORDRES = [{ cle: 'recentes', nom: 'Plus récentes' }, { cle: 'note', nom: 'Meilleure note' }];
+const ORDRES = [{ cle: 'note', nom: 'Meilleure note' }, { cle: 'recentes', nom: 'Plus récentes' }];
 const RAISONS = ['Trop long (6 mois)', 'Commercial / pas technique', 'Pas mon domaine', 'Dates incompatibles',
   'Hors Île-de-France', 'Entreprise'];
 const ACTION = { droite: 'candidate', gauche: 'ecarte', haut: 'plus_tard' };
@@ -20,7 +20,7 @@ const TEXTE_ACTION = { candidate: 'ajoutée à Ma sélection', ecarte: 'écarté
 const etat = {
   toutes: [],          // toutes les offres à trier (y compris « plus tard » et « bof »)
   section: 'toutes',
-  tri: 'recentes',     // ou 'note'
+  tri: 'note',         // ou 'recentes' (la meilleure note d'abord ; les offres pas encore notées en dernier)
   bof: false,
   recherche: '',
   historique: [],      // décisions de la visite, pour Ctrl+Z
@@ -137,8 +137,22 @@ function fermerMenu({ rendreFocus = true } = {}) {
 function elementsMenu() { return [...$('#menu-filtres').querySelectorAll('[role^="menuitem"]')]; }
 
 // Un choix referme le menu (on voit tout de suite le paquet changer) ; l'interrupteur Bof aussi.
+const CLE_FILTRES = 'a-trier.filtres';
+function retenirFiltres() {
+  try { localStorage.setItem(CLE_FILTRES, JSON.stringify({ section: etat.section, tri: etat.tri, bof: etat.bof })); } catch { /* sans gravité */ }
+}
+function reprendreFiltres() {
+  try {
+    const f = JSON.parse(localStorage.getItem(CLE_FILTRES) || '{}');
+    if (SECTIONS.some(x => x.cle === f.section)) etat.section = f.section;
+    if (ORDRES.some(x => x.cle === f.tri)) etat.tri = f.tri;
+    if (typeof f.bof === 'boolean') etat.bof = f.bof;
+  } catch { /* rien de retenu */ }
+}
+
 function choisir(changement) {
   Object.assign(etat, changement);
+  retenirFiltres();
   fermerMenu();
   rafraichir({ distribuer: true });
 }
@@ -157,8 +171,8 @@ function clavierMenu(e) {
 
 // ======================================================================= cartes
 
-// Carte d'une offre : tout ce qu'il faut pour décider sans ouvrir les détails (résumé de la mission en entier,
-// extrait de l'annonce ; la raison de la note reste dans « Détails »). Si c'est long, le milieu défile dans la carte au lieu d'être coupé.
+// Carte d'une offre : de quoi décider sans ouvrir les détails (le résumé de la mission en entier). L'extrait de
+// l'annonce et la raison de la note restent dans « Détails » (un toucher sur la carte l'ouvre). Si c'est long, le résumé défile.
 function contenuCarte(o) {
   const meta = [o.anciennete, o.site].filter(Boolean).join(' · ');
   return [
@@ -167,13 +181,11 @@ function contenuCarte(o) {
       h('span', { class: 'qui' }, h('b', {}, o.entreprise), o.lieu ? ` · ${o.lieu}` : '',
         o.nouvelle ? h('span', { class: 'etiquette' }, 'Nouvelle') : null),
       o.score === null
-        ? h('span', { class: 'score', title: "Pas encore notée par l'IA" }, '—')
+        ? h('span', { class: 'score attente', title: "Pas encore notée par l'IA" }, 'Non notée')
         : h('span', { class: 'score', 'aria-label': `Note ${o.score} sur 10` }, String(o.score), h('small', {}, '/10'))),
     h('h3', {}, o.titre),
     h('div', { class: 'puces' }, o.puces.map(p => h('span', { class: p.type }, p.texte))),
-    h('div', { class: 'defile' },
-      o.resume ? h('p', { class: 'resume' }, o.resume) : null,
-      o.extrait ? h('div', { class: 'extrait' }, h('h4', {}, "Dans l'annonce"), h('p', { translate: 'no' }, o.extrait)) : null),
+    h('div', { class: 'defile' }, o.resume ? h('p', { class: 'resume' }, o.resume) : null),
     h('div', { class: 'pied' },
       o.lien ? h('a', { href: o.lien, target: '_blank', rel: 'noopener' }, "Voir l'annonce ↗") : null,
       h('button', { type: 'button', onclick: () => ouvrirFiche(o.id) }, 'Détails'),
@@ -225,9 +237,9 @@ function distribuerPaquet() {
 
 function majCompte() {
   const n = visibles().length;
-  $('#compte').textContent = n ? `1 sur ${n}` : '';
+  $('#compte').textContent = n ? (n > 1 ? `${n} restantes` : '1 restante') : '';
   const vide = n === 0;
-  for (const b of ['#bouton-non', '#bouton-tard', '#bouton-oui', '#fleche-non', '#fleche-oui']) $(b).disabled = vide;
+  for (const b of ['#bouton-tard', '#fleche-non', '#fleche-oui']) $(b).disabled = vide;
   if (vide && !$('#pile .vide')) $('#pile').append(messageVide());
 }
 
@@ -253,6 +265,7 @@ function activerDessus() {
     haut: true,
     auBouger: ({ dir, force, retour, depart }) => suivreGeste(carte, suivante, dir, force, retour, depart),
     auLacher: (dir, fin) => decider(dir, fin),
+    auTap: () => ouvrirFiche(Number(carte.dataset.id)),
   });
 }
 
@@ -475,8 +488,6 @@ async function apresScrap(s) {
 // ======================================================================= branchements
 
 function brancher() {
-  $('#bouton-oui').addEventListener('click', () => decider('droite'));
-  $('#bouton-non').addEventListener('click', () => decider('gauche'));
   $('#bouton-tard').addEventListener('click', () => decider('haut'));
   $('#fleche-oui').addEventListener('click', () => decider('droite'));
   $('#fleche-non').addEventListener('click', () => decider('gauche'));
@@ -511,5 +522,6 @@ function brancher() {
   });
 }
 
+reprendreFiltres();
 brancher();
 charger().catch((e) => { console.error(e); toast('Impossible de charger les offres : le serveur tourne-t-il ?'); });

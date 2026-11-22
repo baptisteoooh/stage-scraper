@@ -42,11 +42,16 @@ Thème sombre seulement (`color-scheme: dark`).
   boutons secondaires (`.pastille`) ; boutons ronds pour le tri.
 - Verre : `backdrop-filter: blur(24–30px)`, filet intérieur blanc à 10–12 %, ombre portée prune très douce.
 - **Carte de À trier** (`.carte`, `a-trier.css`) : plus de contour (comme Ma sélection), verre sombre, coins 18 px,
-  ombre floue ; les deux suivantes dépassent dessous. Carte large (600 px, jusqu'à 680 px de haut) pour décider
+  ombre floue ; les deux suivantes dépassent dessous. Carte large (600 px, jusqu'à 700 px de haut) pour décider
   sans ouvrir les détails : ligne « entreprise · lieu » avec la note en couleur (vert ≥ 8, violet 5–7, gris
-  dessous), titre, étiquettes (IA / data en violet plein), puis un milieu qui défile (`.defile`, effacé en bas) :
-  résumé de la mission en entier (3–4 phrases écrites par Gemini), extrait de l'annonce. La raison de la note
-  reste dans « Détails ».
+  dessous ; « Non notée » en petite pastille), titre, étiquettes (IA / data en violet plein), puis le résumé de
+  la mission qui défile (`.defile`, effacé en bas). L'extrait de l'annonce et la raison de la note restent dans
+  « Détails » ; un toucher sur la carte l'ouvre.
+- **Décisions de À trier** : seulement les deux grandes flèches (sur les côtés ; sous la carte sur écran étroit,
+  sans texte sur téléphone) et un petit « Plus tard » sous la carte. Compteur « 110 restantes ». Les messages
+  (toast) s'affichent en haut sur cette page et sur téléphone, jamais sur les boutons.
+- **Téléphone** : barre d'onglets en bas (À trier, Ma sélection, Assistant, Profil, Plus › Réglages, Journal,
+  Corbeille), compteurs en pastille lavande.
 - « Détails » : la carte grossit au centre (View Transition, 0,5 s) en une grande carte de 860 px, page voilée
   et floutée derrière ; croix ou Échap pour la refermer (elle rétrécit vers le paquet). Pied : Pas intéressé
   (rouge transparent, à gauche), Plus tard, Intéressé (vert transparent). Plein écran sur téléphone.

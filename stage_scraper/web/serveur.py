@@ -228,7 +228,6 @@ def carte(o: dict, nouveau_passage: int | None = None, aujourd_hui: date | None 
         "puces": _puces(o),
         "resume": o["resume"] or ("Pas encore notée par l'IA." if o["score"] is None else ""),
         "pourquoi": o["pourquoi"],
-        "extrait": presentation.extrait(o.get("description"), 420),
         "lien": o["lien"],
         "section": o["section"],
         "plus_tard": bool(o["favori"]),

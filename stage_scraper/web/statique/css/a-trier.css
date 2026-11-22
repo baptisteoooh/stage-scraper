@@ -6,10 +6,22 @@
 /* ---------------------------------------------------------------- la scène : flèches + paquet */
 .scene {
   flex: 1; min-height: 0; position: relative;
-  display: grid; grid-template-columns: 1fr minmax(0, 600px) 1fr; align-items: center; gap: 24px;
+  display: grid; grid-template-columns: 1fr minmax(0, 600px) 1fr; grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas: "g pile d" ". tard ."; align-items: center; column-gap: 24px;
   padding: 0 28px;
 }
-.pile { position: relative; width: 100%; height: min(calc(100% - 30px), 680px); align-self: center; margin-bottom: 30px; }
+/* Le paquet remplit la place laissée par la rangée du bas ; la carte y est centrée, 700 px de haut au plus. */
+.pile { grid-area: pile; position: relative; width: 100%; align-self: stretch; min-height: 0; }
+.cote-g { grid-area: g; } .cote-d { grid-area: d; }
+/* « Plus tard » : discret, sous la carte (les deux grandes flèches font le reste). */
+.tard {
+  grid-area: tard; justify-self: center; display: inline-flex; align-items: center; gap: 7px; margin: 18px 0 6px;
+  padding: 8px 14px; border-radius: 999px; font-size: 13.5px; font-weight: 500; color: var(--doux);
+  background: rgba(255, 255, 255, .06); transition: background-color .2s, color .2s;
+}
+.tard .ic { width: 16px; height: 16px; }
+.tard:hover { color: var(--texte); background: rgba(255, 255, 255, .12); }
+.tard[disabled], .cote-g[disabled], .cote-d[disabled] { opacity: .35; pointer-events: none; }
 
 .cote-g, .cote-d {
   display: flex; flex-direction: column; align-items: center; gap: 12px;
@@ -33,7 +45,7 @@
    vert à partir de 8, violet de 5 à 7, gris en dessous. */
 .carte {
   --n: #9E92AD;
-  position: absolute; inset: 0;
+  position: absolute; inset: 0; max-height: 700px; margin: auto 0;
   display: flex; flex-direction: column;
   padding: 26px 30px 20px; border-radius: 18px;
   background: rgba(28, 21, 38, .94);
@@ -46,7 +58,7 @@
 }
 .carte[data-niveau="haut"] { --n: #4BC98A; }
 .carte[data-niveau="moyen"] { --n: #B48CF5; }
-.carte.pos0 { z-index: 3; cursor: grab; box-shadow: 0 30px 60px rgba(5, 3, 9, .5); transform-origin: 50% 85%; }
+.carte.pos0 { z-index: 3; cursor: pointer; box-shadow: 0 30px 60px rgba(5, 3, 9, .5); transform-origin: 50% 85%; }
 .carte.pos0.tenue { cursor: grabbing; transition: none; }
 .carte.pos1 { z-index: 2; transform: translateY(14px) scale(.955); }
 .carte.pos2 { z-index: 1; transform: translateY(28px) scale(.91); background: rgba(28, 21, 38, .8); }
@@ -60,6 +72,8 @@
 .carte .qui b { display: inline; font-size: inherit; font-weight: 600; color: var(--texte); }
 .carte .score { flex: none; font-family: var(--titres); font-size: 30px; font-weight: 600; line-height: 1; color: var(--n); font-variant-numeric: tabular-nums; }
 .carte .score small { font-size: 16px; font-weight: 500; color: var(--faible); margin-left: 1px; }
+.carte .score.attente { font-family: inherit; font-size: 11.5px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--faible); padding: 4px 9px; border-radius: 999px; background: rgba(255, 255, 255, .06); align-self: center; }
 .carte h3 {
   font-family: var(--titres); font-size: clamp(21px, 1.9vw, 26px); font-weight: 600; line-height: 1.22; letter-spacing: -.03em;
   margin: 14px 0 12px; flex: none; text-wrap: balance;
@@ -77,9 +91,6 @@
   -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(180deg, #000 calc(100% - 28px), transparent);
 }
 .resume { font-size: 15.5px; line-height: 1.6; color: #E6DFEE; white-space: pre-line; }
-.extrait { margin-top: 16px; }
-.extrait h4 { margin-bottom: 6px; font-size: 12px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--faible); }
-.extrait p { font-size: 14px; line-height: 1.6; color: var(--doux); }
 .pied { flex: none; padding-top: 12px; display: flex; align-items: center; gap: 18px; font-size: 14px; font-weight: 500; }
 .pied a, .pied button { padding: 6px 0; white-space: nowrap; transition: color .2s; }
 .pied a:hover, .pied button:hover { color: #fff; text-decoration: underline; text-underline-offset: 4px; }
@@ -106,45 +117,36 @@
 .vide .bouton { margin-top: 10px; }
 @keyframes apparait { from { opacity: 0; transform: translateY(12px); } }
 
-/* ---------------------------------------------------------------- boutons du bas */
-.actions { display: flex; justify-content: center; align-items: center; gap: 18px; padding: 26px 0 10px; }
-.rond {
-  width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center;
-  background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1px var(--ligne);
-  transition: transform .3s var(--ressort), background-color .2s;
-}
-.rond:hover { background: rgba(255, 255, 255, .14); transform: translateY(-2px); }
-.rond:active { transform: scale(.92); }
-.rond.petit { width: 48px; height: 48px; }
-.rond.oui { width: 68px; height: 68px; color: var(--oui); background: color-mix(in oklab, var(--oui) 18%, transparent);
-  box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--oui) 55%, transparent), 0 10px 26px rgba(5, 3, 9, .4); }
-.rond.oui:hover { background: color-mix(in oklab, var(--oui) 28%, transparent); }
-.rond.oui .ic, .rond.non .ic { stroke-width: 2.2; }
-.rond.non { width: 68px; height: 68px; color: var(--non); background: color-mix(in oklab, var(--non) 18%, transparent);
-  box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--non) 55%, transparent); }
-.rond.non:hover { background: color-mix(in oklab, var(--non) 28%, transparent); }
-.rond[disabled] { opacity: .35; pointer-events: none; }
 .aide { text-align: center; font-size: 12px; color: var(--faible); padding: 4px 16px 22px; }
 
 @media (max-width: 1420px) {
   #tri span { display: none; }
   #tri { padding: 9px 11px; }
 }
+/* Écran étroit : les deux flèches passent sous la carte, « Plus tard » entre elles. */
 @media (max-width: 1150px) {
-  .scene { grid-template-columns: minmax(0, 500px); justify-content: center; }
-  .cote-g, .cote-d { display: none; }
+  .scene { grid-template-columns: 1fr auto 1fr; grid-template-areas: "pile pile pile" "g tard d"; justify-content: center;
+    max-width: 600px; width: 100%; margin: 0 auto; column-gap: 14px; }
+  .cote-g, .cote-d { flex-direction: row; gap: 10px; margin-top: 14px; }
+  .cote-g { justify-self: end; } .cote-d { justify-self: start; flex-direction: row-reverse; }
+  .cote-g i, .cote-d i { width: 60px; height: 60px; }
+  .cote-g .ic, .cote-d .ic { width: 24px; height: 24px; }
+  .tard { margin: 14px 0 0; padding: 8px 10px; }
 }
 @media (max-height: 820px) {
   .carte h3 { -webkit-line-clamp: 2; margin: 12px 0 10px; }
 }
 @media (max-height: 760px) {
-  .actions { padding-top: 18px; }
   .aide { display: none; }
 }
 
 /* Téléphone : la page défile, le paquet garde une hauteur confortable */
 @media (max-width: 700px) {
-  .scene { flex: none; height: 520px; padding: 0 16px; }
+  .scene { flex: none; padding: 0 16px; }
+  .pile { height: clamp(360px, calc(100dvh - 400px), 560px); }
+  .cote-g span, .cote-d span { display: none; }
+  .cote-g, .cote-d { margin-top: 34px; }
+  .tard { padding: 10px 14px; margin-top: 34px; }
   .carte { padding: 22px 20px 18px; }
   .aide { display: none; }
 }
@@ -244,3 +246,7 @@
   .grande-pied .bouton { flex: 1; padding: 11px 8px; font-size: 14px; white-space: nowrap; }
   .grande-pied .non { margin-right: 0; }
 }
+
+/* Sur cette page, les messages s'affichent en haut : en bas, ils cachaient « Plus tard » et les flèches. */
+.toast { bottom: auto; top: 20px; transform: translate(-50%, -160%); }
+.toast.visible { transform: translate(-50%, 0); }

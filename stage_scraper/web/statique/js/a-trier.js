@@ -153,8 +153,6 @@ function clavierMenu(e) {
 function contenuCarte(o) {
   const meta = [o.anciennete, o.site].filter(Boolean).join(' · ');
   return [
-    h('span', { class: 'tampon oui', 'aria-hidden': 'true' }, 'Je candidate'),
-    h('span', { class: 'tampon non', 'aria-hidden': 'true' }, 'Pas pour moi'),
     h('span', { class: 'tampon tard', 'aria-hidden': 'true' }, etat.section === 'plus_tard' ? 'À trier' : 'Plus tard'),
     h('div', { class: 'haut' },
       h('span', { class: 'qui' }, h('b', {}, o.entreprise), o.lieu ? ` · ${o.lieu}` : '',
@@ -249,10 +247,8 @@ function activerDessus() {
   });
 }
 
-// Pendant le geste : tampon sur la carte, flèche du côté qui grossit, carte suivante qui se rapproche.
+// Pendant le geste : flèche du côté qui grossit, carte suivante qui se rapproche (tampon seulement vers le haut : « Plus tard »).
 function suivreGeste(carte, suivante, dir, force, retour, depart) {
-  carte.querySelector('.tampon.oui').style.opacity = dir === 'droite' ? force : 0;
-  carte.querySelector('.tampon.non').style.opacity = dir === 'gauche' ? force : 0;
   carte.querySelector('.tampon.tard').style.opacity = dir === 'haut' ? force : 0;
   const g = $('#fleche-non'), d = $('#fleche-oui');
   g.style.setProperty('--force', dir === 'gauche' ? force : 0);

@@ -119,8 +119,8 @@
 .rond.oui { width: 68px; height: 68px; color: var(--oui); background: color-mix(in oklab, var(--oui) 18%, transparent);
   box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--oui) 55%, transparent), 0 10px 26px rgba(5, 3, 9, .4); }
 .rond.oui:hover { background: color-mix(in oklab, var(--oui) 28%, transparent); }
-.rond.oui .ic { stroke-width: 2.2; }
-.rond.non { color: var(--non); background: color-mix(in oklab, var(--non) 18%, transparent);
+.rond.oui .ic, .rond.non .ic { stroke-width: 2.2; }
+.rond.non { width: 68px; height: 68px; color: var(--non); background: color-mix(in oklab, var(--non) 18%, transparent);
   box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--non) 55%, transparent); }
 .rond.non:hover { background: color-mix(in oklab, var(--non) 28%, transparent); }
 .rond[disabled] { opacity: .35; pointer-events: none; }

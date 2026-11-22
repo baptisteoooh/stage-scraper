@@ -101,7 +101,7 @@ Après chaque collecte, les nouvelles offres sont triées, sans appel à l'IA :
 
 ### Scoring IA (Gemini)
 
-Chaque offre gardée par le tri est notée par Gemini (`gemini-3.5-flash-lite`, offre gratuite de Google AI Studio ; modèle réglable dans `config.yaml > scoring.modele`) : note de 0 à 10, catégorie (À postuler vite ≥ 8, À regarder 5–7, Bof < 5), section (Santé, Hors santé mais intéressant, À négocier), résumé, explication, durée et date de début lues dans l'offre, raison d'exclusion éventuelle.
+Chaque offre gardée par le tri est notée par Gemini (`gemini-3.5-flash-lite`, offre gratuite de Google AI Studio ; modèle réglable dans `config.yaml > scoring.modele`) : note de 0 à 10, catégorie (À postuler vite ≥ 8, À regarder 5–7, Bof < 5), section (Santé, Hors santé mais intéressant, À négocier), résumé de la mission (3 ou 4 phrases, 50 à 80 mots), explication, durée et date de début lues dans l'offre, raison d'exclusion éventuelle.
 
 - Clé : `GEMINI_API_KEY` dans `.env` (à créer gratuitement sur https://aistudio.google.com, bouton « Get API key », sans carte bancaire). Sans clé, les offres restent en attente et seront notées au premier passage qui en dispose.
 - Le CV (`profil/cv.pdf`) et les offres marquées « pas intéressé » (avec leur raison) sont utilisés automatiquement : l'IA note plus bas les offres qui leur ressemblent.

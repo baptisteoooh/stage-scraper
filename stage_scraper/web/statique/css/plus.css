@@ -29,8 +29,10 @@
 .passage:hover, .passage[open] { background: rgba(255, 255, 255, .07); }
 .passage summary {
   list-style: none; cursor: pointer; display: grid; align-items: center; gap: 14px;
-  grid-template-columns: 190px 78px minmax(0, 1fr) auto; padding: 13px 16px; font-size: 14px;
+  grid-template-columns: 190px minmax(0, 1fr) auto auto; padding: 13px 16px; font-size: 14px;
 }
+/* Colonnes fixes : la pastille « auto » n'apparaît que pour les passages automatiques. */
+.passage .quand { grid-column: 1; } .passage .nombres { grid-column: 2; } .passage .mode { grid-column: 3; } .passage .etat { grid-column: 4; }
 .passage summary::-webkit-details-marker { display: none; }
 .passage .quand { font-weight: 600; font-variant-numeric: tabular-nums; }
 .passage .mode { justify-self: start; font-size: 12px; padding: 3px 9px; border-radius: 999px; background: rgba(255, 255, 255, .08); color: var(--doux); }
@@ -75,6 +77,7 @@
 @media (max-width: 900px) {
   .passage summary { grid-template-columns: 1fr auto; }
   .passage .mode, .passage .nombres { display: none; }
+  .passage .quand, .passage .etat { grid-column: auto; }
   .source, .appels .source { grid-template-columns: 1fr 1fr; }
   .source .err { grid-column: 1 / -1; }
 }
@@ -164,3 +167,8 @@ select.champ option { background: #241B33; color: var(--texte); }
   .barre .titre-page { display: none; }
   .a-enregistrer span { display: none; }
 }
+
+/* Journal : la semaine en une phrase ; passages vides regroupés ; coût replié */
+.semaine { font-family: var(--titres); font-size: 20px; font-weight: 600; letter-spacing: -.02em; margin: 4px 0 6px; }
+.passage .groupe { padding: 4px 0 4px 14px; display: flex; flex-direction: column; gap: 6px; }
+.appels .chiffres { margin-top: 12px; }

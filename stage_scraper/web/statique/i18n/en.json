@@ -684,7 +684,18 @@
     "Offres retriées avec ton profil.": "Offers re-sorted with your profile.",
     "Ton CV et une lettre que tu as écrite (modèle de style). Ils restent sur ton ordinateur ; les IA ne reçoivent que leur texte, sans ton nom ni tes coordonnées.": "Your CV and a letter you wrote (style model). They stay on your computer; the AIs only get their text, without your name or contact details.",
     "Lu : {n} annonces": "Read: {1} postings",
-    "Lu : 1 annonce": "Read: 1 posting"
+    "Lu : 1 annonce": "Read: 1 posting",
+    "Notation par l'IA": "AI scoring",
+    "Alertes mail": "Email alerts",
+    "Pages carrières": "Career pages",
+    "{n} passages sans nouvelle offre": "{1} runs with no new offer",
+    "{n} avec une erreur": "{1} with an error",
+    "Cette semaine : pas de nouvelle offre gardée.": "This week: no new offer kept.",
+    "Cette semaine : {n} nouvelles offres, dont {n} notées 8 ou plus.": "This week: {1} new offers, {2} scored 8 or more.",
+    "Cette semaine : {n} nouvelles offres, dont 1 notée 8 ou plus.": "This week: {1} new offers, 1 scored 8 or more.",
+    "Cette semaine : {n} nouvelles offres.": "This week: {1} new offers.",
+    "Cette semaine : 1 nouvelle offre.": "This week: 1 new offer.",
+    "Coût de l'IA : crédit Claude restant {n} sur {n}": "AI cost: Claude credit left {1} of {2}"
   },
   "motifs": {
     "{} · Stage Scraper": "{1} · Stage Scraper",

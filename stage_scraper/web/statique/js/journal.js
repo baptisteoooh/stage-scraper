@@ -1,5 +1,5 @@
 // Page Journal : la semaine en une phrase, l'historique des scraps (source par source), et le coût de l'IA replié.
-import { LOCALE, LANGUE, $, h, api, toast, afficherScrap, brancherScrap, majMenu, montant } from './commun.js';
+import { LOCALE, LANGUE, $, h, api, toast, afficherScrap, brancherScrap, majMenu, montant, compteCourant } from './commun.js';
 
 const JOURS = new Intl.DateTimeFormat(LOCALE, { weekday: 'short', day: 'numeric', month: 'short' });
 
@@ -82,6 +82,8 @@ async function charger() {
   majMenu(d);
   const c = d.credit;
   const zone = $('#journal');
+  const moi = await compteCourant;
+  const ami = moi.mode && moi.connecte && !moi.admin;
   zone.replaceChildren(...[
     h('p', { class: 'semaine' }, semaine(d.passages)),
     h('h2', {}, 'Passages'),
@@ -89,7 +91,7 @@ async function charger() {
       : h('p', { class: 'rien-ici' }, 'Aucun passage pour l\'instant : lance un scrap.'),
     d.passages.length ? h('p', { class: 'explication' }, 'Trouvées : offres reçues des sources · Nouvelles : jamais vues avant · '
       + 'Gardées : nouvelles qui passent le tri (ni doublon, ni exclue, ni expirée). Clique un passage pour le détail par source.') : null,
-    h('details', { class: 'appels' },
+    ami ? null : h('details', { class: 'appels' },   // le crédit Claude est celui de BAP : rien à voir pour un ami
       h('summary', {}, `Coût de l'IA : crédit Claude restant ${montant(c.restant)} sur ${montant(c.total)}`),
       h('div', { class: 'chiffres' },
         chiffre('Crédit Claude restant', montant(c.restant), `sur ${montant(c.total)} · ≈ ${pluriel(c.dossiers, 'dossier')}`, c.restant / c.total),

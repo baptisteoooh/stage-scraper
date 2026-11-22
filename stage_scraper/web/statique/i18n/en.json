@@ -682,7 +682,9 @@
     "Clique ou dépose le fichier ici": "Click or drop the file here",
     "Pas encore de lettre.": "No letter yet.",
     "Offres retriées avec ton profil.": "Offers re-sorted with your profile.",
-    "Ton CV et une lettre que tu as écrite (modèle de style). Ils restent sur ton ordinateur ; les IA ne reçoivent que leur texte, sans ton nom ni tes coordonnées.": "Your CV and a letter you wrote (style model). They stay on your computer; the AIs only get their text, without your name or contact details."
+    "Ton CV et une lettre que tu as écrite (modèle de style). Ils restent sur ton ordinateur ; les IA ne reçoivent que leur texte, sans ton nom ni tes coordonnées.": "Your CV and a letter you wrote (style model). They stay on your computer; the AIs only get their text, without your name or contact details.",
+    "Lu : {n} annonces": "Read: {1} postings",
+    "Lu : 1 annonce": "Read: 1 posting"
   },
   "motifs": {
     "{} · Stage Scraper": "{1} · Stage Scraper",

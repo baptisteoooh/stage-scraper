@@ -1,6 +1,6 @@
 // Assistant : une conversation avec Gemini (gratuit) sur les offres en base. Il propose des offres (lignes
 // cliquables : la fiche s'ouvre à droite, avec « Intéressé »), compare, répond sur une annonce ou tes candidatures.
-import { $, h, api, toast, cacherToast, brancherScrap, detailOffre, ouvrirPanneau, fermerPanneau, majMenu } from './commun.js';
+import { $, h, api, toast, cacherToast, brancherScrap, detailOffre, ouvrirPanneau, fermerPanneau, majMenu, markdown } from './commun.js';
 
 const EXEMPLES = [
   'Un stage en computer vision sur l\'imagerie médicale',
@@ -12,9 +12,6 @@ const ETATS = { selection: 'Dans ma sélection', ecartee: 'Écartée', a_trier: 
 
 const etat = { messages: [], enCours: false, confirmer: false };
 
-function texteRiche(texte) {
-  return (texte || '').split(/(\*\*[^*]+\*\*)/g).map(m => (m.startsWith('**') && m.endsWith('**') ? h('b', {}, m.slice(2, -2)) : m));
-}
 
 async function charger() {
   const d = await api('/api/assistant');
@@ -42,8 +39,8 @@ function dessiner({ defiler = true } = {}) {
 
 function message(m) {
   const bulle = h('div', { class: `bulle ${m.role === 'user' ? 'moi' : 'ia'}` },
-    m.lues?.length ? h('small', { class: 'lu' }, `Lu : ${m.lues.join(' · ')}`) : null,
-    h('p', { translate: 'no' }, texteRiche(m.texte)));
+    m.lues?.length ? h('small', { class: 'lu', title: m.lues.join('\n') }, m.lues.length > 1 ? `Lu : ${m.lues.length} annonces` : 'Lu : 1 annonce') : null,
+    m.role === 'user' ? h('p', { translate: 'no' }, m.texte) : h('div', { class: 'md', translate: 'no' }, markdown(m.texte)));
   if (!m.offres?.length) return [bulle];
   return [bulle, h('div', { class: 'propositions' }, m.offres.map(proposition))];
 }

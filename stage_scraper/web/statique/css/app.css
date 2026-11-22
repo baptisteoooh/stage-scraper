@@ -194,3 +194,11 @@
   .plus-menu a { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 8px; font-size: 15px; }
   .plus-menu a.on, .plus-menu a:active { background: rgba(255, 255, 255, .08); }
 }
+
+/* Texte de l'IA rendu en Markdown simple (titres, listes, gras) */
+.bulle .md { white-space: normal; }
+.bulle .md > * + * { margin-top: 8px; }
+.bulle .md .titre-md { font-weight: 600; color: var(--texte); margin-top: 12px; }
+.bulle .md .titre-md:first-child { margin-top: 0; }
+.bulle .md ul, .bulle .md ol { padding-left: 20px; }
+.bulle .md li + li { margin-top: 4px; }

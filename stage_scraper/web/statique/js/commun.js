@@ -46,6 +46,40 @@ if (plus) {
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && plus.open) { plus.open = false; plus.querySelector('summary').focus(); } });
 }
 
+// ======================================================================= texte de l'IA (Markdown simple)
+
+// **gras** dans une ligne (le texte passe par des nœuds texte : jamais de HTML).
+export function enGras(texte) {
+  return (texte || '').split(/(\*\*[^*]+\*\*)/g).filter(Boolean)
+    .map(m => (m.startsWith('**') && m.endsWith('**') && m.length > 4 ? h('b', {}, m.slice(2, -2)) : m));
+}
+
+// Titres (#, ##, ###), listes (- * •, 1.), paragraphes et **gras** : ce que les IA écrivent le plus souvent.
+export function markdown(texte) {
+  const blocs = [];
+  let liste = null, paragraphe = [];
+  const finirParagraphe = () => { if (paragraphe.length) blocs.push(h('p', {}, enGras(paragraphe.join(' ')))); paragraphe = []; };
+  const finirListe = () => { liste = null; };
+  for (const brute of (texte || '').split('\n')) {
+    const ligne = brute.trim();
+    let m;
+    if (!ligne) { finirParagraphe(); finirListe(); continue; }
+    if ((m = ligne.match(/^#{1,6}\s+(.*)$/))) { finirParagraphe(); finirListe(); blocs.push(h('p', { class: 'titre-md' }, enGras(m[1].replace(/\*\*/g, '')))); continue; }
+    const puce = ligne.match(/^[-*•]\s+(.*)$/), numero = ligne.match(/^\d+[.)]\s+(.*)$/);
+    if (puce || numero) {
+      finirParagraphe();
+      const type = puce ? 'ul' : 'ol';
+      if (!liste || liste.tagName.toLowerCase() !== type) { liste = h(type, {}); blocs.push(liste); }
+      liste.append(h('li', {}, enGras((puce || numero)[1])));
+      continue;
+    }
+    finirListe();
+    paragraphe.push(ligne);
+  }
+  finirParagraphe();
+  return blocs;
+}
+
 // ======================================================================= langue (FR · EN)
 export const LANGUE = document.documentElement.lang === 'en' ? 'en' : 'fr';
 export const LOCALE = LANGUE === 'en' ? 'en-US' : 'fr-FR';

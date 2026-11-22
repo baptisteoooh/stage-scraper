@@ -659,7 +659,13 @@
     "Oups.": "Oops.",
     "Le serveur ne répond pas.": "The server isn't responding.",
     "Réessayer": "Try again",
-    "Impossible de charger les questions : le serveur tourne-t-il ?": "Couldn't load the questions: is the server running?"
+    "Impossible de charger les questions : le serveur tourne-t-il ?": "Couldn't load the questions: is the server running?",
+    "Intéressé": "Interested",
+    "Pas intéressé": "Not interested",
+    "Intéressé (→)": "Interested (→)",
+    "Pas intéressé (←)": "Not interested (←)",
+    "Intéressé (flèche droite)": "Interested (right arrow)",
+    "Pas intéressé (flèche gauche)": "Not interested (left arrow)"
   },
   "motifs": {
     "{} · Stage Scraper": "{1} · Stage Scraper",

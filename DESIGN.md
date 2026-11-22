@@ -24,7 +24,7 @@ coins droits ou coupés, coins trop ronds, police Unbounded, contour vert sur la
 | `--accent` / `--sur-accent` | `#EDE6F6` / `#221A2E` | bouton principal (pilule blanc lilas, texte prune) |
 | `--lavande` | `#CDB8E8` | contour de la carte active, état « sélection » |
 | `--note` | `#E3D4F2` | la note /10 |
-| `--oui` / `--non` | `#BFE5C9` / `#F2B5BF` | Je candidate / Pas pour moi (vert et rose pâles) |
+| `--oui` / `--non` | `#4BC98A` / `#F0646E` | Intéressé / Pas intéressé (vert et rouge francs) |
 | `--verre`, `--verre-fort` | prune translucide à 62 % / 90 % | fenêtre, cartes, panneau |
 | `--ligne`, `--ligne-forte` | blanc à 12 % / 20 % | filets |
 | ambre doux `#F4D9A8` | — | alertes de l'IA, « à vérifier », adéquation partielle |
@@ -47,6 +47,9 @@ Thème sombre seulement (`color-scheme: dark`).
   dessous), titre, étiquettes (IA / data en violet plein), puis un milieu qui défile (`.defile`, effacé en bas) :
   résumé de la mission en entier (3–4 phrases écrites par Gemini), extrait de l'annonce. La raison de la note
   reste dans « Détails ».
+- « Détails » : la carte grossit au centre (View Transition, 0,5 s) en une grande carte de 860 px, page voilée
+  et floutée derrière ; croix ou Échap pour la refermer (elle rétrécit vers le paquet). Pied : Pas intéressé
+  (rouge, à gauche), Plus tard, Intéressé (vert plein). Plein écran sur téléphone.
 - Note affichée « NOTE 9/10 » (« SCORE » en anglais), grand chiffre Sora.
 
 ## Mouvement

@@ -24,8 +24,8 @@
 .cote-g i { color: var(--non); } .cote-d i { color: var(--oui); }
 .cote-g .ic, .cote-d .ic { width: 30px; height: 30px; stroke-width: 2.4; }
 .cote-g:hover i, .cote-d:hover i { background: rgba(255, 255, 255, .14); }
-.cote-g.actif i { background: rgba(242, 181, 191, .22); }
-.cote-d.actif i { background: rgba(191, 229, 201, .22); }
+.cote-g.actif i { background: color-mix(in oklab, var(--non) 24%, transparent); }
+.cote-d.actif i { background: color-mix(in oklab, var(--oui) 24%, transparent); }
 .cote-g:active i, .cote-d:active i { transform: scale(.94); }
 
 /* ---------------------------------------------------------------- les cartes */
@@ -116,8 +116,8 @@
 .rond:hover { background: rgba(255, 255, 255, .14); transform: translateY(-2px); }
 .rond:active { transform: scale(.92); }
 .rond.petit { width: 48px; height: 48px; }
-.rond.oui { width: 68px; height: 68px; background: var(--accent); color: var(--sur-accent); box-shadow: 0 10px 26px rgba(5, 3, 9, .4); }
-.rond.oui:hover { background: #fff; }
+.rond.oui { width: 68px; height: 68px; background: var(--oui); color: #10141A; box-shadow: 0 10px 26px rgba(5, 3, 9, .4); }
+.rond.oui:hover { background: var(--oui); filter: brightness(1.08); }
 .rond.oui .ic { stroke-width: 2.2; }
 .rond.non { color: var(--non); }
 .rond[disabled] { opacity: .35; pointer-events: none; }
@@ -191,4 +191,50 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .menu-filtres, .menu-filtres.ouvert { transform: none; transition: opacity .12s, visibility 0s; }
+}
+
+/* ---------------------------------------------------------------- détails : la carte qui grossit */
+.voile {
+  position: absolute; inset: 0; z-index: 9; border-radius: inherit;
+  background: rgba(12, 8, 18, .55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.grande {
+  --n: #9E92AD;
+  position: absolute; z-index: 10; inset: 28px; margin: auto; width: min(860px, calc(100% - 56px)); max-height: calc(100% - 56px);
+  display: flex; flex-direction: column; border-radius: 22px;
+  background: rgba(28, 21, 38, .97); box-shadow: 0 40px 90px rgba(5, 3, 9, .6);
+  outline: none;
+}
+.grande[hidden], .voile[hidden] { display: none; }
+.grande .fermer {
+  position: absolute; top: 16px; right: 16px; z-index: 1; width: 40px; height: 40px; border-radius: 50%;
+  display: grid; place-items: center; color: var(--doux); background: rgba(255, 255, 255, .07); transition: background-color .2s, color .2s;
+}
+.grande .fermer:hover { color: #fff; background: rgba(255, 255, 255, .14); }
+.grande-corps { flex: 1; min-height: 0; padding: 30px 40px 28px; }
+.grande-corps .tete { padding-right: 52px; }
+.grande-corps h2 { font-size: clamp(24px, 2.4vw, 32px); }
+.grande-pied:not(:empty) {
+  flex: none; display: flex; gap: 10px; justify-content: flex-end; padding: 16px 24px;
+  border-top: 1px solid rgba(255, 255, 255, .06);
+}
+.grande-pied .bouton { padding: 12px 20px; }
+.grande-pied .non { color: var(--non); margin-right: auto; }
+.grande-pied .oui { background: var(--oui); color: #10141A; font-weight: 600; }
+.grande-pied .oui:hover { filter: brightness(1.08); }
+
+/* La transition : la boîte passe de la carte à la grande vue ; le contenu reste net (pas d'image étirée),
+   ancré en haut, et la boîte le découvre en grandissant. */
+::view-transition-group(agrandie) { animation-duration: .5s; animation-timing-function: cubic-bezier(.2, .8, .2, 1); overflow: clip; border-radius: 22px; }
+::view-transition-old(agrandie), ::view-transition-new(agrandie) { height: 100%; object-fit: none; object-position: 50% 0; }
+::view-transition-old(agrandie) { animation-duration: .22s; }
+::view-transition-new(agrandie) { animation-duration: .4s; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .35s; }
+
+@media (max-width: 700px) {
+  .grande { inset: 0; width: 100%; max-height: none; border-radius: 0; }
+  .grande-corps { padding: 24px 20px; }
+  .grande-pied:not(:empty) { padding: 12px 16px; gap: 8px; }
+  .grande-pied .bouton { flex: 1; padding: 11px 8px; font-size: 14px; white-space: nowrap; }
+  .grande-pied .non { margin-right: 0; }
 }

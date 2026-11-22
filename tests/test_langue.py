@@ -43,10 +43,10 @@ def test_traduire_html():
 
 def test_pages_selon_le_cookie(client):
     fr = client.get("/a-trier").text
-    assert '<html lang="fr">' in fr and "TRADUCTION" not in fr and "Je candidate" in fr
+    assert '<html lang="fr">' in fr and "TRADUCTION" not in fr and "Intéressé" in fr
     client.cookies.set("langue", "en")
     en = client.get("/a-trier").text
-    assert '<html lang="en">' in en and "window.TRADUCTION" in en and "I&#x27;ll apply" in en or "I'll apply" in en
+    assert '<html lang="en">' in en and "window.TRADUCTION" in en and "Interested" in en
     assert "/statique/js/langue.js" in en and "To sort" in en
     assert '<html lang="en">' in client.get("/").text
     client.cookies.set("langue", "xx")                                              # langue inconnue : français

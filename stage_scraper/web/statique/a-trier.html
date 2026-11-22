@@ -40,32 +40,33 @@
     <p class="compte" id="compte" aria-live="polite"></p>
 
     <div class="scene">
-      <button class="cote-g" id="fleche-non" type="button" aria-label="Pas pour moi (flèche gauche)">
+      <button class="cote-g" id="fleche-non" type="button" aria-label="Pas intéressé (flèche gauche)">
         <i><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></i>
-        <span>Pas pour moi</span></button>
+        <span>Pas intéressé</span></button>
       <div class="pile" id="pile"></div>
-      <button class="cote-d" id="fleche-oui" type="button" aria-label="Je candidate (flèche droite)">
+      <button class="cote-d" id="fleche-oui" type="button" aria-label="Intéressé (flèche droite)">
         <i><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></i>
-        <span>Je candidate</span></button>
+        <span>Intéressé</span></button>
     </div>
 
     <div class="actions" id="actions">
-      <button class="rond non" id="bouton-non" type="button" title="Pas pour moi (←)" aria-label="Pas pour moi">
+      <button class="rond non" id="bouton-non" type="button" title="Pas intéressé (←)" aria-label="Pas intéressé">
         <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg></button>
       <button class="rond petit" id="bouton-tard" type="button" title="Plus tard (↑)" aria-label="Plus tard">
         <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></button>
-      <button class="rond oui" id="bouton-oui" type="button" title="Je candidate (→)" aria-label="Je candidate">
+      <button class="rond oui" id="bouton-oui" type="button" title="Intéressé (→)" aria-label="Intéressé">
         <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
     </div>
     <p class="aide" id="aide">Glisse la carte, ou utilise ← → au clavier · ↑ pour plus tard · Ctrl+Z pour annuler</p>
 
-    <aside class="fiche" id="fiche" aria-hidden="true" aria-labelledby="fiche-titre" tabindex="-1">
-      <div class="fiche-tete">
-        <button class="pastille" id="fiche-fermer" type="button">
-          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Retour</button>
-      </div>
-      <div class="fiche-corps" id="fiche-corps"></div>
-    </aside>
+    <!-- Détails : la carte grossit au centre (View Transition), le reste de la page se voile. -->
+    <div class="voile" id="voile" hidden></div>
+    <article class="grande" id="grande" role="dialog" aria-modal="true" aria-labelledby="fiche-titre" tabindex="-1" hidden>
+      <button class="fermer" id="grande-fermer" type="button" aria-label="Fermer" title="Fermer (Échap)">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <div class="grande-corps fiche-corps" id="grande-corps"></div>
+      <div class="grande-pied" id="grande-pied"></div>
+    </article>
   </main>
 </div>
 

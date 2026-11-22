@@ -1,5 +1,5 @@
 // Assistant : une conversation avec Gemini (gratuit) sur les offres en base. Il propose des offres (lignes
-// cliquables : la fiche s'ouvre à droite, avec « Je candidate »), compare, répond sur une annonce ou tes candidatures.
+// cliquables : la fiche s'ouvre à droite, avec « Intéressé »), compare, répond sur une annonce ou tes candidatures.
 import { $, h, api, toast, cacherToast, brancherScrap, detailOffre, ouvrirPanneau, fermerPanneau, majMenu } from './commun.js';
 
 const EXEMPLES = [
@@ -123,8 +123,8 @@ function actions(o) {
       h('button', { class: 'bouton', type: 'button', onclick: () => decider(o, 'remettre') }, 'Remettre à trier'));
   }
   return h('div', { class: 'fiche-decisions' },
-    h('button', { class: 'bouton principal', type: 'button', onclick: () => decider(o, 'candidate') }, 'Je candidate'),
-    h('button', { class: 'bouton non', type: 'button', onclick: () => decider(o, 'ecarte') }, 'Pas pour moi'));
+    h('button', { class: 'bouton principal', type: 'button', onclick: () => decider(o, 'candidate') }, 'Intéressé'),
+    h('button', { class: 'bouton non', type: 'button', onclick: () => decider(o, 'ecarte') }, 'Pas intéressé'));
 }
 
 const APRES = { candidate: 'ajoutée à Ma sélection', ecarte: 'écartée', remettre: 'remise à trier' };

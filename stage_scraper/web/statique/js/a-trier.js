@@ -379,34 +379,71 @@ function toastDecision(decision, o) {
   toast(`${nom}écartée`, [pourquoi, ...boutons]);
 }
 
-// ======================================================================= fiche détaillée
+// ======================================================================= détails : la carte grossit
+
+// La carte du dessus et la grande vue portent tour à tour le même nom de transition : le navigateur anime le
+// passage de l'une à l'autre (position, taille, coins), comme si la carte grossissait. Sans View Transitions
+// (ou avec « réduire les animations »), la grande vue apparaît simplement.
+const ANIMER = () => document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+let ouverteSur = null;
+
+function transition(changer) {
+  if (!ANIMER()) { changer(); return Promise.resolve(); }
+  return document.startViewTransition(changer).finished.catch(() => {});
+}
+
+function carteDe(id) { return $(`#pile .carte[data-id="${id}"]`); }
 
 async function ouvrirFiche(id) {
-  const fiche = $('#fiche');
-  const corps = $('#fiche-corps');
-  corps.replaceChildren(h('p', { class: 'texte' }, 'Chargement…'));
-  fiche.classList.add('ouverte');
-  fiche.setAttribute('aria-hidden', 'false');
-  fiche.focus({ preventScroll: true });
+  if (ouverteSur !== null) return;
+  ouverteSur = id;
   let o;
   try { o = await api(`/api/offres/${id}`); } catch (e) {
-    corps.replaceChildren(h('p', { class: 'texte' }, "Impossible de charger l'offre."));
+    ouverteSur = null;
+    toast("Impossible de charger l'offre.");
     return;
   }
   const estDessus = Number(carteDessus()?.dataset.id) === id;
-  corps.replaceChildren(...detailOffre(o, estDessus ? h('div', { class: 'fiche-decisions' },
-    h('button', { class: 'bouton principal', type: 'button', onclick: () => { fermerFiche(); decider('droite'); } }, 'Je candidate'),
-    h('button', { class: 'bouton discret non', type: 'button', onclick: () => { fermerFiche(); decider('gauche'); } }, 'Pas pour moi'),
-    h('button', { class: 'bouton discret', type: 'button', onclick: () => { fermerFiche(); decider('haut'); } },
-      etat.section === 'plus_tard' ? 'Remettre à trier' : 'Plus tard')) : null));
+  const choix = (dir) => () => fermerFiche(false).then(() => decider(dir));
+  $('#grande-corps').replaceChildren(...detailOffre(o));
+  $('#grande-pied').replaceChildren(...(estDessus ? [
+    h('button', { class: 'bouton discret non', type: 'button', onclick: choix('gauche') }, 'Pas intéressé'),
+    h('button', { class: 'bouton discret', type: 'button', onclick: choix('haut') },
+      etat.section === 'plus_tard' ? 'Remettre à trier' : 'Plus tard'),
+    h('button', { class: 'bouton oui', type: 'button', onclick: choix('droite') }, 'Intéressé'),
+  ] : []));
+  $('#grande-corps').scrollTop = 0;
+  const carte = carteDe(id);
+  if (carte) carte.style.viewTransitionName = 'agrandie';
+  await transition(() => {
+    if (carte) carte.style.viewTransitionName = '';
+    const g = $('#grande');
+    g.style.viewTransitionName = 'agrandie';
+    g.hidden = false;
+    $('#voile').hidden = false;
+    document.body.classList.add('detail-ouvert');
+  });
+  $('#grande').focus({ preventScroll: true });
 }
 
-function fermerFiche() {
-  const fiche = $('#fiche');
-  if (!fiche.classList.contains('ouverte')) return false;
-  fiche.classList.remove('ouverte');
-  fiche.setAttribute('aria-hidden', 'true');
-  return true;
+// animer = false : on ferme pour décider ; la carte repart tout de suite dans le paquet, sans rétrécir.
+function fermerFiche(animer = true) {
+  const g = $('#grande');
+  if (g.hidden) return false;
+  const id = ouverteSur;
+  ouverteSur = null;
+  const carte = carteDe(id);
+  const fermer = () => {
+    g.hidden = true;
+    g.style.viewTransitionName = '';
+    $('#voile').hidden = true;
+    document.body.classList.remove('detail-ouvert');
+    if (carte && animer) carte.style.viewTransitionName = 'agrandie';
+  };
+  if (!animer) { fermer(); return Promise.resolve(); }
+  return transition(fermer).then(() => {
+    if (carte) { carte.style.viewTransitionName = ''; carte.querySelector('.pied button')?.focus({ preventScroll: true }); }
+  });
 }
 
 // ======================================================================= scrap
@@ -432,7 +469,8 @@ function brancher() {
   $('#bouton-tard').addEventListener('click', () => decider('haut'));
   $('#fleche-oui').addEventListener('click', () => decider('droite'));
   $('#fleche-non').addEventListener('click', () => decider('gauche'));
-  $('#fiche-fermer').addEventListener('click', fermerFiche);
+  $('#grande-fermer').addEventListener('click', () => fermerFiche());
+  $('#voile').addEventListener('click', () => fermerFiche());
   brancherScrap(apresScrap);
   $('#filtres').addEventListener('click', () => (menuOuvert() ? fermerMenu() : ouvrirMenu()));
   $('#filtres').addEventListener('keydown', (e) => {
@@ -450,10 +488,10 @@ function brancher() {
 
   document.addEventListener('keydown', (e) => {
     if (menuOuvert()) return;                            // le menu des filtres gère ses touches
-    if (e.key === 'Escape' && fermerFiche()) { e.preventDefault(); return; }
+    if (e.key === 'Escape' && !$('#grande').hidden) { e.preventDefault(); fermerFiche(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); annulerDerniere(); return; }
     if (e.target.closest('input, textarea') || e.altKey || e.ctrlKey || e.metaKey) return;
-    if ($('#fiche').classList.contains('ouverte')) return;
+    if (!$('#grande').hidden) return;
     const dir = { ArrowRight: 'droite', ArrowLeft: 'gauche', ArrowUp: 'haut' }[e.key];
     if (dir) { e.preventDefault(); decider(dir); }
     else if (e.key === 'Enter' && carteDessus() && !e.target.closest('button, a')) {

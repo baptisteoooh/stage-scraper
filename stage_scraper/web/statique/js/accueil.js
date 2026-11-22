@@ -26,8 +26,8 @@ function el(tag, classe, texte) {
 function carte(o, pos) {
   const c = el('article', `carte pos${pos}`);
   c.setAttribute('aria-label', `Exemple : ${o.titre}`);
-  const oui = el('span', 'tampon oui', 'Je candidate');
-  const non = el('span', 'tampon non', 'Pas pour moi');
+  const oui = el('span', 'tampon oui', 'Intéressé');
+  const non = el('span', 'tampon non', 'Pas intéressé');
   const tard = el('span', 'tampon tard', 'Plus tard');
   const tete = el('div', 'tete');
   const qui = el('div', 'qui');

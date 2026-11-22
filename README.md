@@ -151,9 +151,9 @@ Pour l'arrêter : `Ctrl + C` dans le terminal.
 
 - **Accueil** : présentation et connexion. Pas encore de vrais comptes (version locale) : « Se connecter » fait entrer.
   La carte d'exemple se glisse déjà, pour essayer le geste.
-- **À trier** : une offre à la fois. Glisse la carte **à droite** (Je candidate : elle part dans Ma sélection),
-  **à gauche** (Pas pour moi) ou **vers le haut** (Plus tard). Un geste vif suffit, même court. Mêmes décisions
-  avec les boutons ronds ou le clavier (← → ↑) ; **Ctrl+Z** annule. « Détails » (ou Entrée) ouvre l'annonce complète.
+- **À trier** : une offre à la fois. Glisse la carte **à droite** (Intéressé : elle part dans Ma sélection),
+  **à gauche** (Pas intéressé) ou **vers le haut** (Plus tard). Un geste vif suffit, même court. Mêmes décisions
+  avec les boutons ronds ou le clavier (← → ↑) ; **Ctrl+Z** annule. « Détails » (ou Entrée) fait grossir la carte au centre pour lire l'annonce complète.
   Filtres en haut : Santé / Hors santé / À négocier / Plus tard, tri, offres « Bof » (moins de 5/10), recherche.
 - **Ma sélection** : les offres gardées, rangées par étape (En préparation, Envoyées, Entretien, Terminées).
   Une fiche par offre : changer d'étape (« C'est envoyé », « J'ai relancé »), dates, notes (gardées toutes seules),
@@ -165,7 +165,7 @@ Pour l'arrêter : `Ctrl + C` dans le terminal.
   conversation à droite ; chaque version reste dans l'historique. « Télécharger (Word) » remet ton vrai nom.
 - **Assistant** : une conversation (Gemini, gratuit) sur tes offres et tes candidatures : « un stage en computer
   vision », « compare ces deux offres »… Il lit les annonces avant de répondre ; clique une offre proposée pour sa
-  fiche (« Je candidate », « Pas pour moi »). « Nouvelle conversation » efface l'échange, pas les offres.
+  fiche (« Intéressé », « Pas intéressé »). « Nouvelle conversation » efface l'échange, pas les offres.
 - **FR · EN** (en bas du menu, ou en haut sur téléphone) : passe le site en anglais. Les offres, les textes de
   l'IA et les mails restent dans leur langue. Les traductions sont dans `stage_scraper/web/statique/i18n/en.json`
   (phrase française -> anglais ; `{}` = un morceau quelconque, `{n}` = un nombre) : ajoute-y une ligne si une phrase

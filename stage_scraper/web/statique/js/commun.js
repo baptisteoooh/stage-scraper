@@ -144,7 +144,7 @@ export function brancherScrap(fini) {
     libelle.textContent = 'Lancer le scrap';
     await fini(s);
   };
-  bouton.addEventListener('click', async () => {
+  const lancer = async () => {
     if (bouton.getAttribute('aria-busy') === 'true') return;
     bouton.setAttribute('aria-busy', 'true');
     libelle.textContent = 'Scrap en cours…';
@@ -154,6 +154,12 @@ export function brancherScrap(fini) {
     }
     afficherScrap(null, '');
     setTimeout(suivre, 1500);
+  };
+  // Sur téléphone, le bouton n'est qu'une icône (facile à toucher par erreur) : on demande d'abord.
+  bouton.addEventListener('click', () => {
+    if (bouton.getAttribute('aria-busy') === 'true') { toast('Scrap en cours : quelques minutes, tu peux continuer.'); return; }
+    if (!matchMedia('(max-width: 700px)').matches) { lancer(); return; }
+    toast('Chercher de nouvelles offres maintenant ?', [h('button', { type: 'button', onclick: () => { cacherToast(); lancer(); } }, 'Lancer')]);
   });
   // Un scrap lancé depuis une autre page continue : on le suit aussi ici.
   api('/api/scrap').then((s) => {

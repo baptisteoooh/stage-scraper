@@ -696,7 +696,10 @@
     "Cette semaine : {n} nouvelles offres.": "This week: {1} new offers.",
     "Cette semaine : 1 nouvelle offre.": "This week: 1 new offer.",
     "Coût de l'IA : crédit Claude restant {n} sur {n}": "AI cost: Claude credit left {1} of {2}",
-    "C'est enregistré : tes offres sont retriées selon tes réponses.": "Saved: your offers are re-sorted with your answers."
+    "C'est enregistré : tes offres sont retriées selon tes réponses.": "Saved: your offers are re-sorted with your answers.",
+    "Chercher de nouvelles offres maintenant ?": "Look for new offers now?",
+    "Lancer": "Start",
+    "Scrap en cours : quelques minutes, tu peux continuer.": "Scrape running: a few minutes, you can keep going."
   },
   "motifs": {
     "{} · Stage Scraper": "{1} · Stage Scraper",

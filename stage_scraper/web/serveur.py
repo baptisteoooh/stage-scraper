@@ -29,6 +29,8 @@ API
 - POST /api/profil/a-revoir/ignorer {cle}   « Non » à une proposition « À revoir » (elle ne revient plus)
 - POST /api/reglages/retrier                   refait le tri de toutes les offres
 - GET|POST /api/reglages/documents/{cv|modele} texte anonymisé / dépôt du fichier (corps brut)
+- GET  /api/entretien  /  POST /api/entretien/question {id, valeurs}   entretien d'accueil (page /bienvenue)
+- POST /api/entretien/repondre {question, choix | texte, valeurs}  /  /apercu {valeurs}  /  /terminer {valeurs}
 """
 import hashlib
 import io
@@ -43,12 +45,12 @@ from datetime import date, datetime
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import langue
-from .. import a_revoir, agent_profil, chat_offres, claude, db, decisions, dossier, expiration, notifications, presentation, profil, reglages, requetes, selection
+from .. import a_revoir, agent_profil, chat_offres, claude, db, decisions, dossier, entretien, expiration, notifications, presentation, profil, reglages, requetes, selection
 from .. import cv as module_cv
 from ..config import CHEMIN_CONFIG, charger_config, chemin_projet, secret
 
@@ -141,8 +143,19 @@ def page_appli(nom: str, request: Request | None = None) -> HTMLResponse:
     return HTMLResponse(page, headers={"Cache-Control": "no-cache"})
 
 
+@app.get("/bienvenue", include_in_schema=False)
+def page_bienvenue(request: Request):
+    """L'entretien d'accueil : une page à part (sans le menu), une question à la fois."""
+    page = (STATIQUE / "entretien.html").read_text(encoding="utf-8")
+    page = versionner(langue.preparer_page(page, langue.langue_de(request)))
+    return HTMLResponse(page, headers={"Cache-Control": "no-cache"})
+
+
 @app.get("/a-trier", include_in_schema=False)
 def page_a_trier(request: Request):
+    # Profil jamais configuré : l'entretien d'accueil d'abord (sauf si l'étudiant a dit « Plus tard » dans ce navigateur).
+    if request.cookies.get("entretien") != "plus_tard" and entretien.a_faire(reglages.lire(chemin_config())):
+        return RedirectResponse("/bienvenue", status_code=303)
     return page_appli("a-trier", request)
 
 
@@ -818,6 +831,70 @@ def api_profil_effacer():
     return {"messages": []}
 
 
+# =========================================================================== API : entretien d'accueil
+
+class QuestionEntretien(BaseModel):
+    id: str
+    valeurs: dict = {}
+
+
+class ReponseEntretien(BaseModel):
+    question: str
+    choix: dict[str, list[str]] = {}
+    texte: str = ""
+    valeurs: dict = {}
+
+
+class BrouillonEntretien(BaseModel):
+    valeurs: dict = {}
+
+
+def _entretien(action):
+    """Une réponse incohérente ou inconnue devient une erreur 400 lisible (rien n'est écrit)."""
+    try:
+        return action()
+    except (profil.ProfilInvalide, entretien.EntretienImpossible) as e:
+        raise HTTPException(400, str(e)[:1].upper() + str(e)[1:]) from e
+
+
+@app.get("/api/entretien")
+def api_entretien():
+    return {"questions": entretien.liste_questions(), "neuf": entretien.a_faire(reglages.lire(chemin_config())),
+            "ia_prete": CLIENT_IA is not None or bool(secret("GEMINI_API_KEY"))}
+
+
+@app.post("/api/entretien/question")
+def api_entretien_question(q: QuestionEntretien):
+    return _entretien(lambda: entretien.question(q.id, reglages.lire(chemin_config()), q.valeurs))
+
+
+@app.post("/api/entretien/repondre")
+def api_entretien_repondre(r: ReponseEntretien, request: Request):
+    """Une réponse en puces (le code la traduit) ou avec ses mots (Gemini, sinon lecture simple). Rien n'est écrit."""
+    if len(r.texte) > 1500:
+        raise HTTPException(400, "Réponse trop longue (1 500 caractères au plus)")
+    with connexion() as conn:
+        return _entretien(lambda: entretien.repondre(conn, chemin_config(), config_courante(), r.question, r.choix,
+                                                     r.texte, r.valeurs, langue.langue_de(request), client=CLIENT_IA))
+
+
+@app.post("/api/entretien/apercu")
+def api_entretien_apercu(b: BrouillonEntretien, request: Request):
+    return _entretien(lambda: entretien.apercu(chemin_config(), b.valeurs, langue.langue_de(request)))
+
+
+@app.post("/api/entretien/terminer")
+def api_entretien_terminer(b: BrouillonEntretien):
+    """« C'est bon » : le profil est écrit, puis les offres déjà là sont retriées si les critères ont changé."""
+    r = _entretien(lambda: entretien.terminer(chemin_config(), b.valeurs))
+    retriees = None
+    if any(c["champ"] in profil.CHAMPS_TRI for c in r["changements"]):
+        from .. import pipeline
+        with connexion() as conn:
+            retriees = pipeline.retrier(conn, config_courante()).get("traitees", 0)
+    return {"changements": r["changements"], "profil": r["profil"], "retriees": retriees}
+
+
 # =========================================================================== API : journal et corbeille
 
 COUT_DOSSIER = 0.08   # ~8 centimes par dossier Claude (analyse + lettre + quelques retouches)
@@ -867,7 +944,7 @@ def api_journal():
             "sources": [{"source": x["source"], "offres": x["nb_offres"], "nouvelles": x["nb_nouvelles"],
                          "erreur": x["erreurs"], "cout": x["cout_usd"]} for x in details.get(p["passage_id"], [])],
         } for p in passages],
-        "appels": [{"date": (a["date_debut"] or "")[:16], "ou": {"chat": "Assistant", "profil": "Mon profil"}.get(a["source"], "Fiche"),
+        "appels": [{"date": (a["date_debut"] or "")[:16], "ou": {"chat": "Assistant", "profil": "Mon profil", "accueil": "Entretien d'accueil"}.get(a["source"], "Fiche"),
                     "modele": a["modele"], "cout": a["cout_usd"], "erreur": a["erreurs"]} for a in appels],
     }
 

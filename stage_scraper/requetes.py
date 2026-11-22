@@ -297,7 +297,7 @@ def journal(conn, limite: int = 200) -> list[dict]:
     return [dict(l) for l in conn.execute("SELECT * FROM runs ORDER BY id DESC LIMIT ?", (limite,))]
 
 
-APPELS_IA = ("dossier", "chat", "lettre", "profil")   # appels d'IA faits depuis l'appli (pas pendant un scrap)
+APPELS_IA = ("dossier", "chat", "lettre", "profil", "accueil")   # appels d'IA faits depuis l'appli (pas pendant un scrap)
 
 
 def passages(conn, limite: int = 60) -> list[dict]:

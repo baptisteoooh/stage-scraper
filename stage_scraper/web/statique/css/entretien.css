@@ -1,0 +1,131 @@
+/* Entretien d'accueil (/bienvenue) : une carte de verre centrée sur la photo, une question à la fois.
+   Peu à lire : la question en grand, une ligne d'aide, des puces à cliquer, une pilule pour répondre avec ses mots.
+   La fin : une seule phrase dont chaque morceau se touche pour être corrigé, et « C'est bon ». */
+
+body { overflow-x: hidden; overflow-y: auto; }
+
+.haut-entretien {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 26px clamp(16px, 4vw, 56px);
+}
+.haut-droite { display: flex; align-items: center; gap: 10px; }
+.plus-tard {
+  padding: 7px 14px; border-radius: 999px; font-size: 14px; color: var(--doux);
+  transition: background-color .2s, color .2s;
+}
+.plus-tard:hover { background: var(--verre-clair); color: var(--texte); }
+
+.entretien {
+  min-height: 100vh; display: grid; place-items: center;
+  padding: 96px 16px 48px;
+}
+
+.carte-entretien {
+  width: min(640px, 100%); padding: 30px 40px 32px; border-radius: var(--r-fenetre);
+  background: linear-gradient(180deg, rgba(205, 184, 232, .07), rgba(255, 255, 255, 0) 180px), var(--verre);
+}
+.carte-entretien.arrivee { animation: arrive .55s var(--sortie) both; }
+@keyframes arrive { from { opacity: 0; transform: translateY(14px) scale(.985); } }
+.carte-entretien[aria-busy="true"] .puces-choix, .carte-entretien[aria-busy="true"] .actions { opacity: .6; pointer-events: none; }
+
+/* ---------------------------------------------------------------- progression : 6 traits fins */
+.progression { list-style: none; display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 30px; }
+.progression li { height: 3px; border-radius: 999px; background: rgba(255, 255, 255, .12); transition: background-color .4s var(--sortie); }
+.progression li.faite { background: var(--lavande); }
+.progression li.en-cours { background: linear-gradient(90deg, var(--lavande) 0 40%, rgba(255, 255, 255, .12) 40%); }
+
+/* ---------------------------------------------------------------- une étape */
+.etape { display: flex; flex-direction: column; }
+.etape > * { animation: entre .38s var(--sortie) both; }
+.etape > :nth-child(2) { animation-delay: .03s; }
+.etape > :nth-child(3) { animation-delay: .06s; }
+.etape > :nth-child(n + 4) { animation-delay: .09s; }
+.chargement { color: var(--doux); font-size: 14px; }
+
+.retenu {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-bottom: 18px;
+  font-size: 13px; color: var(--lavande);
+}
+.retenu .ic { width: 15px; height: 15px; stroke-width: 2.2; }
+.retenu .valeur { color: var(--doux); }
+.retenu .valeur::before { content: "·"; margin-right: 7px; color: var(--faible); }
+.bonjour { margin-bottom: 14px; font-size: 14.5px; line-height: 1.55; color: var(--doux); }
+
+.etape h1 {
+  font-family: var(--titres); font-size: clamp(24px, 3.4vw, 30px); font-weight: 600;
+  line-height: 1.2; letter-spacing: -.03em; text-wrap: balance;
+}
+.etape h1:focus { outline: none; }
+.etape .aide { margin-top: 8px; font-size: 14.5px; line-height: 1.55; color: var(--doux); text-wrap: pretty; }
+
+.rangee-titre {
+  margin: 22px 0 -8px; font-size: 12px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--faible);
+}
+.puces-choix { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; transition: opacity .2s; }
+.puces-choix .pastille { padding: 9px 15px; font-size: 14px; }
+.puces-choix .pastille[aria-pressed="true"] { box-shadow: 0 6px 18px rgba(5, 3, 9, .3); }
+.rang-puce {
+  display: inline-grid; place-items: center; width: 18px; height: 18px; margin-left: -4px; border-radius: 50%;
+  font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; background: rgba(34, 26, 46, .14);
+}
+
+/* Réponse avec ses mots : une pilule, le bouton d'envoi dedans (éteint tant qu'elle est vide). */
+.libre {
+  display: flex; align-items: center; gap: 6px; margin-top: 22px; padding: 4px 4px 4px 6px; border-radius: 999px;
+  background: rgba(255, 255, 255, .05); box-shadow: inset 0 0 0 1px var(--ligne); transition: box-shadow .2s, background-color .2s;
+}
+.libre:focus-within { background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1.5px rgba(205, 184, 232, .7); }
+.libre .champ { padding: 9px 10px; font-size: 14.5px; background: none; box-shadow: none; }
+.libre .champ::placeholder { color: var(--faible); }
+.libre .bouton { width: 36px; height: 36px; padding: 0; flex: none; box-shadow: none; transition: opacity .2s, transform .2s var(--sortie); }
+.libre:has(.champ:placeholder-shown) .bouton { opacity: .3; transform: scale(.92); }
+.libre .ic { width: 17px; height: 17px; stroke-width: 2.2; }
+.etape .bulle.ecrit { margin-top: 12px; }
+
+.erreur:not(:empty) { margin-top: 14px; font-size: 13.5px; line-height: 1.5; color: var(--non); }
+.alerte { margin-top: 12px; font-size: 13.5px; line-height: 1.5; color: #F4D9A8; }
+
+.actions { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 26px; }
+.actions .bouton { padding: 12px 24px; }
+.actions .bouton:only-child { margin-left: auto; }
+.actions .bouton[disabled] { opacity: .4; cursor: default; box-shadow: none; }
+.actions .bouton[disabled]:hover { background: var(--accent); }
+.liens { display: flex; gap: 2px; margin-left: -14px; }
+.lien { padding: 10px 14px; border-radius: 999px; font-size: 14px; color: var(--doux); transition: background-color .2s, color .2s; }
+.lien:hover { background: var(--verre-clair); color: var(--texte); }
+
+/* ---------------------------------------------------------------- récapitulatif : une phrase à toucher */
+.surtitre { font-size: 12.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--lavande); }
+.phrase-recap {
+  margin-top: 14px; font-family: var(--titres); font-size: clamp(19px, 2.6vw, 23px); font-weight: 500;
+  line-height: 1.6; letter-spacing: -.02em; text-wrap: pretty;
+}
+.morceau {
+  display: inline; padding: 1px 3px; margin: 0 -1px; border-radius: 6px; cursor: pointer;
+  color: var(--texte);
+  text-decoration: underline dotted rgba(205, 184, 232, .75); text-decoration-thickness: 1.5px; text-underline-offset: 6px;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+  transition: background-color .2s, text-decoration-color .2s;
+}
+.morceau:hover { background: rgba(205, 184, 232, .14); text-decoration-color: var(--lavande); }
+
+/* ---------------------------------------------------------------- fin */
+.coche-fin {
+  display: grid; place-items: center; width: 52px; height: 52px; margin-bottom: 18px; border-radius: 50%;
+  color: var(--oui); background: rgba(191, 229, 201, .12); box-shadow: inset 0 0 0 1px rgba(191, 229, 201, .4);
+}
+.coche-fin .ic { width: 26px; height: 26px; stroke-width: 2; }
+.etape .actions .bouton { text-align: center; }
+
+@media (max-width: 640px) {
+  .haut-entretien { padding: 16px; }
+  .haut-entretien .marque { font-size: 17px; }
+  .entretien { place-items: start center; padding: 76px 16px 32px; }
+  .carte-entretien { padding: 22px 20px 24px; }
+  .progression { margin-bottom: 24px; }
+  .actions { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .carte-entretien.arrivee, .etape > * { animation: none; }
+}

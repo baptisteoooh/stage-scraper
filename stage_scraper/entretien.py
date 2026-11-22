@@ -116,6 +116,8 @@ ZONES = {"idf": ("Toute l'Île-de-France", list(profil.DEPARTEMENTS)), "petite":
 TELETRAVAIL = {"tout": ("Hybride et télétravail", True, True), "hybride": ("Hybride, pas tout à distance", True, False),
                "sur_place": ("Sur place", False, False)}
 CONTRATS = {"stage": ("Stage seulement", ["stage"]), "stage_cdd": ("Stage ou CDD", ["stage", "cdd"])}
+# Au premier entretien, les réponses que presque tout le monde donne sont déjà cochées (un clic sur « Suivant » suffit).
+EVIDENTS = {"zone": ["idf"], "teletravail": ["tout"], "contrats": ["stage"]}
 
 MOIS_FR = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"]
 MOIS_EN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
@@ -169,7 +171,7 @@ def question(qid: str, donnees, valeurs: dict, aujourd_hui: date | None = None) 
     titre, aide, exemple = TEXTES[qid]
     rangees = _rangees(qid, p, actuel, valeurs, neuf, montrer, aujourd_hui or date.today())
     for r in rangees:
-        choisis = r.pop("_choisis") if montrer else []
+        choisis = r.pop("_choisis") if montrer else EVIDENTS.get(r["id"], [])
         r["choisis"] = [c for c in choisis if any(x["id"] == c for x in r["choix"])]
         r["libelle"] = LIBELLES_RANGEES.get(r["id"], "") if len(rangees) > 1 else ""
     return {"id": qid, "numero": QUESTIONS.index(qid) + 1, "total": len(QUESTIONS), "titre": titre, "aide": aide,
@@ -570,9 +572,15 @@ def _secteurs(p: dict, langue: str) -> list[str]:
 
 
 def _nuance(p: dict, langue: str) -> str:
-    """Ce qui va aussi et ce qui intéresse moins : « (aussi : biotech ; moins : pharma et 2 autres) »."""
+    """Ce qui va aussi et ce qui intéresse moins : « (biotech aussi ; un peu moins : pharma et 2 autres secteurs) »."""
     en = langue == "en"
-    morceaux = ([("also: " if en else "aussi : ") + _liste(p["secteurs_ok"], langue, 2)] if p["secteurs_ok"] else [])         + ([("less: " if en else "moins : ") + _liste(p["secteurs_moins"], langue, 2)] if p["secteurs_moins"] else [])
+
+    def liste(noms):
+        texte = _liste(noms, langue, 2)
+        return texte + (" sectors" if en else " secteurs") if len(noms) > 2 else texte
+
+    morceaux = ([liste(p["secteurs_ok"]) + (" too" if en else " aussi")] if p["secteurs_ok"] else []) \
+        + ([("a bit less: " if en else "un peu moins : ") + liste(p["secteurs_moins"])] if p["secteurs_moins"] else [])
     return f" ({' ; '.join(morceaux)})" if morceaux else ""
 
 

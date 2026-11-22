@@ -71,6 +71,9 @@ def test_questions_d_un_profil_neuf(neuve):
     assert quoi["numero"] == 1 and quoi["total"] == 6
     assert quoi["rangees"][0]["choisis"] == []                       # les valeurs du modèle ne sont pas présélectionnées
     assert "Conseil santé" not in [c["id"] for c in quoi["rangees"][0]["choix"]]
+    ou = entretien.question("ou", reglages.lire(neuve), {}, JOUR)          # mais les réponses évidentes sont déjà cochées
+    assert [r["choisis"] for r in ou["rangees"]] == [["idf"], ["tout"]]
+    assert entretien.question("contrats", reglages.lire(neuve), {}, JOUR)["rangees"][0]["choisis"] == ["stage"]
     quand = entretien.question("quand", reglages.lire(neuve), {}, JOUR)
     debut, duree = quand["rangees"]
     assert debut["choix"][0] == {"id": "2026-12", "libelle": "Décembre 2026"} and len(debut["choix"]) == 10
@@ -103,7 +106,7 @@ def test_parcours_en_puces_puis_c_est_bon(neuve, conn):
         ("quand", {"debut": ["2027-04"], "duree": ["3-5"]}, "Avril 2027 · 3 à 5 mois"),
         ("ou", {"zone": ["petite"], "teletravail": ["hybride"]}, "À Paris et en petite couronne, en hybride"),
         ("contrats", {"contrats": ["stage"]}, "Stage seulement"),
-        ("secteurs", {"secteurs": ["sante", "biotech"]}, "Santé / medtech et biotech (moins : pharma et 4 autres)"),
+        ("secteurs", {"secteurs": ["sante", "biotech"]}, "Santé / medtech et biotech (un peu moins : pharma et 4 autres secteurs)"),
         ("entreprises", {"entreprises": ["Doctolib", "Alan"]}, "Doctolib et Alan"),
     ]:
         r = _repondre(conn, neuve, q, v, choix=choix)
@@ -116,7 +119,7 @@ def test_parcours_en_puces_puis_c_est_bon(neuve, conn):
     assert a["erreur"] is None
     assert "".join(s["texte"] for s in a["segments"]) == (
         "Tu cherches un stage en Data science et IA / machine learning, à partir d'avril 2027 pour 3 à 5 mois, "
-        "à Paris et en petite couronne, en hybride, dans ces secteurs : santé / medtech et biotech (moins : pharma et 4 autres), "
+        "à Paris et en petite couronne, en hybride, dans ces secteurs : santé / medtech et biotech (un peu moins : pharma et 4 autres secteurs), "
         "en suivant de près Doctolib et Alan.")
     assert {s["question"] for s in a["segments"]} == set(entretien.QUESTIONS) | {None}
     en = "".join(s["texte"] for s in entretien.apercu(neuve, v, "en")["segments"])

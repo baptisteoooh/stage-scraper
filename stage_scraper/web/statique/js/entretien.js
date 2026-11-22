@@ -3,7 +3,7 @@
 // Rien n'est écrit avant « C'est bon » : le brouillon vit ici (et dans sessionStorage, pour survivre à un rechargement).
 // Tout ce que la page affiche vient du serveur : ce qui a été noté, la phrase finale, et « C'est enregistré »
 // seulement après que le serveur a écrit ET relu le profil.
-import { $, h, api, toast } from './commun.js';
+import { $, h, api, toast, messageSuivant } from './commun.js';
 
 const DEPUIS_PROFIL = new URLSearchParams(location.search).get('depuis') === 'profil';
 const CLE = 'entretien-accueil';
@@ -68,11 +68,14 @@ async function montrerQuestion(i) {
     etat.q = await api('/api/entretien/question', { id, valeurs: etat.valeurs });
   } catch (e) { erreurBloquante(e); return; }
   etat.choix = Object.fromEntries(etat.q.rangees.map(r => [r.id, [...r.choisis]]));
+  etat.touchees = new Set();
   dessinerQuestion();
 }
 
 // Une seule rangée à choix unique : le clic suffit, pas besoin de « Suivant ».
 const auClic = () => etat.q.rangees.length === 1 && !etat.q.rangees[0].multiple;
+// Plusieurs rangées à choix unique (début + durée, zone + télétravail) : dès qu'on a choisi dans chacune, on passe à la suite.
+const complete = () => etat.q.rangees.every(r => !r.multiple && etat.touchees.has(r.id) && etat.choix[r.id].length);
 
 function dessinerQuestion() {
   const q = etat.q;
@@ -94,7 +97,7 @@ function dessinerQuestion() {
       h('div', { class: 'liens' },
         etat.index > 0 && !etat.versRecap ? h('button', { class: 'lien', type: 'button', onclick: () => montrerQuestion(etat.index - 1) }, 'Retour') : null,
         h('button', { class: 'lien', type: 'button', onclick: passer }, etat.versRecap ? 'Garder comme avant' : 'Passer')),
-      auClic() ? null : h('button', { class: 'bouton principal', id: 'suivant', type: 'button', onclick: envoyerChoix, disabled: !aDesChoix() }, 'Suivant')),
+      auClic() && !aDesChoix() ? null : h('button', { class: 'bouton principal', id: 'suivant', type: 'button', onclick: envoyerChoix, disabled: !aDesChoix() }, 'Suivant')),
   );
 }
 
@@ -115,7 +118,8 @@ function rangee(r) {
         dessiner();
         zone.querySelector(`[data-id="${CSS.escape(c.id)}"]`)?.focus();
         $('#erreur')?.replaceChildren();
-        if (auClic()) { envoyerChoix(); return; }
+        etat.touchees.add(r.id);
+        if (auClic() || complete()) { envoyerChoix(); return; }
         const suivant = $('#suivant');
         if (suivant) suivant.disabled = !aDesChoix();
       },
@@ -227,16 +231,10 @@ async function terminer(e) {
     return;
   }
   oublier();
-  $('#plus-tard').hidden = true;   // c'est fait : plus rien à remettre à plus tard
-  afficher(
-    h('div', { class: 'coche-fin', 'aria-hidden': 'true' }, icone(COCHE)),
-    h('h1', { id: 'titre-etape', tabindex: '-1' }, "C'est enregistré."),
-    h('p', { class: 'aide' }, 'Les offres seront notées selon tes réponses. Tu peux tout changer dans Mon profil.'),
-    r.retriees ? h('p', { class: 'aide' }, 'Les offres déjà là ont été retriées avec ces critères.') : null,
-    h('div', { class: 'actions' }, DEPUIS_PROFIL
-      ? h('a', { class: 'bouton principal', href: '/profil' }, 'Revenir à mon profil')
-      : h('a', { class: 'bouton principal', href: '/a-trier' }, 'Voir mes offres')),
-  );
+  // Pas d'écran de confirmation : on va droit aux offres (ou au profil), avec un message en passant.
+  // Le serveur n'a répondu qu'après avoir relu le fichier écrit : le message dit vrai.
+  messageSuivant(r.retriees ? 'C\'est enregistré : tes offres sont retriées selon tes réponses.' : 'C\'est enregistré.');
+  location.href = DEPUIS_PROFIL ? '/profil' : '/a-trier';
 }
 
 function erreurBloquante(e) {

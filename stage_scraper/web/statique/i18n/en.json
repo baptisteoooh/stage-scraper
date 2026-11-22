@@ -695,7 +695,8 @@
     "Cette semaine : {n} nouvelles offres, dont 1 notée 8 ou plus.": "This week: {1} new offers, 1 scored 8 or more.",
     "Cette semaine : {n} nouvelles offres.": "This week: {1} new offers.",
     "Cette semaine : 1 nouvelle offre.": "This week: 1 new offer.",
-    "Coût de l'IA : crédit Claude restant {n} sur {n}": "AI cost: Claude credit left {1} of {2}"
+    "Coût de l'IA : crédit Claude restant {n} sur {n}": "AI cost: Claude credit left {1} of {2}",
+    "C'est enregistré : tes offres sont retriées selon tes réponses.": "Saved: your offers are re-sorted with your answers."
   },
   "motifs": {
     "{} · Stage Scraper": "{1} · Stage Scraper",

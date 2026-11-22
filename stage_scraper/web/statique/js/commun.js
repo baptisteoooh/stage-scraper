@@ -95,6 +95,16 @@ document.querySelectorAll('[data-langue]').forEach((b) => {
 // ======================================================================= toast
 
 let minuteur = 0;
+// Un message à afficher sur la page suivante (après une redirection).
+export function messageSuivant(texte) {
+  try { sessionStorage.setItem('message-suivant', texte); } catch { /* navigation privée : tant pis */ }
+}
+setTimeout(() => {
+  let texte = null;
+  try { texte = sessionStorage.getItem('message-suivant'); sessionStorage.removeItem('message-suivant'); } catch { /* idem */ }
+  if (texte && document.getElementById('toast')) toast(texte);
+}, 400);
+
 export function toast(texte, boutons = [], { raisons = null, duree = 5000 } = {}) {
   const t = $('#toast');
   clearTimeout(minuteur);

@@ -129,3 +129,9 @@ body { overflow-x: hidden; overflow-y: auto; }
 @media (prefers-reduced-motion: reduce) {
   .carte-entretien.arrivee, .etape > * { animation: none; }
 }
+
+/* Le bouton « Suivant » ne bouge pas d'une question à l'autre : l'étape a une hauteur minimale et les actions sont en bas. */
+@media (min-height: 700px) and (min-width: 700px) {
+  .etape { min-height: 535px; }
+  .etape .actions { margin-top: auto; padding-top: 26px; }
+}

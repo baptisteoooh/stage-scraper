@@ -192,10 +192,11 @@ Pour l'arrêter : `Ctrl + C` dans le terminal.
   avec ce que l'IA en reçoit (anonymisé). Le CV se dépose aussi directement dans la fiche d'une offre de Ma sélection.
 - **Entretien d'accueil** (`/bienvenue`) : à la première ouverture (profil jamais configuré : phrase « Ce que tu
   cherches » vide), « Se connecter » mène à 6 questions courtes, une à la fois : quel stage, quand (mois de début et
-  durée), où (zone et télétravail), stage ou CDD, secteurs, entreprises rêvées. On répond en un clic (puces), avec ses
+  durée), où (zone et télétravail), stage ou CDD, secteurs, entreprises rêvées. Les réponses évidentes (toute l'Île-de-France,
+  hybride, stage) sont déjà cochées, et une question à choix simples passe toute seule à la suite. On répond en un clic (puces), avec ses
   mots (Gemini, gratuit, comprend la réponse ; sans clé, une lecture simple du texte prend le relais) ou on passe.
   À la fin, une phrase résume tout : touche un morceau pour le corriger, puis **C'est bon** écrit le profil dans
-  config.yaml (rien n'est écrit avant) et retrie les offres déjà là si les critères ont changé. « Plus tard » (en
+  config.yaml (rien n'est écrit avant), retrie les offres déjà là si les critères ont changé et mène droit à À trier. « Plus tard » (en
   haut) laisse entrer sans répondre. Relançable depuis Mon profil (« Refaire l'entretien ») : les réponses
   actuelles sont préremplies, et entreprises et recherches sont alors seulement ajoutées. Aucun texte écrit par
   l'IA n'est affiché : le bot ne dit que ce que le code a vraiment noté, puis enregistré et relu.

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bienvenue · Stage Scraper</title>
+<link rel="icon" href="/statique/img/icone.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/statique/css/site.css">
+<link rel="stylesheet" href="/statique/css/app.css">
+<link rel="stylesheet" href="/statique/css/entretien.css">
+<script type="module" src="/statique/js/entretien.js"></script>
+</head>
+<body>
+<div class="fond" aria-hidden="true"></div>
+
+<header class="haut-entretien">
+  <span class="marque">Stage Scraper</span>
+  <div class="haut-droite">
+    <a class="plus-tard" id="plus-tard" href="/a-trier">Plus tard</a>
+    <div class="langue" role="group" aria-label="Langue">
+      <button type="button" data-langue="fr" aria-pressed="true">FR</button><span aria-hidden="true">·</span><button type="button" data-langue="en" aria-pressed="false">EN</button>
+    </div>
+  </div>
+</header>
+
+<main class="entretien">
+  <section class="carte-entretien verre" id="carte" aria-labelledby="titre-etape">
+    <ol class="progression" id="progression" aria-label="Progression"></ol>
+    <div class="etape" id="etape" aria-live="polite">
+      <p class="chargement">Chargement…</p>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

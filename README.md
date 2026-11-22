@@ -187,6 +187,15 @@ Pour l'arrêter : `Ctrl + C` dans le terminal.
   l'Assistant et le dossier signalent de même toute action annoncée mais pas faite. Le scoring et l'Assistant lisent ce profil : une
   phrase « Ce que tu cherches » claire améliore les notes. Après un changement de critères, le bandeau
   « Refaire le tri » applique les nouveaux critères aux offres déjà collectées.
+- **Entretien d'accueil** (`/bienvenue`) : à la première ouverture (profil jamais configuré : phrase « Ce que tu
+  cherches » vide), « Se connecter » mène à 6 questions courtes, une à la fois : quel stage, quand (mois de début et
+  durée), où (zone et télétravail), stage ou CDD, secteurs, entreprises rêvées. On répond en un clic (puces), avec ses
+  mots (Gemini, gratuit, comprend la réponse ; sans clé, une lecture simple du texte prend le relais) ou on passe.
+  À la fin, une phrase résume tout : touche un morceau pour le corriger, puis **C'est bon** écrit le profil dans
+  config.yaml (rien n'est écrit avant) et retrie les offres déjà là si les critères ont changé. « Plus tard » (en
+  haut) laisse entrer sans répondre. Relançable depuis Mon profil (« Remplir en 6 questions ») : les réponses
+  actuelles sont préremplies, et entreprises et recherches sont alors seulement ajoutées. Aucun texte écrit par
+  l'IA n'est affiché : le bot ne dit que ce que le code a vraiment noté, puis enregistré et relu.
 - **Réglages** : mails (seuil d'alerte, envoi, aperçus, mail de test), tes documents (CV, lettre modèle, et ce
   que l'IA en reçoit) et « Refaire le tri ». **Enregistrer** (ou Ctrl+S) écrit config.yaml.
 - L'analyse face au CV, les conseils, la lettre et l'Assistant arrivent ensuite : en attendant, ils restent dans
@@ -303,6 +312,7 @@ stage_scraper/
   profil.py            profil de recherche (Mon profil) : lecture, vérification, écriture de config.yaml
   agent_profil.py      agent qui modifie le profil en conversation (outil modifier_profil)
   a_revoir.py          « À revoir » : propositions de changement du profil tirées des offres écartées
+  entretien.py         entretien d'accueil (/bienvenue) : 6 questions qui remplissent le profil
   cv.py                texte anonymisé du CV et de la lettre modèle
   pipeline.py          un passage complet : collecte, tri, scoring
   appli.py             menu de l'appli Streamlit et page Assistant

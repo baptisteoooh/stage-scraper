@@ -86,6 +86,16 @@ Thème sombre seulement (`color-scheme: dark`).
   les autres passent à 34 % d'opacité et deviennent inertes) avec son pied **Annuler / Enregistrer** collé en
   bas de l'écran. Les rubriques modifiées par l'agent s'éclairent un instant en lavande (`.flash`). Les valeurs
   en phrases (dates, durées) sont écrites entières dans chaque langue (dans `profil.js`).
+- **Entretien d'accueil** (`/bienvenue`, `entretien.css`) : page à part, sans menu, sur la photo (`.fond`) ; en haut
+  la marque, « Plus tard » discret et FR · EN. Au centre, une carte de verre de 640 px (coins 18 px, léger dégradé
+  lavande en haut) : 6 traits fins de progression (lavande = fait, à moitié = en cours), « ✓ Noté · ce qui a été
+  retenu » en petit lavande, la question en Sora 24–30 px, une ligne d'aide en `--doux`, les puces (`.pastille`,
+  pleines quand choisies ; pour les domaines, un petit numéro d'ordre dans la puce), une pilule « avec tes mots »
+  au bouton d'envoi intégré (éteint tant qu'elle est vide), puis Retour / Passer à gauche et **Suivant** à droite
+  (absent quand un seul clic suffit). Fin : surtitre lavande en petites capitales, UNE phrase en Sora ~22 px dont
+  chaque morceau est souligné en pointillés lavande (survol : voile lavande ; clic ou Entrée : rouvre la question),
+  et **C'est bon**. Enregistré : coche dans un rond vert pâle (`--oui`). Entrée en fondu montant ; rien d'animé
+  avec « réduire les animations ». Sur téléphone, carte pleine largeur (gouttière 16 px), sans défilement horizontal.
 - **Surfaces du navigateur** (`site.css`) : barres de défilement fines lavande sans rail (presque invisibles au
   repos, plus nettes au survol de la zone), sélection de texte lavande, curseur de saisie lavande.
 - **Pastilles** d'information sur les cartes (`.puces`) : IA / data, CDD, durée, début, gratification ;

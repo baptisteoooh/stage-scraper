@@ -4,6 +4,10 @@
 
 .page-profil .barre { gap: 14px; }
 .ouvrir-chat { display: none; }
+/* Relancer l'entretien d'accueil (/bienvenue) : discret, à droite du titre. */
+.entretien-lien { margin-left: auto; margin-right: 16px; padding: 7px 14px; font-size: 13.5px; color: var(--doux); }
+.entretien-lien:hover { color: var(--texte); }
+.entretien-lien .ic { width: 16px; height: 16px; }
 
 .profil-corps { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 320px; }
 .feuille { padding: 6px clamp(28px, 4vw, 56px) 0 28px; }
@@ -227,6 +231,7 @@
   .feuille { padding: 4px 16px 0; }
   .ouvrir-chat { display: inline-flex; }
   .page-profil .barre { padding: 16px 16px 0; justify-content: space-between; }
+  .entretien-lien { margin: 0 0 0 auto; }
   .rubrique.ouverte { margin: 10px -12px; padding: 20px 12px 0; }
   .pied { margin: 0 -12px; padding: 14px 12px 16px; }
   .phrase-recherche { font-size: 19px; }

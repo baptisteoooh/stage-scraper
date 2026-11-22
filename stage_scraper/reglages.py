@@ -9,7 +9,7 @@ from pathlib import Path
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
-from .config import CHEMIN_CONFIG
+from . import config as _config
 
 
 def _yaml() -> YAML:
@@ -20,14 +20,21 @@ def _yaml() -> YAML:
     return yaml
 
 
-def lire(chemin: Path = CHEMIN_CONFIG):
+def _courant() -> Path:
+    """config.yaml du compte en cours (ou celui du projet)."""
+    compte = _config.COMPTE.get()
+    return compte.config if compte else _config.CHEMIN_CONFIG
+
+
+def lire(chemin: Path | None = None):
+    chemin = chemin or _courant()
     with open(chemin, encoding="utf-8") as f:
         return _yaml().load(f)
 
 
-def ecrire(donnees, chemin: Path = CHEMIN_CONFIG) -> None:
+def ecrire(donnees, chemin: Path | None = None) -> None:
     """Écrit config.yaml, après en avoir gardé une copie (config.yaml.bak) en cas de souci."""
-    chemin = Path(chemin)
+    chemin = Path(chemin or _courant())
     if chemin.exists():
         shutil.copyfile(chemin, chemin.with_name(chemin.name + ".bak"))
     with open(chemin, "w", encoding="utf-8") as f:

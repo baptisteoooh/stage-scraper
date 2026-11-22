@@ -31,6 +31,12 @@ API
 - GET|POST /api/reglages/documents/{cv|modele} texte anonymisé / dépôt du fichier (corps brut)
 - GET  /api/entretien  /  POST /api/entretien/question {id, valeurs}   entretien d'accueil (page /bienvenue)
 - POST /api/entretien/repondre {question, choix | texte, valeurs}  /  /apercu {valeurs}  /  /terminer {valeurs}
+Mode comptes (python site_web.py --comptes) :
+- GET  /api/compte                    qui est connecté (et s'il faut créer le premier compte)
+- POST /api/compte/connexion {nom, mot_de_passe}  /  /inscription {nom, mot_de_passe, code}  /  /deconnexion
+- POST /api/compte/cle {cle: gemini|claude, valeur}   la clé IA de son compte (amis)
+- POST /api/compte/mot-de-passe {ancien, nouveau}
+- POST /api/compte/inviter  /  /supprimer {nom}       (BAP seulement)
 """
 import hashlib
 import io
@@ -40,6 +46,7 @@ import os
 import re
 import secrets
 import threading
+import contextvars
 from contextlib import asynccontextmanager, closing
 from datetime import date, datetime
 from pathlib import Path
@@ -50,9 +57,10 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import langue
-from .. import a_revoir, agent_profil, chat_offres, claude, db, decisions, dossier, entretien, expiration, notifications, presentation, profil, reglages, requetes, selection
+from .. import a_revoir, agent_profil, chat_offres, claude, comptes, db, decisions, dossier, entretien, expiration, notifications, presentation, profil, reglages, requetes, selection
 from .. import cv as module_cv
-from ..config import CHEMIN_CONFIG, charger_config, chemin_projet, secret
+from .. import config as config_module
+from ..config import CHEMIN_CONFIG, COMPTE, RACINE, charger_config, chemin_projet, secret
 
 STATIQUE = Path(__file__).parent / "statique"
 SEUIL_BOF = 5
@@ -80,6 +88,37 @@ async def _toujours_a_jour(request: Request, appel_suivant):
     return reponse
 
 
+# =========================================================================== comptes
+
+COOKIE_SESSION = "session"
+# Ce qu'on peut ouvrir sans être connecté : l'accueil (qui sert aussi de page de connexion), les fichiers du site.
+_PUBLIC = ("/statique/", "/api/compte")
+
+
+def mode_comptes() -> bool:
+    """Site partagé (python site_web.py --comptes) : il faut se connecter, chacun a ses données."""
+    return os.getenv("STAGE_SCRAPER_COMPTES") == "1"
+
+
+@app.middleware("http")
+async def _compte_de_la_requete(request: Request, appel_suivant):
+    """En mode comptes : retrouve la personne connectée (cookie de session) et fait travailler tout le code
+    pour elle (sa base, ses réglages, ses clés). Sans session : l'accueil, pour se connecter."""
+    if not mode_comptes():
+        return await appel_suivant(request)
+    chemin = request.url.path
+    c = comptes.session(request.cookies.get(COOKIE_SESSION))
+    if c is None and chemin != "/" and not chemin.startswith(_PUBLIC):
+        if chemin.startswith("/api/"):
+            return Response(json.dumps({"detail": "Connecte-toi d'abord."}), status_code=401, media_type="application/json")
+        return RedirectResponse("/", status_code=303)
+    jeton = COMPTE.set(c)
+    try:
+        return await appel_suivant(request)
+    finally:
+        COMPTE.reset(jeton)
+
+
 _STATIQUE_DANS_PAGE = re.compile(r"(/statique/[\w/.-]+\.(?:css|js))(?=[\"'])")
 
 
@@ -103,24 +142,51 @@ def versionner(page: str) -> str:
 
 # =========================================================================== base
 
-def chemin_base() -> Path:
-    """Base de config.yaml, sauf si la variable STAGE_SCRAPER_BASE en désigne une autre (tests, essais)."""
-    autre = os.getenv("STAGE_SCRAPER_BASE")
-    return Path(autre) if autre else chemin_projet(charger_config()["general"]["base_de_donnees"])
+def _compte_ami():
+    """Le compte connecté s'il a son propre dossier (un ami), sinon None (BAP, ou site sans comptes)."""
+    c = COMPTE.get()
+    return c if c is not None and c.dossier is not None else None
 
 
-def chemin_config() -> Path:
+def config_de_bap() -> Path:
     """config.yaml, sauf si STAGE_SCRAPER_CONFIG en désigne une copie (tests : ne jamais toucher au vrai)."""
     autre = os.getenv("STAGE_SCRAPER_CONFIG")
     return Path(autre) if autre else CHEMIN_CONFIG
+
+
+def base_de_bap() -> Path:
+    """Base de config.yaml, sauf si la variable STAGE_SCRAPER_BASE en désigne une autre (tests, essais)."""
+    autre = os.getenv("STAGE_SCRAPER_BASE")
+    if autre:
+        return Path(autre)
+    general = Path(charger_config(config_de_bap())["general"]["base_de_donnees"])
+    return general if general.is_absolute() else RACINE / general
+
+
+def chemin_base() -> Path:
+    """La base de la personne connectée (un ami : celle de son dossier ; sinon celle de BAP)."""
+    ami = _compte_ami()
+    return ami.dossier / "stages.db" if ami else base_de_bap()
+
+
+def chemin_config() -> Path:
+    ami = _compte_ami()
+    return ami.config if ami else config_de_bap()
 
 
 def config_courante() -> dict:
     return charger_config(chemin_config())
 
 
+_bases_pretes: set[str] = set()
+
+
 def connexion():
-    conn = db.connecter(chemin_base())
+    chemin = chemin_base()
+    conn = db.connecter(chemin)
+    if str(chemin) not in _bases_pretes:   # base d'un compte ouverte pour la première fois : tables à jour
+        db.initialiser(conn)
+        _bases_pretes.add(str(chemin))
     return closing(conn)
 
 
@@ -1128,55 +1194,218 @@ async def api_deposer_document(nom: str, request: Request, fichier: str = ""):
 # =========================================================================== API : scrap
 
 class _Scrap:
-    """Un seul scrap à la fois, lancé dans un fil à part ; la page suit son avancement."""
-    verrou = threading.Lock()
-    en_cours = False
-    lignes: list[str] = []
-    bilan: list[str] | None = None
-    erreur: str | None = None
+    """Un scrap à la fois par compte, lancé dans un fil à part ; la page suit son avancement."""
+    def __init__(self, nom: str):
+        self.fil = f"scrap-{nom}"
+        self.en_cours = False
+        self.lignes: list[str] = []
+        self.bilan: list[str] | None = None
+        self.erreur: str | None = None
+
+
+_scraps: dict[str, _Scrap] = {}
+_verrou_scrap = threading.Lock()
+
+
+def _scrap_du_compte() -> _Scrap:
+    c = COMPTE.get()
+    nom = c.nom if c else ""
+    with _verrou_scrap:
+        return _scraps.setdefault(nom, _Scrap(nom))
 
 
 class _VersLaPage(logging.Handler):
-    def __init__(self):
+    """Les lignes du journal écrites par le fil de CE scrap (deux comptes peuvent scraper en même temps)."""
+    def __init__(self, etat: _Scrap):
         super().__init__(level=logging.INFO)
+        self.etat = etat
         self.setFormatter(logging.Formatter("%(message)s"))
 
     def emit(self, record):
-        _Scrap.lignes.append(self.format(record))
-        del _Scrap.lignes[:-40]
+        if record.threadName == self.etat.fil:
+            self.etat.lignes.append(self.format(record))
+            del self.etat.lignes[:-40]
 
 
-def _faire_scrap() -> None:
+def _faire_scrap(etat: _Scrap) -> None:
     from .. import pipeline   # import tardif : la collecte charge beaucoup de modules
-    journal = _VersLaPage()
+    journal = _VersLaPage(etat)
     racine = logging.getLogger()
     ancien = racine.level
     racine.addHandler(journal)
     racine.setLevel(logging.INFO)
     try:
+        # Un ami ne scrape pas les sites : il reprend les offres collectées par BAP, et les note avec sa clé.
+        commune = base_de_bap() if _compte_ami() else None
         with connexion() as conn:
-            bilan = pipeline.passage_complet(conn, config_courante(), auto=False)
-        _Scrap.bilan = pipeline.resume_texte(bilan)
+            bilan = pipeline.passage_complet(conn, config_courante(), auto=False, commune=commune)
+        etat.bilan = pipeline.resume_texte(bilan)
     except Exception as e:   # le site doit le dire, pas planter
         logging.getLogger(__name__).exception("Le scrap a planté")
-        _Scrap.erreur = f"{type(e).__name__} : {e}"
+        etat.erreur = f"{type(e).__name__} : {e}"
     finally:
         racine.removeHandler(journal)
         racine.setLevel(ancien)
-        _Scrap.en_cours = False
+        etat.en_cours = False
 
 
 @app.post("/api/scrap")
 def api_lancer_scrap():
-    with _Scrap.verrou:
-        if _Scrap.en_cours:
+    etat = _scrap_du_compte()
+    with _verrou_scrap:
+        if etat.en_cours:
             return {"lance": False, "en_cours": True}
-        _Scrap.en_cours, _Scrap.lignes, _Scrap.bilan, _Scrap.erreur = True, [], None, None
-    threading.Thread(target=_faire_scrap, name="scrap", daemon=True).start()
+        etat.en_cours, etat.lignes, etat.bilan, etat.erreur = True, [], None, None
+    contexte = contextvars.copy_context()   # le fil garde le compte de la requête (sa base, ses clés)
+    threading.Thread(target=contexte.run, args=(_faire_scrap, etat), name=etat.fil, daemon=True).start()
     return {"lance": True, "en_cours": True}
 
 
 @app.get("/api/scrap")
 def api_etat_scrap():
-    return {"en_cours": _Scrap.en_cours, "derniere_ligne": _Scrap.lignes[-1] if _Scrap.lignes else None,
-            "bilan": _Scrap.bilan, "erreur": _Scrap.erreur}
+    etat = _scrap_du_compte()
+    return {"en_cours": etat.en_cours, "derniere_ligne": etat.lignes[-1] if etat.lignes else None,
+            "bilan": etat.bilan, "erreur": etat.erreur}
+
+
+# =========================================================================== API : comptes
+
+class CorpsConnexion(BaseModel):
+    nom: str
+    mot_de_passe: str
+    code: str | None = None
+
+
+class CorpsCle(BaseModel):
+    cle: str
+    valeur: str = ""
+
+
+class CorpsMotDePasse(BaseModel):
+    ancien: str
+    nouveau: str
+
+
+class CorpsNom(BaseModel):
+    nom: str
+
+
+def _avec_session(reponse: dict, jeton: str, request: Request) -> Response:
+    r = Response(json.dumps(reponse), media_type="application/json")
+    r.set_cookie(COOKIE_SESSION, jeton, max_age=int(comptes.DUREE_SESSION.total_seconds()), httponly=True,
+                 samesite="lax", secure=request.url.scheme == "https", path="/")
+    return r
+
+
+def _connecte():
+    c = COMPTE.get()
+    if c is None:
+        raise HTTPException(401, "Connecte-toi d'abord.")
+    return c
+
+
+def _admin():
+    c = _connecte()
+    if not c.admin:
+        raise HTTPException(403, "Réservé au compte principal.")
+    return c
+
+
+def _refuser(e: Exception):
+    raise HTTPException(400, str(e))
+
+
+@app.get("/api/compte")
+def api_compte(invitation: str | None = None):
+    if not mode_comptes():
+        return {"mode": False}
+    c = COMPTE.get()
+    rep = {"mode": True, "connecte": c is not None, "premier": comptes.aucun_compte(),
+           "invitation": comptes.invitation_valable(invitation) if invitation else None}
+    if c is None:
+        return rep
+    rep.update({"nom": c.nom, "admin": c.admin})
+    if c.dossier:   # un ami : ses clés à lui (masquées)
+        cles = config_module.lire_cles(c.cles)
+        rep["cles"] = {"gemini": comptes.cle_masquee(cles.get("GEMINI_API_KEY")),
+                       "claude": comptes.cle_masquee(cles.get("ANTHROPIC_API_KEY"))}
+    else:
+        rep["comptes"] = comptes.liste()
+    return rep
+
+
+@app.post("/api/compte/connexion")
+def api_connexion(corps: CorpsConnexion, request: Request):
+    if not mode_comptes():
+        raise HTTPException(404, "Pas de comptes sur ce site.")
+    try:
+        jeton = comptes.connecter(corps.nom, corps.mot_de_passe)
+    except comptes.CompteRefuse as e:
+        _refuser(e)
+    return _avec_session({"ok": True}, jeton, request)
+
+
+@app.post("/api/compte/inscription")
+def api_inscription(corps: CorpsConnexion, request: Request):
+    if not mode_comptes():
+        raise HTTPException(404, "Pas de comptes sur ce site.")
+    try:
+        c = comptes.creer_admin(corps.nom, corps.mot_de_passe) if comptes.aucun_compte() \
+            else comptes.creer_avec_invitation(corps.code or "", corps.nom, corps.mot_de_passe)
+    except comptes.CompteRefuse as e:
+        _refuser(e)
+    return _avec_session({"ok": True, "admin": c.admin}, comptes.ouvrir_session(c.nom), request)
+
+
+@app.post("/api/compte/deconnexion")
+def api_deconnexion(request: Request):
+    comptes.fermer_session(request.cookies.get(COOKIE_SESSION))
+    r = Response(json.dumps({"ok": True}), media_type="application/json")
+    r.delete_cookie(COOKIE_SESSION, path="/")
+    return r
+
+
+@app.post("/api/compte/cle")
+def api_cle(corps: CorpsCle):
+    c = _connecte()
+    nom = {"gemini": "GEMINI_API_KEY", "claude": "ANTHROPIC_API_KEY"}.get(corps.cle)
+    if not c.dossier or not nom:
+        raise HTTPException(400, "Les clés du compte principal sont dans le fichier .env.")
+    try:
+        comptes.ecrire_cle(c, nom, corps.valeur)
+    except comptes.CompteRefuse as e:
+        _refuser(e)
+    valeur = corps.valeur.strip()
+    valable = None
+    if valeur and corps.cle == "gemini":
+        from .. import gemini
+        valable = gemini.cle_valable(valeur)
+    return {"ok": True, "masquee": comptes.cle_masquee(valeur), "valable": valable}
+
+
+@app.post("/api/compte/mot-de-passe")
+def api_mot_de_passe(corps: CorpsMotDePasse):
+    c = _connecte()
+    try:
+        comptes.changer_mot_de_passe(c.nom, corps.ancien, corps.nouveau)
+    except comptes.CompteRefuse as e:
+        _refuser(e)
+    return {"ok": True}
+
+
+@app.post("/api/compte/inviter")
+def api_inviter(request: Request):
+    _admin()
+    code = comptes.inviter()
+    return {"lien": str(request.base_url) + f"?invitation={code}", "jours": comptes.DUREE_INVITATION.days}
+
+
+@app.post("/api/compte/supprimer")
+def api_supprimer_compte(corps: CorpsNom):
+    _admin()
+    try:
+        comptes.supprimer(corps.nom)
+    except comptes.CompteRefuse as e:
+        _refuser(e)
+    return {"ok": True, "comptes": comptes.liste()}
+

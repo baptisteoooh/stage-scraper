@@ -10,14 +10,19 @@ log = logging.getLogger(__name__)
 
 
 def passage_complet(conn, config: dict, auto: bool = False, sources: list[str] | None = None,
-                    max_requetes: int | None = None, client_ia=None) -> dict:
-    passage_id, bilan_sources = collecte.lancer_passage(conn, config, auto=auto, sources_demandees=sources,
-                                                        max_requetes=max_requetes)
+                    max_requetes: int | None = None, client_ia=None, commune=None) -> dict:
+    """Un passage : collecte, tri, notation, mails. Avec `commune` (compte d'un ami) : les offres viennent de la base
+    de BAP au lieu des sites, et aucun mail ne part (ils partiraient de la boîte Gmail de BAP)."""
+    if commune is not None:
+        passage_id, bilan_sources = collecte.importer_commune(conn, commune, auto=auto)
+    else:
+        passage_id, bilan_sources = collecte.lancer_passage(conn, config, auto=auto, sources_demandees=sources,
+                                                            max_requetes=max_requetes)
     bilan_tri = traitement.traiter(conn, config)
     bilan_tri["anciennes"] = expiration.trop_anciennes(conn, config)
     bilan_scoring = scoring.noter_nouvelles(conn, config, passage_id, auto, client=client_ia)
     try:
-        bilan_mails = notifications.apres_passage(conn, config, passage_id, auto)
+        bilan_mails = [] if commune is not None else notifications.apres_passage(conn, config, passage_id, auto)
     except Exception as e:  # un souci de mail ne doit pas faire échouer le passage
         log.exception("Les mails ont planté")
         bilan_mails = [{"type": "alerte", "nb": 1, "envoye": False, "apercu": None, "erreur": type(e).__name__}]

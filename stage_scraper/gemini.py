@@ -156,3 +156,16 @@ def _erreur_http(r: requests.Response, modele: str) -> ErreurGemini:
         return ErreurGemini(f"Gemini surchargé ({r.status_code}) : le reste sera noté au prochain passage",
                             bloquante=True)
     return ErreurGemini(f"erreur {r.status_code} : {detail}")
+
+
+def cle_valable(cle: str) -> bool | None:
+    """Vérifie une clé sans rien générer (liste des modèles : gratuit, aucun token).
+    True = acceptée, False = refusée par Google, None = impossible de savoir (pas de réseau…)."""
+    try:
+        r = requests.get("https://generativelanguage.googleapis.com/v1beta/models", params={"pageSize": 1},
+                         headers={"x-goog-api-key": cle}, timeout=10)
+    except requests.RequestException:
+        return None
+    if r.status_code == 200:
+        return True
+    return False if r.status_code in (400, 401, 403) else None

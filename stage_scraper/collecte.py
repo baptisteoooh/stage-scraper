@@ -68,3 +68,50 @@ def lancer_passage(conn, config: dict, auto: bool = False,
 
 def _maintenant() -> str:
     return datetime.now().isoformat(sep=" ", timespec="seconds")
+
+
+# --------------------------------------------------------------------------- collecte commune (mode comptes)
+
+# Ce qu'un ami reçoit d'une offre : ses données brutes. Jamais la note, les décisions ni les indicateurs de BAP.
+COLONNES_PARTAGEES = ("source", "source_id", "titre", "entreprise", "type_contrat", "lieu", "departement", "teletravail",
+                      "date_publication", "duree", "duree_mois", "date_debut", "gratification", "lien", "description",
+                      "contact", "site_origine")
+
+
+def importer_commune(conn, base_commune, auto: bool = False) -> tuple[int, list[dict]]:
+    """Pour le compte d'un ami : reprend les offres collectées par BAP (sa base, ouverte en lecture seule) au lieu
+    d'interroger les sites. Les offres retirées du site chez BAP le sont aussi chez l'ami.
+    Renvoie (n° du passage, bilan) comme lancer_passage."""
+    import sqlite3
+    from pathlib import Path
+
+    passage_id = db.nouveau_passage_id(conn)
+    debut = _maintenant()
+    erreurs, offres, retirees = [], [], []
+    try:
+        source = sqlite3.connect(Path(base_commune).resolve().as_uri() + "?mode=ro", uri=True)
+        source.row_factory = sqlite3.Row
+        try:
+            for ligne in source.execute(f"SELECT {', '.join(COLONNES_PARTAGEES)}, expiration FROM offres"):
+                if ligne["expiration"] == "retiree":
+                    retirees.append((ligne["source"], ligne["source_id"]))
+                elif not ligne["expiration"]:
+                    offres.append({c: ligne[c] for c in COLONNES_PARTAGEES})
+        finally:
+            source.close()
+    except sqlite3.Error as e:
+        log.exception("Lecture des offres communes impossible")
+        erreurs.append(f"offres communes illisibles ({type(e).__name__})")
+    nb_nouvelles = db.enregistrer_offres(conn, offres, passage_id)
+    nb_retirees = 0
+    for src, src_id in retirees:
+        nb_retirees += conn.execute(
+            "UPDATE offres SET expiration = 'retiree', date_expiration = datetime('now', 'localtime') "
+            "WHERE source = ? AND source_id = ? AND expiration IS NULL", (src, src_id)).rowcount
+    conn.commit()
+    db.journaliser_run(conn, passage_id=passage_id, date_debut=debut, date_fin=_maintenant(),
+                       declenchement="auto" if auto else "manuel", source="commune", nb_offres=len(offres),
+                       nb_nouvelles=nb_nouvelles, nb_requetes=0, erreurs=" / ".join(erreurs) or None)
+    return passage_id, [{"source": "commune", "nb_offres": len(offres), "nb_nouvelles": nb_nouvelles, "nb_requetes": 0,
+                         "erreurs": erreurs, "message": "", "nb_expirees": nb_retirees, "nb_retablies": 0}]
+

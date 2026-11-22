@@ -30,3 +30,6 @@ CV & lettre de motivation template/
 # Claude Code : réglages personnels (hooks Impeccable)
 .claude/settings.local.json
 .impeccable/config.local.json
+
+# Comptes du site partagé (mots de passe chiffrés, bases, CV et clés des amis)
+comptes/

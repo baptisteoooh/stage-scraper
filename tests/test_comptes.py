@@ -225,3 +225,18 @@ def test_sans_mode_comptes_rien_ne_change(dossier):
         assert c.get("/api/compte").json() == {"mode": False}
         assert c.get("/api/a-trier").status_code == 200
         assert c.post("/api/compte/connexion", json={"nom": "bap", "mot_de_passe": MDP}).status_code == 404
+
+
+def test_passage_automatique_des_amis(dossier, monkeypatch):
+    """La tâche de 8 h : après le passage de BAP, chaque ami reçoit les offres (sans clé : pas encore notées)."""
+    import run
+    monkeypatch.setenv("GEMINI_API_KEY", "cle-de-bap-0123456789abcdef")   # ne doit jamais servir à un ami
+    comptes.creer_admin("bap", MDP)
+    lea = comptes.creer_avec_invitation(comptes.inviter(), "lea", MDP)
+    lignes = run.passages_des_amis(dossier / "bap.db")
+    assert len(lignes) == 1 and lignes[0].startswith("Compte lea : 2 nouvelle(s) offre(s), 0 notée(s)"), lignes
+    with closing(db.connecter(lea.dossier / "stages.db")) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM offres").fetchone()[0] == 2
+    with closing(db.connecter(dossier / "bap.db")) as conn:   # la base de BAP n'a pas bougé
+        assert conn.execute("SELECT COUNT(*) FROM offres").fetchone()[0] == 3
+

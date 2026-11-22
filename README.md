@@ -209,6 +209,31 @@ Pour essayer sans toucher à tes offres : copie `data\stages.db`, puis
 (PowerShell) avant `python site_web.py`. De même, `STAGE_SCRAPER_CONFIG` désigne une copie de config.yaml
 (les Réglages écrivent alors dans la copie).
 
+### Site partagé avec des amis (comptes)
+
+```
+python site_web.py --comptes
+```
+
+Sans `--comptes`, rien ne change : tu entres directement, comme avant.
+
+- **Premier passage** : l'accueil propose « Créer mon compte ». Ce premier compte est le tien (compte principal) :
+  il garde tes fichiers (`config.yaml`, `data/stages.db`, `profil/`), lui seul collecte les offres sur les sites et
+  lui seul peut inviter.
+- **Inviter quelqu'un** : Réglages › Comptes › « Créer un lien d'invitation », puis envoie le lien. Il ne sert
+  qu'une fois et dure 7 jours. La personne choisit son nom et son mot de passe, puis fait l'entretien d'accueil.
+- **Chaque ami a son dossier** `comptes/<nom>/` (ignoré par Git) : sa base, ses réglages, son CV et sa clé
+  (`cles.env`). Il ne voit jamais tes offres notées, ta sélection, ton CV ni tes clés, et inversement.
+- **Collecte commune** : un ami ne scrape pas les sites (ni ton quota SerpApi, ni ton Gmail, ni ton accès Careerjet).
+  « Lancer le scrap » reprend les offres que ton compte a collectées, puis les note avec **sa** clé Gemini, à
+  coller dans Mon profil › « Ma clé Gemini » (gratuite : https://aistudio.google.com/apikey). Sans clé, ses offres
+  arrivent sans note. Le passage automatique de 8 h fait la même chose pour chaque ami, juste après le tien.
+- **Pas de mails pour les amis** pour l'instant (ils partiraient de ta boîte Gmail).
+- **Sécurité** : mots de passe jamais gardés (empreinte scrypt), session de 30 jours dans un cookie protégé
+  (HttpOnly, SameSite), 5 essais ratés = une minute de pause. Le site n'écoute toujours que sur ce PC
+  (127.0.0.1) : pour que tes amis y accèdent, il faut un accès à distance privé (par exemple Tailscale,
+  pas encore mis en place). Ne l'ouvre jamais directement sur Internet.
+
 ## Lancement de l'appli
 
 ```
@@ -300,7 +325,8 @@ app.py                 lancement de l'appli (streamlit run app.py)
 site_web.py            lancement du nouveau site (python site_web.py)
 .streamlit/config.toml réglages de l'appli (visible seulement depuis ce PC)
 stage_scraper/
-  config.py            lecture de config.yaml et .env
+  config.py            lecture de config.yaml et .env ; compte en cours (site partagé)
+  comptes.py           comptes du site partagé : mots de passe, sessions, invitations, dossier de chaque ami
   db.py                tables SQLite, enregistrement des offres, journal
   offre.py             format commun d'une offre
   collecte.py          lance chaque source, isole les pannes, écrit le journal
@@ -337,6 +363,7 @@ stage_scraper/
   page_dossier.py      dossier dans la fiche : lettre, conseils CV, analyse, conversation
   notifications.py     mails d'alerte et de récap
 planification/         tâche planifiée Windows (installer_tache.ps1, lancer_auto.cmd, desinstaller_tache.ps1)
+comptes/               site partagé : comptes.db et un dossier par ami (jamais sur Git)
 tests/                 tests automatiques
 data/stages.db         base SQLite (créée au premier lancement, jamais sur Git)
 profil/cv.pdf          ton CV (jamais sur Git ; les IA n'en reçoivent que le texte anonymisé)

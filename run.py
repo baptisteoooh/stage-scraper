@@ -8,14 +8,17 @@
     python run.py --retraiter              refait le tri de toutes les offres (après un changement de config)
     python run.py --noter                  note les offres en attente avec l'IA, sans collecter
     python run.py --test-mail              envoie un mail de test à ton adresse (vérifie l'envoi Gmail)
+
+Site partagé (comptes d'amis) : après un passage complet, chaque ami reçoit les nouvelles offres et les note
+avec sa propre clé Gemini (aucune requête de plus vers les sites).
 """
 import argparse
 import logging
 import sys
 from contextlib import closing
 
-from stage_scraper import collecte, db, notifications, pipeline, scoring
-from stage_scraper.config import SECRETS_ATTENDUS, charger_config, chemin_projet, secrets_manquants
+from stage_scraper import collecte, comptes, db, notifications, pipeline, scoring
+from stage_scraper.config import COMPTE, SECRETS_ATTENDUS, charger_config, chemin_projet, secrets_manquants
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -65,7 +68,34 @@ def main(argv: list[str] | None = None) -> int:
                                          max_requetes=args.max_requetes)
 
     print("\n" + "\n".join(pipeline.resume_texte(bilan)))
+    if not args.source:
+        passages_des_amis(chemin_db, auto=args.auto)
     return 0
+
+
+def passages_des_amis(base_commune, auto: bool = False) -> list[str]:
+    """Comptes d'amis (site partagé) : chacun reprend les offres de ce passage et les note avec sa clé.
+    Un ami qui plante (clé refusée, base abîmée…) ne bloque pas les autres. Renvoie les lignes affichées."""
+    if not (comptes.dossier_comptes() / "comptes.db").exists():
+        return []
+    lignes = []
+    for ami in comptes.amis():
+        jeton = COMPTE.set(ami)
+        try:
+            with closing(db.connecter(ami.dossier / "stages.db")) as conn:
+                db.initialiser(conn)
+                bilan = pipeline.passage_complet(conn, charger_config(), auto=auto, commune=base_commune)
+            source, notes = bilan["sources"][0], bilan["scoring"]
+            lignes.append(f"Compte {ami.nom} : {source['nb_nouvelles']} nouvelle(s) offre(s), {notes['notees']} notée(s)"
+                          + (f" ({notes['message']})" if notes.get("message") else ""))
+        except Exception as e:   # un compte ne doit pas bloquer les autres
+            logging.getLogger(__name__).exception("Passage du compte %s", ami.nom)
+            lignes.append(f"Compte {ami.nom} : erreur ({type(e).__name__})")
+        finally:
+            COMPTE.reset(jeton)
+    for ligne in lignes:
+        print(ligne)
+    return lignes
 
 
 def utf8_sur_la_console() -> None:

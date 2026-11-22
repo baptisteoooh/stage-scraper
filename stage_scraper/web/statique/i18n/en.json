@@ -673,7 +673,14 @@
     "notée 8+": "scored 8+",
     "{n} restantes": "{1} left",
     "1 restante": "1 left",
-    "Non notée": "Not scored"
+    "Non notée": "Not scored",
+    "Fiche": "Card",
+    "Dépose ton CV pour préparer": "Add your CV to get started",
+    "L'IA analyse l'offre et écrit la lettre à partir de ton CV et de l'offre seulement. Ton CV reste sur ton ordinateur : l'IA n'en reçoit que le texte, sans ton nom ni tes coordonnées.": "The AI analyses the offer and writes the letter from your CV and the offer only. Your CV stays on your computer: the AI only gets its text, without your name or contact details.",
+    "Pour parler à l'IA (retoucher la lettre, poser une question), dépose d'abord ton CV.": "To talk to the AI (edit the letter, ask a question), add your CV first.",
+    "Mon CV (PDF)": "My CV (PDF)",
+    "Clique ou dépose le fichier ici": "Click or drop the file here",
+    "Pas encore de lettre.": "No letter yet."
   },
   "motifs": {
     "{} · Stage Scraper": "{1} · Stage Scraper",

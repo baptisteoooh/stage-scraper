@@ -49,7 +49,7 @@ function dessiner() {
   const { f, d } = ctx;
   const entete = h('div', { class: 'dossier-tete' },
     h('button', { class: 'pastille', type: 'button', onclick: () => { const r = ctx.retour; fermerDossier(); r(); } },
-      h('span', { 'aria-hidden': 'true' }, '←'), 'Suivi'),
+      h('span', { 'aria-hidden': 'true' }, '←'), 'Fiche'),
     h('div', { class: 'dossier-titre' }, h('b', {}, f.entreprise), h('span', {}, f.titre)),
     d.etape === 'preparation' && d.lettre ? h('button', {
       class: 'bouton principal petit', type: 'button', title: 'Range l\'offre dans « Envoyées » et prévoit une relance',
@@ -57,12 +57,14 @@ function dessiner() {
     }, "C'est envoyé") : null,
     h('button', { class: 'fermer-dossier', type: 'button', 'aria-label': 'Fermer', title: 'Fermer (Échap)', onclick: () => $('#fiche-fermer').click() }, '×'));
 
-  if (!d.cv_present) {
+  // Sans CV : la lettre et l'analyse déjà faites restent visibles ; seul ce qui demande l'IA attend le CV,
+  // qu'on dépose ici même (pas de détour par une autre page).
+  if (!d.cv_present && !d.lettre && !d.diagnostic) {
     $('#fiche-corps').replaceChildren(entete, h('div', { class: 'preparer apparait' },
-      h('h2', {}, 'Il me faut ton CV'),
-      h('p', {}, "L'IA ne s'appuie que sur ton CV et l'offre. Dépose ton CV (PDF) dans Réglages : il reste sur ton ordinateur, "
-        + "et l'IA n'en reçoit que le texte, sans ton nom ni tes coordonnées."),
-      h('a', { class: 'bouton principal', href: '/reglages#documents' }, 'Déposer mon CV')));
+      h('h2', {}, 'Dépose ton CV pour préparer'),
+      h('p', {}, "L'IA analyse l'offre et écrit la lettre à partir de ton CV et de l'offre seulement. Ton CV reste sur "
+        + "ton ordinateur : l'IA n'en reçoit que le texte, sans ton nom ni tes coordonnées."),
+      depotCv()));
     return;
   }
 
@@ -81,9 +83,33 @@ function dessiner() {
     }, nom))),
     d.claude_en_pause ? h('p', { class: 'note-ia' }, `Claude en pause (${d.claude_en_pause}) : Gemini, gratuit, prend le relais.`) : null,
     h('div', { class: 'onglet-dossier apparait' }, { lettre: ongletLettre, conseils: ongletConseils, analyse: ongletAnalyse }[ctx.onglet]()));
-  $('#fiche-corps').replaceChildren(entete, h('div', { class: 'dossier-corps' }, gauche, conversation()));
+  const droite = d.cv_present ? conversation() : h('div', { class: 'dossier-droite sans-cv' },
+    h('p', { class: 'aide-liste' }, "Pour parler à l'IA (retoucher la lettre, poser une question), dépose d'abord ton CV."), depotCv());
+  $('#fiche-corps').replaceChildren(entete, h('div', { class: 'dossier-corps' }, gauche, droite));
   const fil = document.querySelector('.fil');
   if (fil) fil.scrollTop = fil.scrollHeight;
+}
+
+// Zone de dépôt du CV (PDF), cliquable ou glisser-déposer. Une fois déposé, le dossier se redessine avec l'IA.
+function depotCv() {
+  const entree = h('input', { type: 'file', accept: 'application/pdf,.pdf', class: 'sr-only' });
+  const zone = h('label', { class: 'depot' }, entree, h('b', {}, 'Mon CV (PDF)'), h('span', {}, 'Clique ou dépose le fichier ici'));
+  const deposer = async (fichier) => {
+    if (!fichier) return;
+    zone.classList.add('envoi');
+    try {
+      const r = await fetch(`/api/reglages/documents/cv?fichier=${encodeURIComponent(fichier.name)}`, { method: 'POST', body: fichier });
+      if (!r.ok) throw new Error((await r.json()).detail || `Erreur ${r.status}`);
+      toast('CV enregistré.');
+      ctx.d = await api(`/api/selection/${ctx.f.id}/dossier`);
+      dessiner();
+    } catch (e) { toast(e.message); zone.classList.remove('envoi'); }
+  };
+  entree.addEventListener('change', () => deposer(entree.files[0]));
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('survol'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('survol'));
+  zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('survol'); deposer(e.dataTransfer.files[0]); });
+  return zone;
 }
 
 function panneauPreparer(manqueAnalyse, manqueLettre) {
@@ -127,7 +153,7 @@ function ongletLettre() {
   const L = ctx.d.lettre;
   if (!L) {
     return h('p', { class: 'aide-liste' }, ctx.d.etape === 'preparation'
-      ? 'Pas encore de lettre : demande-la dans la conversation (« rédige la lettre »).'
+      ? (ctx.d.cv_present ? 'Pas encore de lettre : demande-la dans la conversation (« rédige la lettre »).' : 'Pas encore de lettre.')
       : "Pas de lettre pour cette candidature. Tu peux préparer l'entretien en parlant à l'IA, à droite.");
   }
   const zone = h('textarea', { class: 'champ lettre', spellcheck: 'true', 'aria-label': 'Lettre de motivation' });

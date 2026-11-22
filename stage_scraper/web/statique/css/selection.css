@@ -61,6 +61,8 @@
   transition: filter .2s, transform .15s var(--sortie);
 }
 .dossier .agir:hover { filter: brightness(1.07); }
+/* « Préparer » est l'action de presque toutes les cartes : en contour, pour que les actions urgentes (finir, relancer) ressortent. */
+.dossier[data-action="preparer"] .agir { background: color-mix(in oklab, var(--b) 16%, transparent); color: var(--b); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--b) 45%, transparent); }
 .dossier .agir:active { transform: scale(.96); }
 
 /* La fiche qui quitte la grille (changement d'étape, retrait) */
@@ -223,3 +225,14 @@ input[type="date"].champ, input[type="datetime-local"].champ { color-scheme: dar
 @media (prefers-reduced-motion: reduce) {
   .bulle, .bulle.ecrit i, .bouton.attente { animation: none; }
 }
+
+/* Dépôt du CV dans le dossier (même zone que dans Réglages) */
+.depot {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 26px 20px; border-radius: var(--r-panneau); cursor: pointer;
+  background: rgba(255, 255, 255, .04); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .16); transition: background-color .2s, box-shadow .2s;
+}
+.depot:hover, .depot.survol, .depot:focus-within { background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1.5px var(--lavande); }
+.depot b { font-family: var(--titres); font-size: 17px; font-weight: 600; }
+.depot span { font-size: 13.5px; color: var(--doux); }
+.depot.envoi { opacity: .6; cursor: progress; }
+.sans-cv { padding: 22px; gap: 4px; }

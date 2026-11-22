@@ -75,10 +75,12 @@ def _completer(f: dict, aujourd_hui: date | None) -> dict:
 
 
 def fiches(conn, aujourd_hui: date | None = None) -> list[dict]:
-    """Toutes les offres de la sélection : d'abord celles qui demandent une action, puis les plus récentes."""
+    """Toutes les offres de la sélection : d'abord celles qui demandent une action, puis la meilleure note,
+    puis les plus récentes."""
     lignes = [_completer(dict(l), aujourd_hui) for l in conn.execute(_REQUETE + " ORDER BY c.id DESC")]
     urgence = {"relancer": 0, "entretien": 1, "envoyer": 2, "preparer": 3, None: 4}
-    return sorted(lignes, key=lambda f: urgence[f["action"]])   # tri stable : récentes d'abord à égalité
+    note = lambda f: f.get("score") if f.get("score") is not None else -1
+    return sorted(lignes, key=lambda f: (urgence[f["action"]], -note(f)))   # tri stable : récentes d'abord à égalité
 
 
 def par_etape(conn, aujourd_hui: date | None = None) -> dict[str, list[dict]]:
@@ -168,7 +170,7 @@ def situation(f: dict, aujourd_hui: date | None = None) -> str:
     if etape == "preparation":
         if f.get("version_courante"):
             return f"Lettre prête (version {f['version_courante']}), pas encore envoyée"
-        return "Analyse faite, pas encore de lettre" if f.get("analyse_faite") else "Rien de préparé pour l'instant"
+        return "Analyse faite, pas encore de lettre" if f.get("analyse_faite") else ""
     if etape == "envoyee":
         debut = (f"Relancée, envoyée le {_jour_mois(f['date_candidature'])}" if f["statut"] == "relancé"
                  else f"Envoyée le {_jour_mois(f['date_candidature'])}" if f["date_candidature"] else "Envoyée")

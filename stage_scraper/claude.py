@@ -69,7 +69,7 @@ def depenses(conn, config: dict) -> dict:
 def blocage(conn, config: dict) -> str | None:
     """Pourquoi Claude ne doit pas être appelé (pas de clé, plafond atteint), ou None si c'est permis."""
     if not secret("ANTHROPIC_API_KEY"):
-        return "pas de clé ANTHROPIC_API_KEY dans .env"
+        return "clé Claude absente"
     r, d = reglages(config), depenses(conn, config)
     if d["total"] >= r["plafond_total_usd"]:
         return f"plafond total de Claude atteint ({d['total']:.2f} $ sur {r['plafond_total_usd']:.2f} $)"

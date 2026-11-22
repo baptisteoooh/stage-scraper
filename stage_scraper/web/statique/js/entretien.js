@@ -167,7 +167,7 @@ function envoyerTexte() {
   const champ = $('#texte-libre');
   const texte = champ.value.trim();
   if (!texte) { champ.focus(); return; }
-  repondre({ texte }, champ.form.querySelector('button'));
+  repondre(aDesChoix() ? { texte, choix: etat.choix } : { texte }, champ.form.querySelector('button'));   // le texte complète les puces cochées
 }
 
 async function passer() {

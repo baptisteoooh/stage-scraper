@@ -251,12 +251,12 @@ def repondre(conn, chemin_config, config: dict, qid: str, choix: dict | None = N
     base = _avec(donnees, reste)
     refus: list[str] = []
     texte = (texte or "").strip()
-    if choix:
-        reponse = _depuis_choix(qid, choix, base, actuel, neuf, aujourd_hui, strict=True)
-    elif texte:
-        reponse = _comprendre(conn, config, qid, texte, donnees, base, actuel, neuf, aujourd_hui, refus, client)
-    else:
+    if not choix and not texte:
         raise EntretienImpossible("réponse vide")
+    reponse = _depuis_choix(qid, choix, base, actuel, neuf, aujourd_hui, strict=True) if choix else {}
+    if texte:   # le texte complète les puces déjà cochées (« et aussi… ») : Gemini les voit comme valeurs actuelles
+        reponse = {**reponse, **_comprendre(conn, config, qid, texte, donnees, _avec(donnees, {**reste, **reponse}),
+                                            actuel, neuf, aujourd_hui, refus, client)}
     if not reponse:
         return {"valeurs": valeurs, "retenu": None, "compris": False, "refus": refus}
     nouveau = {**reste, **reponse}
@@ -364,7 +364,10 @@ QUE ces champs (valeurs actuelles) :
 
 RÈGLES
 - Si sa réponse ne donne aucune valeur utilisable (hors sujet, « je ne sais pas »...), appelle pas_compris.
+- Les valeurs actuelles ci-dessus incluent ce qu'il vient de cocher. S'il ajoute (« et aussi… », « plus… »), garde-les et
+  ajoute le reste à la fin ; s'il corrige (« plutôt… », « pas… »), remplace.
 - Domaines : « definir » la liste entière, dans l'ordre où il les cite (le premier compte le plus), éléments séparés par « ; ».
+  Un domaine absent des propositions est accepté tel quel en quelques mots (ex. « imagerie médicale »).
 - Secteurs : « definir » secteurs_cible (mots-clés courts, ex. « medtech ; e-santé ») ; ce qu'il veut moins va dans secteurs_moins.
 - Entreprises : « ajouter » chaque entreprise citée (valeur = son nom). Ne devine jamais l'outil de recrutement ni l'adresse.
 - Dates au format AAAA-MM-JJ. « mi-avril » = le 15, « début mai » = le 1er (ou le 10 pour une borne « au plus tard »),
@@ -566,6 +569,13 @@ def _secteurs(p: dict, langue: str) -> list[str]:
     return [SECTEURS_EN[g] if langue == "en" else SECTEURS[g][0].lower() for g in groupes] + autres
 
 
+def _nuance(p: dict, langue: str) -> str:
+    """Ce qui va aussi et ce qui intéresse moins : « (aussi : biotech ; moins : pharma et 2 autres) »."""
+    en = langue == "en"
+    morceaux = ([("also: " if en else "aussi : ") + _liste(p["secteurs_ok"], langue, 2)] if p["secteurs_ok"] else [])         + ([("less: " if en else "moins : ") + _liste(p["secteurs_moins"], langue, 2)] if p["secteurs_moins"] else [])
+    return f" ({' ; '.join(morceaux)})" if morceaux else ""
+
+
 def _ajoutees(p: dict, actuel: dict, neuf: bool) -> list[str]:
     connues = set() if neuf else {e["nom"].lower() for e in actuel["entreprises"]}
     return [e["nom"] for e in p["entreprises"] if e["nom"].lower() not in connues]
@@ -583,7 +593,7 @@ def retenu(qid: str, p: dict, actuel: dict, neuf: bool, langue: str = "fr") -> s
     elif qid == "contrats":
         texte = _contrats(p, langue)
     elif qid == "secteurs":
-        texte = _liste(_secteurs(p, langue), langue)
+        texte = _liste(_secteurs(p, langue), langue) + _nuance(p, langue)
     else:
         noms = _ajoutees(p, actuel, neuf)
         texte = _liste(noms, langue) if noms else ("no new company" if en else "aucune nouvelle entreprise")
@@ -619,6 +629,7 @@ def segments(p: dict, actuel: dict, neuf: bool, langue: str = "fr") -> list[dict
     else:
         secteur = (("dans le secteur " if len(secteurs) == 1 else "dans ces secteurs : ") + _liste(secteurs, langue)) \
             if secteurs else "dans tous les secteurs"
+    secteur += _nuance(p, langue) if secteurs else ""
     noms = [e["nom"] for e in p["entreprises"]]
     if en:
         entreprises = ("keeping an eye on " + _liste(noms, langue)) if noms else "with no favourite company yet"

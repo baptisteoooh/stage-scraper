@@ -102,7 +102,7 @@ def test_parcours_en_puces_puis_c_est_bon(neuve, conn):
         ("quand", {"debut": ["2027-04"], "duree": ["3-5"]}, "Avril 2027 · 3 à 5 mois"),
         ("ou", {"zone": ["petite"], "teletravail": ["hybride"]}, "À Paris et en petite couronne, en hybride"),
         ("contrats", {"contrats": ["stage"]}, "Stage seulement"),
-        ("secteurs", {"secteurs": ["sante", "biotech"]}, "Santé / medtech et biotech"),
+        ("secteurs", {"secteurs": ["sante", "biotech"]}, "Santé / medtech et biotech (moins : pharma et 4 autres)"),
         ("entreprises", {"entreprises": ["Doctolib", "Alan"]}, "Doctolib et Alan"),
     ]:
         r = _repondre(conn, neuve, q, v, choix=choix)
@@ -115,7 +115,7 @@ def test_parcours_en_puces_puis_c_est_bon(neuve, conn):
     assert a["erreur"] is None
     assert "".join(s["texte"] for s in a["segments"]) == (
         "Tu cherches un stage en Data science et IA / machine learning, à partir d'avril 2027 pour 3 à 5 mois, "
-        "à Paris et en petite couronne, en hybride, dans ces secteurs : santé / medtech et biotech, "
+        "à Paris et en petite couronne, en hybride, dans ces secteurs : santé / medtech et biotech (moins : pharma et 4 autres), "
         "en suivant de près Doctolib et Alan.")
     assert {s["question"] for s in a["segments"]} == set(entretien.QUESTIONS) | {None}
     en = "".join(s["texte"] for s in entretien.apercu(neuve, v, "en")["segments"])
@@ -201,6 +201,16 @@ def test_reponse_libre_avec_gemini(copie, conn):  # noqa: F811
     assert "Quand veux-tu commencer" in faux.appels[0]["systeme"]
     ligne = conn.execute("SELECT source, nb_requetes FROM runs").fetchone()
     assert tuple(ligne) == ("accueil", 1)                                   # l'appel est noté dans le Journal
+
+
+def test_texte_libre_complete_les_puces_cochees(neuve, conn):
+    """« et aussi de l'imagerie médicale » après avoir coché deux domaines : Gemini voit les puces cochées."""
+    faux = FauxGemini({"outil": [{"champ": "domaines", "action": "definir",
+                                  "valeur": "IA / machine learning ; Data science ; imagerie médicale"}]})
+    r = _repondre(conn, neuve, "quoi", {}, choix={"domaines": ["IA / machine learning", "Data science"]},
+                  texte="et aussi de l'imagerie médicale", client=faux)
+    assert r["compris"] and r["valeurs"]["domaines"] == ["IA / machine learning", "Data science", "imagerie médicale"]
+    assert "IA / machine learning | Data science" in faux.appels[0]["systeme"]      # valeurs actuelles = puces cochées
 
 
 def test_gemini_pas_compris_ou_valeurs_refusees(copie, conn):  # noqa: F811

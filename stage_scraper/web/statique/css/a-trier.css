@@ -116,8 +116,9 @@
 .rond:hover { background: rgba(255, 255, 255, .14); transform: translateY(-2px); }
 .rond:active { transform: scale(.92); }
 .rond.petit { width: 48px; height: 48px; }
-.rond.oui { width: 68px; height: 68px; background: var(--oui); color: #10141A; box-shadow: 0 10px 26px rgba(5, 3, 9, .4); }
-.rond.oui:hover { background: var(--oui); filter: brightness(1.08); }
+.rond.oui { width: 68px; height: 68px; color: var(--oui); background: color-mix(in oklab, var(--oui) 18%, transparent);
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--oui) 55%, transparent), 0 10px 26px rgba(5, 3, 9, .4); }
+.rond.oui:hover { background: color-mix(in oklab, var(--oui) 28%, transparent); }
 .rond.oui .ic { stroke-width: 2.2; }
 .rond.non { color: var(--non); }
 .rond[disabled] { opacity: .35; pointer-events: none; }
@@ -220,8 +221,9 @@
 }
 .grande-pied .bouton { padding: 12px 20px; }
 .grande-pied .non { color: var(--non); margin-right: auto; }
-.grande-pied .oui { background: var(--oui); color: #10141A; font-weight: 600; }
-.grande-pied .oui:hover { filter: brightness(1.08); }
+.grande-pied .oui { color: var(--oui); font-weight: 600; background: color-mix(in oklab, var(--oui) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--oui) 45%, transparent); }
+.grande-pied .oui:hover { background: color-mix(in oklab, var(--oui) 26%, transparent); }
 
 /* La transition : la boîte passe de la carte à la grande vue ; le contenu reste net (pas d'image étirée),
    ancré en haut, et la boîte le découvre en grandissant. */

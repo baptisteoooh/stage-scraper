@@ -32,7 +32,8 @@ class ClientGemini:
                  attentes_surcharge: tuple = ATTENTES_SURCHARGE):
         self.cle = cle or secret("GEMINI_API_KEY")
         if not self.cle:
-            raise ErreurGemini("ajoute GEMINI_API_KEY dans .env", bloquante=True)
+            from .config import ou_mettre_la_cle
+            raise ErreurGemini(f"clé Gemini absente : {ou_mettre_la_cle()}", bloquante=True)
         self.delai = delai_entre_appels
         self.timeout = timeout
         self.attentes = tuple(attentes_surcharge)   # moins d'essais quand quelqu'un attend devant l'écran

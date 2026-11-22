@@ -18,9 +18,9 @@ log = logging.getLogger(__name__)
 
 def lancer_passage(conn, config: dict, auto: bool = False,
                    sources_demandees: list[str] | None = None,
-                   max_requetes: int | None = None) -> tuple[int, list[dict]]:
+                   max_requetes: int | None = None, passage_id: int | None = None) -> tuple[int, list[dict]]:
     """Collecte chaque source l'une après l'autre. Renvoie (n° du passage, bilan par source)."""
-    passage_id = db.nouveau_passage_id(conn)
+    passage_id = passage_id or db.nouveau_passage_id(conn)
     bilan = []
 
     for nom, collecter in SOURCES.items():

@@ -1,7 +1,7 @@
 // Page À trier : le paquet de cartes, les filtres, les décisions (geste, boutons, clavier), l'annulation,
 // la fiche détaillée et le scrap manuel.
 import { Glisseur } from './swipe.js';
-import { $, h, api, toast, cacherToast, afficherScrap, brancherScrap, detailOffre, setNb, getNb } from './commun.js';
+import { $, h, api, toast, cacherToast, afficherScrap, brancherScrap, detailOffre, setNb, getNb, compteCourant } from './commun.js';
 
 const SECTIONS = [
   { cle: 'toutes', nom: 'Toutes les offres' },
@@ -44,7 +44,12 @@ async function charger() {
   etat.toutes = d.offres;
   setNb('selection', d.selection);
   afficherScrap(d.scrap);
-  if (d.ia_manquante && !dejaDit('ia_manquante')) toast("Notation par l'IA en pause (clé Gemini absente) : les offres arrivent sans note.");
+  if (d.ia_manquante && !dejaDit('ia_manquante')) {
+    compteCourant.then((c) => toast(c.mode && c.connecte && !c.admin
+      ? 'Pas encore de note : ajoute ta clé Gemini dans Mon profil (gratuite, 2 minutes).'
+      : "Notation par l'IA en pause (clé Gemini absente) : les offres arrivent sans note.",
+    c.mode && c.connecte && !c.admin ? [h('a', { href: '/profil#cle' }, 'Mon profil')] : []));
+  }
   rafraichir();
 }
 

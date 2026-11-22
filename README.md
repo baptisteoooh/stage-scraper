@@ -224,8 +224,11 @@ Sans `--comptes`, rien ne change : tu entres directement, comme avant.
   qu'une fois et dure 7 jours. La personne choisit son nom et son mot de passe, puis fait l'entretien d'accueil.
 - **Chaque ami a son dossier** `comptes/<nom>/` (ignoré par Git) : sa base, ses réglages, son CV et sa clé
   (`cles.env`). Il ne voit jamais tes offres notées, ta sélection, ton CV ni tes clés, et inversement.
-- **Collecte commune** : un ami ne scrape pas les sites (ni ton quota SerpApi, ni ton Gmail, ni ton accès Careerjet).
-  « Lancer le scrap » reprend les offres que ton compte a collectées, puis les note avec **sa** clé Gemini, à
+- **Collecte commune** : « Lancer le scrap » d'un ami reprend les offres que ton compte a collectées, **et** lance
+  ses recherches à lui sur Careerjet (ta clé partenaire, prévue pour servir les visiteurs d'un site). Ses offres
+  Careerjet vont dans sa base, pas dans la tienne. Garde-fous : une recherche identique faite dans les 24 h (par toi
+  ou un ami) est reprise sans appeler Careerjet, et un ami a au plus 15 vraies recherches par jour. Ton quota
+  SerpApi et ton Gmail ne servent jamais aux amis. Puis tout est noté avec **sa** clé Gemini, à
   coller dans Mon profil › « Ma clé Gemini » (gratuite : https://aistudio.google.com/apikey). Sans clé, ses offres
   arrivent sans note. Le passage automatique de 8 h fait la même chose pour chaque ami, juste après le tien.
 - **Pas de mails pour les amis** pour l'instant (ils partiraient de ta boîte Gmail).

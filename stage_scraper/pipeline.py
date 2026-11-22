@@ -15,6 +15,11 @@ def passage_complet(conn, config: dict, auto: bool = False, sources: list[str] |
     de BAP au lieu des sites, et aucun mail ne part (ils partiraient de la boîte Gmail de BAP)."""
     if commune is not None:
         passage_id, bilan_sources = collecte.importer_commune(conn, commune, auto=auto)
+        # puis ses recherches à lui, sur Careerjet (clé de BAP, plafond par ami) : ses offres vont dans SA base
+        if config["sources"].get("careerjet", {}).get("actif", False):
+            _, bilan_careerjet = collecte.lancer_passage(conn, config, auto=auto, sources_demandees=["careerjet"],
+                                                         max_requetes=max_requetes, passage_id=passage_id)
+            bilan_sources += bilan_careerjet
     else:
         passage_id, bilan_sources = collecte.lancer_passage(conn, config, auto=auto, sources_demandees=sources,
                                                             max_requetes=max_requetes)

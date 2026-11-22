@@ -207,6 +207,7 @@ async function dessinerCle() {
       actuelle ? h('button', { class: 'lien', type: 'button', onclick: () => enregistrer('') }, 'Effacer') : null),
     etatCle);
   zone.hidden = false;
+  if (location.hash === '#cle') zone.scrollIntoView({ block: 'start' });
 }
 
 // Mes documents (CV, lettre modèle), en bas du profil.

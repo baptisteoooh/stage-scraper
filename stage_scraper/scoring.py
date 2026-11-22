@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from . import cv as module_cv
 from . import claude, db, gemini
 from . import profil as module_profil
-from .config import secret
+from .config import secret, ou_mettre_la_cle
 from .prefiltre import entreprise_suivie
 
 log = logging.getLogger(__name__)
@@ -66,7 +66,7 @@ def noter_nouvelles(conn, config: dict, passage_id: int, auto: bool, client=None
 
     if client is None:
         if not secret("GEMINI_API_KEY"):
-            bilan["message"] = f"{len(offres)} offre(s) en attente de note : clé Gemini absente (GEMINI_API_KEY dans .env)"
+            bilan["message"] = f"{len(offres)} offre(s) en attente de note : clé Gemini absente ({ou_mettre_la_cle()})"
             return bilan
         client = gemini.ClientGemini(delai_entre_appels=reglages.get("delai_entre_appels_s", 4))
 

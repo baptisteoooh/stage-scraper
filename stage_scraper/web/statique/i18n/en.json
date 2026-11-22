@@ -726,7 +726,8 @@
     "Vérification…": "Checking…",
     "Pas encore de clé : tes offres arrivent sans note.": "No key yet: your offers come without a score.",
     "Crée-la sur Google AI Studio": "Create it on Google AI Studio",
-    "Offres partagées": "Shared offers"
+    "Offres partagées": "Shared offers",
+    "Pas encore de note : ajoute ta clé Gemini dans Mon profil (gratuite, 2 minutes).": "No scores yet: add your Gemini key in My profile (free, 2 minutes)."
   },
   "motifs": {
     "{} · Stage Scraper": "{1} · Stage Scraper",

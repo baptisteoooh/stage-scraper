@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from stage_scraper import collecte, comptes, config, db, reglages
+from stage_scraper.sources import Contexte, careerjet
 from stage_scraper.config import CHEMIN_CONFIG, COMPTE, Compte, secret
 from stage_scraper.offre import nouvelle_offre
 from stage_scraper.web import serveur
@@ -34,6 +35,17 @@ def dossier(tmp_path, monkeypatch):
         c.commit()
     monkeypatch.setenv("STAGE_SCRAPER_BASE", str(base))
     comptes._echecs.clear()
+    # Careerjet : jamais le vrai (fausse clé, fausse IP, fausses recherches qui notent chaque appel)
+    monkeypatch.setenv("CAREERJET_API_KEY", "fausse-cle-careerjet")
+    monkeypatch.setattr(careerjet, "adresse_ip_publique", lambda: "203.0.113.7")
+    appels = []
+
+    def fausse_recherche(cle, requete, reglages, ip):
+        appels.append(requete)
+        return [nouvelle_offre(source="careerjet", source_id=f"cj-{requete}", titre=f"Stage {requete}", entreprise="Acme",
+                               lieu="Paris")]
+    monkeypatch.setattr(careerjet, "rechercher", fausse_recherche)
+    monkeypatch.setattr(comptes, "_appels_careerjet_test", appels, raising=False)
     return tmp_path
 
 
@@ -233,10 +245,55 @@ def test_passage_automatique_des_amis(dossier, monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "cle-de-bap-0123456789abcdef")   # ne doit jamais servir à un ami
     comptes.creer_admin("bap", MDP)
     lea = comptes.creer_avec_invitation(comptes.inviter(), "lea", MDP)
+    reglages_lea = reglages.lire(lea.config)
+    reglages_lea["recherches"]["requetes"] = ["stage finance de marché", "stage audit"]
+    reglages.ecrire(reglages_lea, lea.config)
     lignes = run.passages_des_amis(dossier / "bap.db")
-    assert len(lignes) == 1 and lignes[0].startswith("Compte lea : 2 nouvelle(s) offre(s), 0 notée(s)"), lignes
+    # 2 offres partagées par BAP + 2 trouvées sur Careerjet avec SES recherches à elle
+    assert len(lignes) == 1 and lignes[0].startswith("Compte lea : 4 nouvelle(s) offre(s), 0 notée(s)"), lignes
+    assert "ajoute ta clé dans Mon profil" in lignes[0]
+    assert comptes._appels_careerjet_test == ["stage finance de marché", "stage audit"]
     with closing(db.connecter(lea.dossier / "stages.db")) as conn:
-        assert conn.execute("SELECT COUNT(*) FROM offres").fetchone()[0] == 2
+        assert conn.execute("SELECT COUNT(*) FROM offres").fetchone()[0] == 4
+        assert {r[0] for r in conn.execute("SELECT source FROM runs")} == {"commune", "careerjet"}
     with closing(db.connecter(dossier / "bap.db")) as conn:   # la base de BAP n'a pas bougé
         assert conn.execute("SELECT COUNT(*) FROM offres").fetchone()[0] == 3
+
+
+def test_careerjet_partage_memoire_et_plafond(dossier, monkeypatch):
+    """La clé Careerjet de BAP sert aux amis : une recherche déjà faite dans les 24 h est reprise sans appel,
+    et un ami a au plus CAREERJET_PAR_AMI_PAR_JOUR vraies recherches par jour. BAP, lui, cherche toujours à neuf."""
+    appels = comptes._appels_careerjet_test
+    monkeypatch.setattr(comptes, "CAREERJET_PAR_AMI_PAR_JOUR", 3)
+    comptes.creer_admin("bap", MDP)
+    lea = comptes.creer_avec_invitation(comptes.inviter(), "lea", MDP)
+    tom = comptes.creer_avec_invitation(comptes.inviter(), "tom", MDP)
+    reglages_cj = {"referer": "https://exemple.fr/", "delai_secondes": 0}
+
+    def chercher(compte, requetes):
+        jeton = COMPTE.set(compte)
+        try:
+            return careerjet.collecter({"sources": {"careerjet": reglages_cj}, "recherches": {"requetes": requetes}}, Contexte())
+        finally:
+            COMPTE.reset(jeton)
+
+    assert secret("CAREERJET_API_KEY") == "fausse-cle-careerjet"
+    r = chercher(lea, ["stage audit", "stage finance"])
+    assert r.nb_requetes == 2 and len(r.offres) == 2 and appels == ["stage audit", "stage finance"]
+    r = chercher(tom, ["stage audit", "stage marketing digital"])       # « stage audit » déjà cherché par Léa
+    assert r.nb_requetes == 1 and len(r.offres) == 2 and appels[-1] == "stage marketing digital"
+    r = chercher(lea, ["stage a", "stage b", "stage c"])                # plafond : 3 par jour, 2 déjà faites
+    assert r.nb_requetes == 1 and "plafond" in r.message and appels[-1] == "stage a"
+    assert comptes.careerjet_restantes("lea") == 0 and comptes.careerjet_restantes("tom") == 2
+    avant = len(appels)
+    r = chercher(comptes.compte("bap"), ["stage audit"])                # BAP : toujours à neuf, sans plafond
+    assert r.nb_requetes == 1 and len(appels) == avant + 1
+
+
+def test_aucun_test_ne_sort_sur_internet():
+    """Le garde-fou de conftest.py : même la vraie fonction de recherche ne peut pas joindre Careerjet."""
+    import requests
+    from conftest import ReseauInterdit
+    with pytest.raises(ReseauInterdit):
+        requests.get("https://search.api.careerjet.net/v4/query", timeout=5)
 

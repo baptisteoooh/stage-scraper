@@ -29,6 +29,9 @@ SECRETS_ATTENDUS = {
 
 # Secrets propres à chaque compte (site en mode comptes) : chacun a sa clé, jamais celle de BAP.
 SECRETS_PERSONNELS = ("GEMINI_API_KEY", "ANTHROPIC_API_KEY")
+# Secrets de BAP prêtés aux amis : la clé partenaire Careerjet (prévue pour un site qui sert ses visiteurs),
+# avec un plafond par ami et par jour (voir comptes.py).
+SECRETS_PARTAGES = ("CAREERJET_API_KEY",)
 
 
 @dataclass(frozen=True)
@@ -89,8 +92,16 @@ def secret(nom: str) -> str | None:
     Pour le compte d'un ami : sa propre clé IA, et aucun des autres secrets de BAP (Gmail, SerpApi, Careerjet…)."""
     compte = COMPTE.get()
     if compte and compte.dossier:
+        if nom in SECRETS_PARTAGES:
+            return os.getenv(nom) or None
         return (lire_cles(compte.cles).get(nom) or None) if nom in SECRETS_PERSONNELS else None
     return os.getenv(nom) or None
+
+
+def ou_mettre_la_cle() -> str:
+    """Où ajouter sa clé Gemini : dans .env pour BAP, dans Mon profil pour un ami."""
+    compte = COMPTE.get()
+    return "ajoute ta clé dans Mon profil" if compte and compte.dossier else "GEMINI_API_KEY dans .env"
 
 
 def secrets_manquants() -> list[str]:

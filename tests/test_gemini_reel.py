@@ -16,8 +16,9 @@ import pytest
 from stage_scraper import agent_profil, db, garde_fou, gemini, profil, reglages
 from stage_scraper.config import CHEMIN_CONFIG, charger_config, secret
 
-pytestmark = pytest.mark.skipif(os.environ.get("GEMINI_REEL") != "1" or not secret("GEMINI_API_KEY"),
-                                reason="vrais appels Gemini : mettre GEMINI_REEL=1 (et GEMINI_API_KEY dans .env)")
+pytestmark = [pytest.mark.reseau,
+              pytest.mark.skipif(os.environ.get("GEMINI_REEL") != "1" or not secret("GEMINI_API_KEY"),
+                                 reason="vrais appels Gemini : mettre GEMINI_REEL=1 (et GEMINI_API_KEY dans .env)")]
 
 PAUSE_S = 4   # entre deux tests : l'offre gratuite limite le nombre de requêtes par minute
 

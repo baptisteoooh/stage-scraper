@@ -85,8 +85,8 @@ def passages_des_amis(base_commune, auto: bool = False) -> list[str]:
             with closing(db.connecter(ami.dossier / "stages.db")) as conn:
                 db.initialiser(conn)
                 bilan = pipeline.passage_complet(conn, charger_config(), auto=auto, commune=base_commune)
-            source, notes = bilan["sources"][0], bilan["scoring"]
-            lignes.append(f"Compte {ami.nom} : {source['nb_nouvelles']} nouvelle(s) offre(s), {notes['notees']} notée(s)"
+            nouvelles, notes = sum(s["nb_nouvelles"] for s in bilan["sources"]), bilan["scoring"]
+            lignes.append(f"Compte {ami.nom} : {nouvelles} nouvelle(s) offre(s), {notes['notees']} notée(s)"
                           + (f" ({notes['message']})" if notes.get("message") else ""))
         except Exception as e:   # un compte ne doit pas bloquer les autres
             logging.getLogger(__name__).exception("Passage du compte %s", ami.nom)

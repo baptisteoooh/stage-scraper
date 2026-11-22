@@ -12,6 +12,7 @@ Le dossier des comptes est ignoré par Git (données personnelles).
 """
 import hashlib
 import hmac
+import json
 import os
 import re
 import secrets
@@ -44,6 +45,17 @@ CREATE TABLE IF NOT EXISTS sessions (
     empreinte   TEXT PRIMARY KEY,          -- sha256 du jeton (le jeton lui-même n'est que dans le cookie)
     nom         TEXT NOT NULL REFERENCES comptes(nom) ON DELETE CASCADE,
     expire      TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS careerjet_jour (   -- recherches Careerjet faites par un ami aujourd'hui (plafond)
+    nom         TEXT NOT NULL,
+    jour        TEXT NOT NULL,
+    nb          INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (nom, jour)
+);
+CREATE TABLE IF NOT EXISTS careerjet_cache (  -- résultats d'une recherche, réutilisés par les autres comptes
+    cle         TEXT PRIMARY KEY,              -- empreinte de (mots-clés, lieu, type de contrat, taille)
+    date        TEXT NOT NULL,
+    offres      TEXT NOT NULL                  -- JSON
 );
 CREATE TABLE IF NOT EXISTS invitations (
     empreinte   TEXT PRIMARY KEY,          -- sha256 du code
@@ -316,3 +328,47 @@ def ecrire_cle(c: Compte, nom: str, valeur: str | None) -> None:
 def cle_masquee(valeur: str | None) -> str | None:
     """« AIza…x7Q4 » : assez pour reconnaître sa clé, jamais assez pour la réutiliser."""
     return f"{valeur[:4]}…{valeur[-4:]}" if valeur and len(valeur) > 12 else ("…" if valeur else None)
+
+
+# =========================================================================== Careerjet partagé
+
+CAREERJET_PAR_AMI_PAR_JOUR = 15        # recherches réelles (hors mémoire) par ami et par jour
+DUREE_CACHE_CAREERJET = timedelta(hours=24)
+
+
+def comptes_actifs() -> bool:
+    """Vrai si le site partagé a déjà servi (sinon rien n'est écrit dans comptes/)."""
+    return (dossier_comptes() / "comptes.db").exists()
+
+
+def careerjet_restantes(nom: str) -> int:
+    with closing(_connecter()) as conn:
+        ligne = conn.execute("SELECT nb FROM careerjet_jour WHERE nom = ? AND jour = ?",
+                             (nom, _maintenant().date().isoformat())).fetchone()
+    return max(0, CAREERJET_PAR_AMI_PAR_JOUR - (ligne["nb"] if ligne else 0))
+
+
+def careerjet_compter(nom: str) -> None:
+    with closing(_connecter()) as conn:
+        conn.execute("INSERT INTO careerjet_jour (nom, jour, nb) VALUES (?, ?, 1) "
+                     "ON CONFLICT (nom, jour) DO UPDATE SET nb = nb + 1", (nom, _maintenant().date().isoformat()))
+        conn.commit()
+
+
+def careerjet_memoire(cle: str) -> list[dict] | None:
+    """Offres d'une recherche faite il y a moins de 24 h (par n'importe quel compte), ou None."""
+    with closing(_connecter()) as conn:
+        ligne = conn.execute("SELECT date, offres FROM careerjet_cache WHERE cle = ?", (cle,)).fetchone()
+    if not ligne or ligne["date"] < (_maintenant() - DUREE_CACHE_CAREERJET).isoformat():
+        return None
+    return json.loads(ligne["offres"])
+
+
+def careerjet_memoriser(cle: str, offres: list[dict]) -> None:
+    with closing(_connecter()) as conn:
+        limite = (_maintenant() - DUREE_CACHE_CAREERJET).isoformat()
+        conn.execute("DELETE FROM careerjet_cache WHERE date < ?", (limite,))
+        conn.execute("INSERT OR REPLACE INTO careerjet_cache (cle, date, offres) VALUES (?, ?, ?)",
+                     (cle, _maintenant().isoformat(), json.dumps(offres, ensure_ascii=False)))
+        conn.commit()
+

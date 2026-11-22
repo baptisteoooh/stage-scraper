@@ -16,7 +16,7 @@ from email.utils import parsedate_to_datetime
 
 import requests
 
-from ..config import secret
+from ..config import COMPTE, secret
 from ..offre import nouvelle_offre
 from . import Contexte, Resultat
 
@@ -47,11 +47,33 @@ def collecter(config: dict, contexte: Contexte) -> Resultat:
     if contexte.max_requetes is not None:
         requetes = requetes[:contexte.max_requetes]
 
+    # Site partagé : une recherche identique faite dans les 24 h (par BAP ou un ami) est reprise sans appeler
+    # Careerjet ; un ami a au plus CAREERJET_PAR_AMI_PAR_JOUR vraies recherches par jour. BAP cherche toujours à neuf.
+    from .. import comptes
+    partage = comptes.comptes_actifs()
+    compte = COMPTE.get()
+    ami = compte.nom if compte is not None and compte.dossier is not None else None
+
     resultat = Resultat()
-    for i, requete in enumerate(requetes):
-        if i > 0:
+    premiere = True
+    for requete in requetes:
+        cle_memoire = empreinte_recherche(requete, reglages)
+        if ami and partage:
+            memoire = comptes.careerjet_memoire(cle_memoire)
+            if memoire is not None:
+                log.info("  « %s » : %d offre(s) (déjà cherché aujourd'hui)", requete, len(memoire))
+                resultat.offres.extend(memoire)
+                continue
+            if comptes.careerjet_restantes(ami) <= 0:
+                resultat.message = (f"plafond de {comptes.CAREERJET_PAR_AMI_PAR_JOUR} recherches Careerjet par jour "
+                                    "atteint : la suite demain")
+                break
+        if not premiere:
             time.sleep(reglages.get("delai_secondes", 1))
+        premiere = False
         resultat.nb_requetes += 1
+        if ami and partage:
+            comptes.careerjet_compter(ami)
         try:
             offres = rechercher(cle, requete, reglages, ip)
         except ErreurCareerjet as e:
@@ -62,8 +84,17 @@ def collecter(config: dict, contexte: Contexte) -> Resultat:
             continue
         log.info("  « %s » : %d offre(s)", requete, len(offres))
         resultat.offres.extend(offres)
+        if partage:
+            comptes.careerjet_memoriser(cle_memoire, offres)
 
     return resultat
+
+
+def empreinte_recherche(requete: str, reglages: dict) -> str:
+    """Ce qui rend deux recherches identiques (l'IP et le navigateur ne changent pas les offres)."""
+    brut = "|".join(str(x).strip().lower() for x in (requete, reglages.get("lieu", "Île-de-France"),
+                                                      reglages.get("type_contrat", "i"), reglages.get("offres_par_requete", 50)))
+    return hashlib.sha1(brut.encode("utf-8")).hexdigest()
 
 
 def adresse_ip_publique() -> str:

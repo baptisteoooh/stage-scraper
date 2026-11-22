@@ -49,7 +49,7 @@ Thème sombre seulement (`color-scheme: dark`).
   reste dans « Détails ».
 - « Détails » : la carte grossit au centre (View Transition, 0,5 s) en une grande carte de 860 px, page voilée
   et floutée derrière ; croix ou Échap pour la refermer (elle rétrécit vers le paquet). Pied : Pas intéressé
-  (rouge, à gauche), Plus tard, Intéressé (vert transparent). Plein écran sur téléphone.
+  (rouge transparent, à gauche), Plus tard, Intéressé (vert transparent). Plein écran sur téléphone.
 - Note affichée « NOTE 9/10 » (« SCORE » en anglais), grand chiffre Sora.
 
 ## Mouvement

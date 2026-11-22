@@ -167,7 +167,9 @@ NOTE (score de 0 à 10)
 
 RÉPONSE
 - section : « Santé », « Hors santé mais intéressant » ou « À négocier ».
-- resume : 2 lignes maximum sur la mission.
+- resume : 2 ou 3 phrases courtes sur le contenu concret du stage : ce que le stagiaire fera au quotidien, avec quels outils, données ou
+  technologies, et sur quel produit ou dans quelle équipe. Ne répète pas l'entreprise, le lieu ni la durée (déjà affichés à côté).
+  Si la description est trop courte pour le dire, écris-le en une phrase.
 - pourquoi : une phrase qui explique la note.
 - duree et date_debut : telles que tu les lis dans l'offre, sinon null.
 - exclusion : si l'offre viole un critère dur (contrat exclu, poste non technique, dates ou durée incompatibles, hors de la zone), la raison en quelques mots ; sinon null.

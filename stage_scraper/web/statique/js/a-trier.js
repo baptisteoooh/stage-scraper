@@ -148,8 +148,8 @@ function clavierMenu(e) {
 
 // ======================================================================= cartes
 
-// Carte d'une offre : tout ce qu'il faut pour décider sans ouvrir les détails (résumé et raison de la note en
-// entier, extrait de l'annonce). Si c'est long, le milieu défile dans la carte au lieu d'être coupé.
+// Carte d'une offre : tout ce qu'il faut pour décider sans ouvrir les détails (résumé de la mission en entier,
+// extrait de l'annonce ; la raison de la note reste dans « Détails »). Si c'est long, le milieu défile dans la carte au lieu d'être coupé.
 function contenuCarte(o) {
   const meta = [o.anciennete, o.site].filter(Boolean).join(' · ');
   return [
@@ -166,7 +166,6 @@ function contenuCarte(o) {
     h('div', { class: 'puces' }, o.puces.map(p => h('span', { class: p.type }, p.texte))),
     h('div', { class: 'defile' },
       o.resume ? h('p', { class: 'resume' }, o.resume) : null,
-      o.pourquoi ? h('p', { class: 'pourquoi' }, h('b', {}, `Pourquoi ${o.score}/10`), ' ', o.pourquoi) : null,
       o.extrait ? h('div', { class: 'extrait' }, h('h4', {}, "Dans l'annonce"), h('p', { translate: 'no' }, o.extrait)) : null),
     h('div', { class: 'pied' },
       o.lien ? h('a', { href: o.lien, target: '_blank', rel: 'noopener' }, "Voir l'annonce ↗") : null,

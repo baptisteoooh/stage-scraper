@@ -45,7 +45,8 @@ Thème sombre seulement (`color-scheme: dark`).
   ombre floue ; les deux suivantes dépassent dessous. Carte large (600 px, jusqu'à 680 px de haut) pour décider
   sans ouvrir les détails : ligne « entreprise · lieu » avec la note en couleur (vert ≥ 8, violet 5–7, gris
   dessous), titre, étiquettes (IA / data en violet plein), puis un milieu qui défile (`.defile`, effacé en bas) :
-  résumé en entier, « Pourquoi n/10 » dans un encart teinté de la couleur de la note, extrait de l'annonce.
+  résumé de la mission en entier (2–3 phrases écrites par Gemini), extrait de l'annonce. La raison de la note
+  reste dans « Détails ».
 - Note affichée « NOTE 9/10 » (« SCORE » en anglais), grand chiffre Sora.
 
 ## Mouvement

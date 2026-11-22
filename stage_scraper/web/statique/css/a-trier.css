@@ -77,11 +77,6 @@
   -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(180deg, #000 calc(100% - 28px), transparent);
 }
 .resume { font-size: 15.5px; line-height: 1.6; color: #E6DFEE; white-space: pre-line; }
-.pourquoi {
-  margin-top: 12px; padding: 11px 14px; border-radius: 12px; font-size: 14px; line-height: 1.5; color: var(--doux);
-  background: color-mix(in oklab, var(--n) 11%, rgba(255, 255, 255, .03));
-}
-.pourquoi b { font-weight: 600; color: var(--n); }
 .extrait { margin-top: 16px; }
 .extrait h4 { margin-bottom: 6px; font-size: 12px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--faible); }
 .extrait p { font-size: 14px; line-height: 1.6; color: var(--doux); }

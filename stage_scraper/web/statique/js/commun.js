@@ -39,7 +39,7 @@ export function setNb(cle, valeur) {
 export function getNb(cle) { return Number(document.querySelector(`[data-nb="${cle}"]`)?.textContent) || 0; }
 
 // Menu « Plus » de la barre du bas : marqué quand on est sur une de ses pages, refermé par un clic ailleurs.
-const plus = document.querySelector('.onglets .plus');
+const plus = document.querySelector('.barre-onglets .plus');
 if (plus) {
   if (plus.querySelector('a.on')) plus.querySelector('summary').classList.add('on');
   document.addEventListener('click', (e) => { if (plus.open && !plus.contains(e.target)) plus.open = false; });

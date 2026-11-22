@@ -187,8 +187,9 @@ Pour l'arrêter : `Ctrl + C` dans le terminal.
   d'Île-de-France…) et s'annule depuis la conversation. Garde-fou : si un bot annonce un changement qui
   n'a pas eu lieu, il est relancé une fois, puis sa réponse est remplacée par une erreur (« Je n'ai rien modifié… ») ;
   l'Assistant et le dossier signalent de même toute action annoncée mais pas faite. Le scoring et l'Assistant lisent ce profil : une
-  phrase « Ce que tu cherches » claire améliore les notes. Après un changement de critères, le bandeau
-  « Refaire le tri » applique les nouveaux critères aux offres déjà collectées.
+  phrase « Ce que tu cherches » claire améliore les notes. Après un changement de critères, les offres déjà
+  collectées sont retriées toutes seules. En bas du profil, **Mes documents** : ton CV (PDF) et une lettre modèle,
+  avec ce que l'IA en reçoit (anonymisé). Le CV se dépose aussi directement dans la fiche d'une offre de Ma sélection.
 - **Entretien d'accueil** (`/bienvenue`) : à la première ouverture (profil jamais configuré : phrase « Ce que tu
   cherches » vide), « Se connecter » mène à 6 questions courtes, une à la fois : quel stage, quand (mois de début et
   durée), où (zone et télétravail), stage ou CDD, secteurs, entreprises rêvées. On répond en un clic (puces), avec ses
@@ -198,8 +199,7 @@ Pour l'arrêter : `Ctrl + C` dans le terminal.
   haut) laisse entrer sans répondre. Relançable depuis Mon profil (« Refaire l'entretien ») : les réponses
   actuelles sont préremplies, et entreprises et recherches sont alors seulement ajoutées. Aucun texte écrit par
   l'IA n'est affiché : le bot ne dit que ce que le code a vraiment noté, puis enregistré et relu.
-- **Réglages** : mails (seuil d'alerte, envoi, aperçus, mail de test), tes documents (CV, lettre modèle, et ce
-  que l'IA en reçoit) et « Refaire le tri ». **Enregistrer** (ou Ctrl+S) écrit config.yaml.
+- **Réglages** : les mails (seuil d'alerte, envoi, aperçus, mail de test). **Enregistrer** (ou Ctrl+S) écrit config.yaml.
 - L'analyse face au CV, les conseils, la lettre et l'Assistant arrivent ensuite : en attendant, ils restent dans
   l'appli Streamlit ci-dessous (les deux utilisent la même base).
 

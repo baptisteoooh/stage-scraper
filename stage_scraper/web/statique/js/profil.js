@@ -3,9 +3,10 @@
 // techniques (recherches, filtres fins) sont repliés. « Enregistrer » écrit config.yaml, le message en bas propose
 // « Annuler ». À droite, une conversation avec Gemini modifie le profil : seul le dernier échange est affiché.
 import { $, h, api, toast, brancherScrap, majMenu, LOCALE, LANGUE } from './commun.js';
+import { blocDocuments } from './documents.js';
 
 const etat = {
-  d: null, p: null, alertes: [], messages: [], enCours: false, triEnAttente: false, annules: new Set(),
+  d: null, p: null, alertes: [], messages: [], enCours: false, annules: new Set(),
   ouverte: null, brouillon: null,   // rubrique en cours de modification et ses valeurs pas encore enregistrées
   techniques: false, toutFil: false,   // réglages techniques dépliés ; tout l'historique de la conversation affiché
   aRevoir: [],   // propositions tirées des offres écartées : [{cle, constat, question, valeurs}]
@@ -136,8 +137,10 @@ async function charger() {
   $('#feuille').replaceChildren(h('div', { id: 'bandeaux' }), h('div', { id: 'a-revoir' }), ...RUBRIQUES.filter(r => !r.technique).map(section),
     h('button', { class: 'techniques', id: 'techniques', type: 'button', 'aria-expanded': 'false', onclick: () => montrerTechniques(!etat.techniques) },
       icone(BAS), h('span', {})),
-    ...RUBRIQUES.filter(r => r.technique).map(section));
+    ...RUBRIQUES.filter(r => r.technique).map(section),
+    h('section', { class: 'rubrique documents-profil', id: 'documents', 'aria-labelledby': 't-documents' }));
   RUBRIQUES.forEach(r => dessinerRubrique(r));
+  dessinerDocuments();
   montrerTechniques(etat.techniques);
   dessinerARevoir();
   dessinerBandeaux();
@@ -171,14 +174,35 @@ function montrerTechniques(oui) {
   RUBRIQUES.filter(r => r.technique).forEach(r => dessinerRubrique(r));
 }
 
+// Mes documents (CV, lettre modèle), en bas du profil.
+async function dessinerDocuments() {
+  const zone = $('#documents');
+  if (!zone) return;
+  try {
+    const r = await api('/api/reglages');
+    zone.replaceChildren(h('header', { class: 'rubrique-tete' }, h('h2', { id: 't-documents' }, 'Mes documents')),
+      h('div', { class: 'documents-corps' }, blocDocuments(r.documents, dessinerDocuments)));
+    if (location.hash === '#documents') zone.scrollIntoView({ block: 'start' });
+  } catch (e) { console.error(e); }
+}
+
+// Quand les critères changent, les offres déjà là sont retriées toutes seules (quelques secondes après le dernier changement).
+let minuteurTri = 0;
+function programmerTri() {
+  clearTimeout(minuteurTri);
+  minuteurTri = setTimeout(async () => {
+    try {
+      await api('/api/reglages/retrier', {});
+      toast('Offres retriées avec ton profil.');
+      api('/api/profil').then(d => majMenu(d.menu)).catch(() => {});
+    } catch (err) { toast(`Le tri n'a pas pu être refait : ${err.message}`); }
+  }, 1500);
+}
+
 function dessinerBandeaux() {
   const zone = $('#bandeaux');
   if (!zone) return;
-  zone.replaceChildren(
-    ...etat.alertes.map(a => h('div', { class: 'bandeau alerte', role: 'status' }, h('p', {}, a))),
-    ...(etat.triEnAttente ? [h('div', { class: 'bandeau tri' },
-      h('p', {}, 'Tes critères ont changé. Les offres déjà collectées n\'ont pas encore été retriées.'),
-      h('button', { class: 'pastille', type: 'button', onclick: refaireTri }, 'Refaire le tri'))] : []));
+  zone.replaceChildren(...etat.alertes.map(a => h('div', { class: 'bandeau alerte', role: 'status' }, h('p', {}, a))));
 }
 
 // « À revoir » : ce que tes offres écartées suggèrent de changer. Un clic sur Oui applique (annulable), Non ne revient plus.
@@ -223,25 +247,13 @@ function replier(el) {
     { duration: 280, easing: 'cubic-bezier(.2, .8, .2, 1)', fill: 'forwards' }).finished;
 }
 
-async function refaireTri(e) {
-  const b = e.currentTarget;
-  b.disabled = true; b.textContent = 'Tri en cours…';
-  try {
-    const r = await api('/api/reglages/retrier', {});
-    etat.triEnAttente = false;
-    dessinerBandeaux();
-    toast(r.texte, [], { duree: 8000 });
-    api('/api/profil').then(d => majMenu(d.menu)).catch(() => {});
-  } catch (err) { toast(err.message); b.disabled = false; b.textContent = 'Refaire le tri'; }
-}
-
 // Après un enregistrement, une annulation ou un message de l'agent : redessine les rubriques touchées.
 function appliquer(r, { flash = false } = {}) {
   etat.p = r.profil;
   etat.alertes = r.alertes;
   if (r.a_revoir) { etat.aRevoir = r.a_revoir; dessinerARevoir(); }
   const champs = r.changements.map(c => c.champ);
-  if (champs.some(c => etat.d.champs_tri.includes(c))) etat.triEnAttente = true;
+  if (champs.some(c => etat.d.champs_tri.includes(c))) programmerTri();
   const touchees = RUBRIQUES.filter(x => champs.some(c => x.champs.includes(c) || x.aussi?.includes(c)));
   if (touchees.some(x => x.id === etat.ouverte)) fermer();   // l'agent a changé la rubrique ouverte : on la relit
   if (flash && touchees.some(x => x.technique && x.champs.some(c => champs.includes(c)))) montrerTechniques(true);

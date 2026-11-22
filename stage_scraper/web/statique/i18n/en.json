@@ -680,7 +680,9 @@
     "Pour parler à l'IA (retoucher la lettre, poser une question), dépose d'abord ton CV.": "To talk to the AI (edit the letter, ask a question), add your CV first.",
     "Mon CV (PDF)": "My CV (PDF)",
     "Clique ou dépose le fichier ici": "Click or drop the file here",
-    "Pas encore de lettre.": "No letter yet."
+    "Pas encore de lettre.": "No letter yet.",
+    "Offres retriées avec ton profil.": "Offers re-sorted with your profile.",
+    "Ton CV et une lettre que tu as écrite (modèle de style). Ils restent sur ton ordinateur ; les IA ne reçoivent que leur texte, sans ton nom ni tes coordonnées.": "Your CV and a letter you wrote (style model). They stay on your computer; the AIs only get their text, without your name or contact details."
   },
   "motifs": {
     "{} · Stage Scraper": "{1} · Stage Scraper",

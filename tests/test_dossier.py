@@ -273,7 +273,7 @@ def test_plafonds_du_credit_claude(conn, monkeypatch):
     _depense(conn, 3.5)
     assert "plafond total" in claude.blocage(conn, config)
     monkeypatch.setattr(claude, "secret", lambda nom: None)
-    assert "ANTHROPIC_API_KEY" in claude.blocage(conn, config)
+    assert "clé Claude absente" in claude.blocage(conn, config)
 
 
 def test_plafond_atteint_gemini_prend_le_relais(conn):

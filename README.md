@@ -193,7 +193,7 @@ Pour l'arrêter : `Ctrl + C` dans le terminal.
   mots (Gemini, gratuit, comprend la réponse ; sans clé, une lecture simple du texte prend le relais) ou on passe.
   À la fin, une phrase résume tout : touche un morceau pour le corriger, puis **C'est bon** écrit le profil dans
   config.yaml (rien n'est écrit avant) et retrie les offres déjà là si les critères ont changé. « Plus tard » (en
-  haut) laisse entrer sans répondre. Relançable depuis Mon profil (« Remplir en 6 questions ») : les réponses
+  haut) laisse entrer sans répondre. Relançable depuis Mon profil (« Refaire l'entretien ») : les réponses
   actuelles sont préremplies, et entreprises et recherches sont alors seulement ajoutées. Aucun texte écrit par
   l'IA n'est affiché : le bot ne dit que ce que le code a vraiment noté, puis enregistré et relu.
 - **Réglages** : mails (seuil d'alerte, envoi, aperçus, mail de test), tes documents (CV, lettre modèle, et ce

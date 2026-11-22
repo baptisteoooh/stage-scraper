@@ -19,6 +19,7 @@ def neuve(copie):  # noqa: F811
     """Un profil jamais configuré : pas de phrase « Ce que tu cherches », entretien jamais fait."""
     donnees = reglages.lire(copie)
     donnees["profil"]["recherche"] = ""
+    donnees["profil"].pop("entretien_accueil", None)   # le vrai config.yaml peut avoir déjà fait l'entretien
     reglages.ecrire(donnees, copie)
     return copie
 
@@ -266,6 +267,6 @@ def test_textes_traduits():
     textes += [d[0] for d in entretien.DOMAINES if d[0] not in ("Data science", "Data analyst", "Data engineering", "Product")]
     textes += [v[0] for v in entretien.SECTEURS.values() if v[0] != "Biotech" and v[0] != "Pharma"]
     textes += [v[0] for v in (*entretien.ZONES.values(), *entretien.TELETRAVAIL.values(), *entretien.CONTRATS.values())]
-    textes += ["Décembre 2026", "3 à 5 mois", "Remplir en 6 questions", "Entretien d'accueil", "C'est bon", "Voilà ce que j'ai compris"]
+    textes += ["Décembre 2026", "3 à 5 mois", "Refaire l'entretien", "Entretien d'accueil", "C'est bon", "Voilà ce que j'ai compris"]
     oublies = [t for t in textes if langue.traduire(t) == t]
     assert not oublies, oublies

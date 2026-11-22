@@ -1,5 +1,5 @@
 <aside class="cote">
-    <a class="marque" href="/">Stage Scraper</a>
+    <a class="marque" href="/a-trier">Stage Scraper</a>
     <button class="scrap" id="scrap" type="button">
       <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg>
       <span>Lancer le scrap</span>
@@ -8,10 +8,10 @@
       <h2>Mes offres</h2>
       <a href="/a-trier">
         <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9 9h6M9 13h4"/></svg>
-        À trier<span class="nb" id="nb-a-trier"></span></a>
+        À trier<span class="nb" id="nb-a-trier" data-nb="a-trier"></span></a>
       <a href="/selection">
         <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l2.4 5 5.4.8-3.9 3.8.9 5.4-4.8-2.6-4.8 2.6.9-5.4L4.2 9.8 9.6 9z"/></svg>
-        Ma sélection<span class="nb" id="nb-selection"></span></a>
+        Ma sélection<span class="nb" id="nb-selection" data-nb="selection"></span></a>
       <a href="/assistant">
         <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14v10H10l-5 4z"/></svg>
         Assistant</a>
@@ -34,3 +34,34 @@
     <button type="button" data-langue="fr" aria-pressed="true">FR</button><span aria-hidden="true">·</span><button type="button" data-langue="en" aria-pressed="false">EN</button>
     </div>
   </aside>
+  <!-- Téléphone : le menu devient une barre d'onglets en bas (les 4 pages du quotidien + « Plus »). -->
+    <nav class="onglets" aria-label="Pages">
+      <a href="/a-trier">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9 9h6M9 13h4"/></svg>
+        <span>À trier</span><b class="nb" data-nb="a-trier"></b></a>
+      <a href="/selection">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l2.4 5 5.4.8-3.9 3.8.9 5.4-4.8-2.6-4.8 2.6.9-5.4L4.2 9.8 9.6 9z"/></svg>
+        <span>Ma sélection</span><b class="nb" data-nb="selection"></b></a>
+      <a href="/assistant">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14v10H10l-5 4z"/></svg>
+        <span>Assistant</span></a>
+      <a href="/profil">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/></svg>
+        <span>Profil</span></a>
+      <details class="plus">
+        <summary>
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/></svg>
+          <span>Plus</span></summary>
+        <div class="plus-menu">
+          <a href="/reglages">
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5h8.5M17.5 7.5H20M4 16.5h2.5M11.5 16.5H20"/><circle cx="15" cy="7.5" r="2.5"/><circle cx="9" cy="16.5" r="2.5"/></svg>
+            Réglages</a>
+          <a href="/journal">
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h9l3 3v13H6z"/><path d="M9 11h6M9 15h6"/></svg>
+            Journal</a>
+          <a href="/corbeille">
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg>
+            Corbeille</a>
+        </div>
+      </details>
+    </nav>

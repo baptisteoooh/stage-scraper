@@ -1,7 +1,7 @@
 // Page À trier : le paquet de cartes, les filtres, les décisions (geste, boutons, clavier), l'annulation,
 // la fiche détaillée et le scrap manuel.
 import { Glisseur } from './swipe.js';
-import { $, h, api, toast, cacherToast, afficherScrap, brancherScrap, detailOffre } from './commun.js';
+import { $, h, api, toast, cacherToast, afficherScrap, brancherScrap, detailOffre, setNb, getNb } from './commun.js';
 
 const SECTIONS = [
   { cle: 'toutes', nom: 'Toutes les offres' },
@@ -30,12 +30,21 @@ const etat = {
 
 // ======================================================================= données
 
+// Un message d'information ne s'affiche qu'une fois par visite (pas à chaque retour sur la page).
+function dejaDit(cle) {
+  try {
+    if (sessionStorage.getItem(cle)) return true;
+    sessionStorage.setItem(cle, '1');
+  } catch { /* stockage indisponible : on le montre */ }
+  return false;
+}
+
 async function charger() {
   const d = await api('/api/a-trier');
   etat.toutes = d.offres;
-  $('#nb-selection').textContent = d.selection || '';
+  setNb('selection', d.selection);
   afficherScrap(d.scrap);
-  if (d.ia_manquante) toast("Des offres attendent la note de l'IA : ajoute GEMINI_API_KEY dans .env.");
+  if (d.ia_manquante && !dejaDit('ia_manquante')) toast("Notation par l'IA en pause (clé Gemini absente) : les offres arrivent sans note.");
   rafraichir();
 }
 
@@ -69,7 +78,7 @@ function dessinerBarre() {
   $('#filtres-details').replaceChildren(
     ...(etat.tri === 'note' ? [h('span', {}, 'meilleure note')] : []),
     ...(etat.bof && etat.section !== 'plus_tard' ? [h('span', {}, 'Bof inclus')] : []));
-  $('#nb-a-trier').textContent = compteSection('toutes') || '';
+  setNb('a-trier', compteSection('toutes'));
   if (menuOuvert()) dessinerMenu();
 }
 
@@ -284,6 +293,7 @@ async function decider(dir, fin = null) {
   try {
     const decision = await envoi;
     etat.historique.push({ decision, offre: o, dir });
+    if (action === 'candidate') setNb('selection', getNb('selection') + 1);
     toastDecision(decision, o);
   } catch (e) {
     console.error(e);
@@ -335,6 +345,7 @@ async function annulerDerniere() {
     return;
   }
   remettre(derniere.offre, derniere.decision.action);
+  if (derniere.decision.action === 'candidate') setNb('selection', getNb('selection') - 1);
   // On revient sur la section où était la carte, et elle repasse sur le dessus du paquet.
   if (derniere.decision.action === 'remettre') etat.section = 'plus_tard';
   else if (etat.section === 'plus_tard') etat.section = 'toutes';

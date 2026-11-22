@@ -178,7 +178,7 @@ def test_agent_sans_cle(copie, monkeypatch, tmp_path):
     monkeypatch.setattr(agent_profil, "secret", lambda nom: None)
     with closing(db.connecter(tmp_path / "x.db")) as conn:
         db.initialiser(conn)
-        with pytest.raises(agent_profil.AgentImpossible, match="GEMINI_API_KEY"):
+        with pytest.raises(agent_profil.AgentImpossible, match="clé Gemini absente"):
             agent_profil.demander(conn, copie, {}, "bonjour")
 
 

@@ -139,7 +139,7 @@ def demander(conn, config: dict, question: str, historique: list[dict] | None = 
                 "ignores": 0, "lues": []}
     if client is None:
         if not secret("GEMINI_API_KEY"):
-            raise ChatImpossible("ajoute GEMINI_API_KEY dans .env pour utiliser le chat")
+            raise ChatImpossible("l'IA n'est pas branchée (clé Gemini absente) : l'assistant ne peut pas répondre")
         client = gemini.ClientGemini(delai_entre_appels=0)
 
     systeme = consignes(config, offres, module_cv.texte_cv(config))

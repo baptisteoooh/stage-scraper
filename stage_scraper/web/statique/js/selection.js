@@ -1,6 +1,6 @@
 // Page Ma sélection : les offres gardées depuis À trier, rangées par étape (En préparation → Envoyées →
 // Entretien → Terminées), leur fiche de suivi (étape, dates, notes) et les offres trouvées ailleurs.
-import { $, h, api, toast, afficherScrap, brancherScrap } from './commun.js';
+import { $, h, api, toast, afficherScrap, brancherScrap, setNb, getNb } from './commun.js';
 import { ouvrirDossier, fermerDossier, dossierOuvert } from './dossier.js';
 
 const etat = {
@@ -16,8 +16,8 @@ async function charger() {
   const d = await api('/api/selection');
   etat.fiches = d.fiches;
   etat.etapes = d.etapes;
-  $('#nb-a-trier').textContent = d.a_trier || '';
-  $('#nb-selection').textContent = d.fiches.length || '';
+  setNb('a-trier', d.a_trier);
+  setNb('selection', d.fiches.length);
   afficherScrap(d.scrap);
   if (!etat.etape) {
     // On ouvre sur la première étape où il y a quelque chose à faire, sinon « En préparation ».
@@ -137,8 +137,8 @@ async function recharger({ suivre = false } = {}) {
   for (const f of partantes) document.querySelector(`.dossier[data-id="${f.id}"]`)?.classList.add('part');
   if (partantes.length) await new Promise(r => setTimeout(r, 260));
   etat.fiches = d.fiches;
-  $('#nb-a-trier').textContent = d.a_trier || '';
-  $('#nb-selection').textContent = d.fiches.length || '';
+  setNb('a-trier', d.a_trier);
+  setNb('selection', d.fiches.length);
   const ouverte = etat.fiches.find(f => f.id === etat.ouverte);
   if (suivre && ouverte) etat.etape = ouverte.etape;
   transition(dessiner);
@@ -395,7 +395,7 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && fermerFi
 brancherScrap(async (s) => {
   const d = await api('/api/selection');
   afficherScrap(d.scrap);
-  $('#nb-a-trier').textContent = d.a_trier || '';
+  setNb('a-trier', d.a_trier);
   toast(s.erreur ? `Le scrap a planté : ${s.erreur}` : 'Scrap terminé : les nouvelles offres sont dans À trier.');
 });
 

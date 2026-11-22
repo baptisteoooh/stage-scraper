@@ -66,7 +66,7 @@ def noter_nouvelles(conn, config: dict, passage_id: int, auto: bool, client=None
 
     if client is None:
         if not secret("GEMINI_API_KEY"):
-            bilan["message"] = f"{len(offres)} offre(s) en attente : ajoute GEMINI_API_KEY dans .env pour les noter"
+            bilan["message"] = f"{len(offres)} offre(s) en attente de note : clé Gemini absente (GEMINI_API_KEY dans .env)"
             return bilan
         client = gemini.ClientGemini(delai_entre_appels=reglages.get("delai_entre_appels_s", 4))
 

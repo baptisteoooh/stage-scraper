@@ -125,7 +125,7 @@ def demander(conn, chemin_config, config: dict, message: str, historique: list[d
     refus: [raisons], profil, alertes}. Les changements sont déjà écrits dans config.yaml."""
     if client is None:
         if not secret("GEMINI_API_KEY"):
-            raise AgentImpossible("ajoute GEMINI_API_KEY dans .env pour modifier ton profil en conversation")
+            raise AgentImpossible("l'IA n'est pas branchée (clé Gemini absente) : modifie ton profil avec les boutons « Modifier »")
         client = gemini.ClientGemini(delai_entre_appels=0)
 
     donnees = reglages.lire(chemin_config)

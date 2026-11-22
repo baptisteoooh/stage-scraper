@@ -30,6 +30,22 @@ export async function api(chemin, corps) {
   return r.json();
 }
 
+// ======================================================================= compteurs du menu
+
+// Les compteurs existent deux fois (menu de gauche, barre d'onglets du téléphone) : on les met à jour ensemble.
+export function setNb(cle, valeur) {
+  for (const el of document.querySelectorAll(`[data-nb="${cle}"]`)) el.textContent = valeur ? String(valeur) : '';
+}
+export function getNb(cle) { return Number(document.querySelector(`[data-nb="${cle}"]`)?.textContent) || 0; }
+
+// Menu « Plus » de la barre du bas : marqué quand on est sur une de ses pages, refermé par un clic ailleurs.
+const plus = document.querySelector('.onglets .plus');
+if (plus) {
+  if (plus.querySelector('a.on')) plus.querySelector('summary').classList.add('on');
+  document.addEventListener('click', (e) => { if (plus.open && !plus.contains(e.target)) plus.open = false; });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && plus.open) { plus.open = false; plus.querySelector('summary').focus(); } });
+}
+
 // ======================================================================= langue (FR · EN)
 export const LANGUE = document.documentElement.lang === 'en' ? 'en' : 'fr';
 export const LOCALE = LANGUE === 'en' ? 'en-US' : 'fr-FR';
@@ -149,8 +165,8 @@ export function fermerPanneau() {
 
 // Compteurs du menu de gauche et dernier scrap (réponse des API de page : a_trier, selection, scrap).
 export function majMenu(d) {
-  if ('a_trier' in d) $('#nb-a-trier').textContent = d.a_trier || '';
-  if ('selection' in d) $('#nb-selection').textContent = d.selection || '';
+  if ('a_trier' in d) setNb('a-trier', d.a_trier);
+  if ('selection' in d) setNb('selection', d.selection);
   if ('scrap' in d) afficherScrap(d.scrap);
 }
 

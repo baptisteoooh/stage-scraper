@@ -22,7 +22,7 @@ function passage(p, i) {
   const erreurs = Object.keys(p.erreurs);
   const resume = p.trouvees || p.nouvelles
     ? [h('b', {}, String(p.trouvees)), ' trouvées · ', h('b', {}, String(p.nouvelles)), ' nouvelles · ',
-      h('b', {}, String(p.gardees)), ' gardées', p.top ? [' · ', h('b', {}, String(p.top)), ' notées 8+'] : null]
+      h('b', {}, String(p.gardees)), p.gardees === 1 ? ' gardée' : ' gardées', p.top ? [' · ', h('b', {}, String(p.top)), p.top === 1 ? ' notée 8+' : ' notées 8+'] : null]
     : [p.notees ? `Notation seule : ${pluriel(p.notees, 'offre')}` : 'Rien de nouveau'];
   return h('details', { class: 'passage apparait', style: `--i:${Math.min(i, 12)}` },
     h('summary', {},

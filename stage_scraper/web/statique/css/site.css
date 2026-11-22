@@ -127,7 +127,18 @@ input, textarea { caret-color: var(--lavande); }
   max-width: calc(100vw - 32px);
 }
 .toast.visible { transform: translate(-50%, 0); opacity: 1; }
-.toast .texte { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.toast .texte { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.toast .ligne-toast { min-width: 0; max-width: 100%; }
+.toast .ligne-toast button { flex: none; }
+/* Téléphone : le message apparaît en haut, pour ne jamais recouvrir les boutons du bas. */
+@media (max-width: 700px) {
+  .toast { bottom: auto; top: calc(10px + env(safe-area-inset-top)); width: calc(100vw - 24px); max-width: none;
+    padding-left: 16px; transform: translate(-50%, -140%); }
+  .toast.visible { transform: translate(-50%, 0); }
+  .toast .ligne-toast { flex: 1; }
+  .toast:not(.avec-raisons) { border-radius: 18px; }
+  .toast .texte { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.35; }
+}
 .toast button { padding: 8px 14px; border-radius: 999px; font-weight: 600; background: rgba(255, 255, 255, .1); white-space: nowrap; }
 .toast button:hover { background: rgba(255, 255, 255, .18); }
 

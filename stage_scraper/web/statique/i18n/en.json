@@ -665,7 +665,12 @@
     "Intéressé (→)": "Interested (→)",
     "Pas intéressé (←)": "Not interested (←)",
     "Intéressé (flèche droite)": "Interested (right arrow)",
-    "Pas intéressé (flèche gauche)": "Not interested (left arrow)"
+    "Pas intéressé (flèche gauche)": "Not interested (left arrow)",
+    "Profil": "Profile",
+    "Notation par l'IA en pause (clé Gemini absente) : les offres arrivent sans note.": "AI scoring is paused (no Gemini key): offers arrive without a score.",
+    "Pour changer ce qui est écarté : Mon profil.": "To change what gets filtered out: My profile.",
+    "gardée": "kept",
+    "notée 8+": "scored 8+"
   },
   "motifs": {
     "{} · Stage Scraper": "{1} · Stage Scraper",

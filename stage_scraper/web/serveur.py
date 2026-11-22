@@ -970,7 +970,7 @@ def api_corbeille():
              "offres": [_ligne_corbeille(o, o["raison"] or "Sans raison", True) for o in toi[:MAX_CORBEILLE]]},
             {"cle": "tri", "nom": "Écartées par le tri", "total": len(tri),
              "aide": "Écartées automatiquement (contrat, poste non technique, durée, lieu…) ou par l'IA. "
-                     "Pour changer ce qui est écarté : Réglages › Critères.",
+                     "Pour changer ce qui est écarté : Mon profil.",
              "offres": [_ligne_corbeille(o, o["exclusion_prefiltre"] or o["exclusion_ia"], False)
                         for o in tri[:MAX_CORBEILLE]]},
             {"cle": "expirees", "nom": "Expirées", "total": len(expirees),
@@ -994,7 +994,7 @@ def api_remettre(r: Remise):
         elif r.liste == "expirees":
             expiration.annuler(conn, r.offre_id)
         else:
-            raise HTTPException(400, "Les offres écartées par le tri se règlent dans Réglages › Critères.")
+            raise HTTPException(400, "Les offres écartées par le tri se règlent dans Mon profil.")
     return {"ok": True}
 
 

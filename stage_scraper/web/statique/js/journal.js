@@ -14,7 +14,7 @@ function pluriel(n, mot) { return `${n} ${mot}${n > 1 ? 's' : ''}`; }
 
 // Noms lisibles des sources (le journal stocke des noms techniques).
 const NOMS = { scoring: "Notation par l'IA", google_jobs: 'Google Jobs', careerjet: 'Careerjet', gmail: 'Alertes mail',
-  carrieres: 'Pages carrières', mail_alerte: 'Mails', france_travail: 'France Travail' };
+  carrieres: 'Pages carrières', mail_alerte: 'Mails', france_travail: 'France Travail', commune: 'Offres partagées' };
 const nomSource = (s) => NOMS[s] || s;
 
 function vide(p) { return !p.trouvees && !p.nouvelles && !p.notees; }

@@ -74,8 +74,65 @@ function remplir() {
 
 remplir();
 
-// Le formulaire mène à l'appli (pas encore de vrais comptes : version locale).
-document.querySelector('#connexion').addEventListener('submit', (e) => {
+// ======================================================================= connexion
+// Version locale : le formulaire mène directement à l'appli. Site partagé (--comptes) : vrai nom + mot de passe,
+// création du premier compte (celui de BAP), ou d'un compte d'ami avec un lien d'invitation (?invitation=…).
+const formulaire = document.querySelector('#connexion');
+let compte = { mode: false };
+
+function champ(id, type, texte, autocomplete) {
+  const label = el('label', 'sr-only', texte);
+  label.htmlFor = id;
+  const input = el('input', 'champ');
+  Object.assign(input, { id, type, placeholder: texte, autocomplete, required: true });
+  return [label, input];
+}
+
+function formulaireComptes() {
+  const invitation = new URLSearchParams(location.search).get('invitation');
+  const creer = compte.premier || compte.invitation === true;
+  const bouton = el('button', 'bouton principal', creer ? 'Créer mon compte' : 'Se connecter');
+  bouton.type = 'submit';
+  const bas = document.querySelector('#bas-connexion');
+  bas.textContent = compte.premier
+    ? 'Premier passage : ce compte est le tien. Lui seul collecte les offres, et tu pourras inviter des amis.'
+    : compte.invitation === true ? 'Tu es invité : choisis un nom et un mot de passe (8 caractères ou plus).'
+      : compte.invitation === false ? "Ce lien d'invitation n'est plus valable : demande-en un nouveau. Tu as déjà un compte ? Connecte-toi."
+        : 'Pas de compte ? Demande un lien d\'invitation à la personne qui a installé le site.';
+  formulaire.replaceChildren(
+    ...champ('nom', 'text', 'Nom', 'username'),
+    ...champ('mot-de-passe', 'password', 'Mot de passe', creer ? 'new-password' : 'current-password'),
+    bouton, document.querySelector('#erreur-connexion'), bas);
+  formulaire.onsubmit = async (e) => {
+    e.preventDefault();
+    const erreur = document.querySelector('#erreur-connexion');
+    erreur.textContent = '';
+    bouton.disabled = true;
+    const corps = { nom: formulaire.querySelector('#nom').value, mot_de_passe: formulaire.querySelector('#mot-de-passe').value, code: invitation };
+    try {
+      const r = await fetch(creer ? '/api/compte/inscription' : '/api/compte/connexion', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(corps) });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || `Erreur ${r.status}`);
+      location.href = '/a-trier';
+    } catch (err) {
+      erreur.textContent = err.message;
+      bouton.disabled = false;
+    }
+  };
+}
+
+formulaire.addEventListener('submit', (e) => {
+  if (compte.mode) return;   // géré par formulaireComptes
   e.preventDefault();
   location.href = '/a-trier';
 });
+
+(async () => {
+  try {
+    const invitation = new URLSearchParams(location.search).get('invitation');
+    compte = await (await fetch(`/api/compte${invitation ? `?invitation=${encodeURIComponent(invitation)}` : ''}`)).json();
+  } catch { return; }
+  if (!compte.mode) return;
+  if (compte.connecte) { location.replace('/a-trier'); return; }
+  formulaireComptes();
+})();

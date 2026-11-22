@@ -4,6 +4,7 @@
 // « Annuler ». À droite, une conversation avec Gemini modifie le profil : seul le dernier échange est affiché.
 import { $, h, api, toast, brancherScrap, majMenu, LOCALE, LANGUE } from './commun.js';
 import { blocDocuments } from './documents.js';
+import { compteCourant } from './commun.js';
 
 const etat = {
   d: null, p: null, alertes: [], messages: [], enCours: false, annules: new Set(),
@@ -138,7 +139,9 @@ async function charger() {
     h('button', { class: 'techniques', id: 'techniques', type: 'button', 'aria-expanded': 'false', onclick: () => montrerTechniques(!etat.techniques) },
       icone(BAS), h('span', {})),
     ...RUBRIQUES.filter(r => r.technique).map(section),
+    h('section', { class: 'rubrique cle-profil', id: 'cle', 'aria-labelledby': 't-cle', hidden: true }),
     h('section', { class: 'rubrique documents-profil', id: 'documents', 'aria-labelledby': 't-documents' }));
+  dessinerCle();
   RUBRIQUES.forEach(r => dessinerRubrique(r));
   dessinerDocuments();
   montrerTechniques(etat.techniques);
@@ -172,6 +175,38 @@ function montrerTechniques(oui) {
   b.setAttribute('aria-expanded', String(oui));
   b.querySelector('span').textContent = oui ? 'Masquer les réglages techniques' : 'Réglages techniques';
   RUBRIQUES.filter(r => r.technique).forEach(r => dessinerRubrique(r));
+}
+
+// Site partagé : la clé Gemini de l'ami (gratuite, 2 minutes à créer). Sans elle, ses offres arrivent sans note.
+async function dessinerCle() {
+  const zone = $('#cle');
+  const c = await compteCourant;
+  if (!zone || !c.mode || !c.connecte || c.admin) return;
+  const actuelle = (await api('/api/compte')).cles?.gemini;
+  const champ = h('input', { class: 'champ', type: 'password', autocomplete: 'off', spellcheck: 'false',
+    placeholder: actuelle ? `Enregistrée : ${actuelle}` : 'Colle ta clé ici (AIza…)', 'aria-label': 'Ta clé Gemini' });
+  const etatCle = h('p', { class: 'etat-cle', role: 'status' }, actuelle ? `Clé enregistrée (${actuelle}).` : 'Pas encore de clé : tes offres arrivent sans note.');
+  const enregistrer = async (valeur) => {
+    etatCle.textContent = 'Vérification…';
+    try {
+      const r = await api('/api/compte/cle', { cle: 'gemini', valeur });
+      champ.value = '';
+      champ.placeholder = r.masquee ? `Enregistrée : ${r.masquee}` : 'Colle ta clé ici (AIza…)';
+      etatCle.textContent = !r.masquee ? 'Clé effacée.' : r.valable === true ? `Clé valide (${r.masquee}) : tes offres seront notées.`
+        : r.valable === false ? 'Google refuse cette clé : vérifie que tu l\'as copiée en entier.' : `Clé enregistrée (${r.masquee}), mais impossible de la vérifier maintenant.`;
+      etatCle.classList.toggle('refus', r.valable === false);
+    } catch (e) { etatCle.textContent = e.message; etatCle.classList.add('refus'); }
+  };
+  zone.replaceChildren(
+    h('header', { class: 'rubrique-tete' }, h('h2', { id: 't-cle' }, 'Ma clé Gemini')),
+    h('p', { class: 'aide-liste' }, 'L\'IA qui note tes offres et répond dans l\'Assistant tourne avec ta clé à toi : gratuite, sans carte bancaire. ',
+      h('a', { href: 'https://aistudio.google.com/apikey', target: '_blank', rel: 'noopener noreferrer' }, 'Crée-la sur Google AI Studio'),
+      ' (« Create API key »), puis colle-la ici. En version gratuite, Google peut se servir de ce que tu lui envoies pour améliorer ses produits ; ton CV ne part jamais qu\'anonymisé.'),
+    h('form', { class: 'ligne-cle', onsubmit: (e) => { e.preventDefault(); if (champ.value.trim()) enregistrer(champ.value.trim()); } },
+      champ, h('button', { class: 'pastille', type: 'submit' }, 'Enregistrer'),
+      actuelle ? h('button', { class: 'lien', type: 'button', onclick: () => enregistrer('') }, 'Effacer') : null),
+    etatCle);
+  zone.hidden = false;
 }
 
 // Mes documents (CV, lettre modèle), en bas du profil.

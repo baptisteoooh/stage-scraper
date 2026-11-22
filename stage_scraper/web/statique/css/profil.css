@@ -259,3 +259,9 @@
   .rubrique.flash { animation: none; }
   .chat-profil { transition: visibility 0s; }
 }
+/* Site partagé : la clé Gemini de l'ami */
+.cle-profil .ligne-cle { display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+.cle-profil .ligne-cle .champ { flex: 1; min-width: 220px; }
+.cle-profil .etat-cle { margin-top: 8px; font-size: 14px; color: var(--doux); }
+.cle-profil .etat-cle.refus { color: var(--non); }
+.cle-profil a { color: var(--lavande); }

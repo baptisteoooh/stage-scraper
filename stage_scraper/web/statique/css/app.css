@@ -48,7 +48,7 @@
 .dernier b { display: block; margin-bottom: 2px; font-size: 14px; font-weight: 600; color: var(--texte); }
 .dernier .ligne { display: block; margin-top: 6px; font-size: 12px; color: var(--faible); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.principal { position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+main.principal { position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 
 /* ---------------------------------------------------------------- barre du haut (filtres) */
 .barre { display: flex; align-items: center; gap: 8px; padding: 22px 28px 0; }
@@ -121,11 +121,11 @@
 
 @media (max-width: 900px) {
   .fenetre { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); inset: 0; border-radius: 0; }
-  .principal { overflow-y: auto; }
+  main.principal { overflow-y: auto; }
   .cote { flex-direction: row; align-items: center; gap: 12px; padding: 12px 16px; border-right: 0; border-bottom: 1px solid var(--ligne); }
   .cote .marque { padding: 0; margin-right: auto; font-size: 17px; }
   .cote nav, .dernier { display: none; }
-  .principal { padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
+  main.principal { padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
   .scrap { width: auto; padding: 9px 12px; font-size: 14px; }
 }
 
@@ -202,3 +202,10 @@
 .bulle .md .titre-md:first-child { margin-top: 0; }
 .bulle .md ul, .bulle .md ol { padding-left: 20px; }
 .bulle .md li + li { margin-top: 4px; }
+/* Site partagé : la personne connectée, en bas du menu */
+.moi { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 6px 0; font-size: 13.5px; color: var(--doux); }
+.moi b { color: var(--texte); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.moi button { font: inherit; font-size: 13px; color: var(--doux); background: none; border: 0; cursor: pointer; padding: 4px 6px; border-radius: 8px; }
+.moi button:hover { color: var(--texte); background: rgba(255, 255, 255, .08); }
+.plus-menu .deconnexion { font: inherit; text-align: left; background: none; border: 0; color: inherit; cursor: pointer; }
+@media (max-width: 900px) { .cote .moi { display: none; } }

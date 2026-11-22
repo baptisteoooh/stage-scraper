@@ -31,3 +31,6 @@ body { overflow-x: hidden; overflow-y: auto; }
   .accueil { grid-template-columns: 1fr; padding-top: 100px; }
   .droite { order: -1; display: none; }
 }
+/* Site partagé : message d'erreur de connexion */
+.erreur-connexion { min-height: 0; font-size: 14px; color: var(--non); text-align: center; }
+.erreur-connexion:empty { display: none; }

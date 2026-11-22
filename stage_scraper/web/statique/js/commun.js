@@ -20,6 +20,7 @@ export async function api(chemin, corps) {
   const r = await fetch(chemin, corps === undefined ? {} : {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(corps),
   });
+  if (r.status === 401 && !chemin.startsWith('/api/compte')) { location.href = '/'; }   // session finie : se reconnecter
   if (!r.ok) {
     let detail = '';
     try { detail = (await r.json()).detail || ''; } catch { /* réponse sans JSON */ }
@@ -224,3 +225,24 @@ export function montant(dollars, chiffres = 2) {
   const n = dollars.toLocaleString(LOCALE, { minimumFractionDigits: chiffres, maximumFractionDigits: chiffres });
   return LANGUE === 'en' ? `$${n}` : `${n} $`;
 }
+
+// ======================================================================= site partagé : qui est connecté
+
+export async function seDeconnecter() {
+  try { await fetch('/api/compte/deconnexion', { method: 'POST' }); } finally { location.href = '/'; }
+}
+
+export const compteCourant = (async () => {
+  try { return await (await fetch('/api/compte')).json(); } catch { return { mode: false }; }
+})();
+
+compteCourant.then((c) => {
+  if (!c.mode || !c.connecte) return;
+  const moi = document.getElementById('moi');
+  if (moi) {
+    moi.replaceChildren(h('b', { translate: 'no' }, c.nom), h('button', { type: 'button', onclick: seDeconnecter }, 'Se déconnecter'));
+    moi.hidden = false;
+  }
+  document.querySelector('.barre-onglets .plus-menu')?.append(
+    h('button', { class: 'deconnexion', type: 'button', onclick: seDeconnecter }, `Se déconnecter (${c.nom})`));
+});

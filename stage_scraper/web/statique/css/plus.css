@@ -172,3 +172,13 @@ select.champ option { background: #241B33; color: var(--texte); }
 .semaine { font-family: var(--titres); font-size: 20px; font-weight: 600; letter-spacing: -.02em; margin: 4px 0 6px; }
 .passage .groupe { padding: 4px 0 4px 14px; display: flex; flex-direction: column; gap: 6px; }
 .appels .chiffres { margin-top: 12px; }
+/* Réglages du site partagé */
+.lien-invitation { display: flex; gap: 8px; margin-top: 12px; }
+.lien-invitation:empty { display: none; }
+.lien-invitation .champ { flex: 1; min-width: 0; font-size: 13.5px; }
+.liste-comptes { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.liste-comptes li { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 12px; background: rgba(255, 255, 255, .05); }
+.liste-comptes li span { color: var(--doux); font-size: 13.5px; flex: 1; }
+.pile-champs { display: flex; flex-direction: column; gap: 8px; max-width: 420px; align-items: flex-start; }
+.pile-champs .champ { width: 100%; }
+.nom-compte { font-family: var(--titres); font-size: 20px; font-weight: 600; }

@@ -27,14 +27,17 @@ config.yaml.bak
 # Dossier de dépôt du CV et du modèle de lettre (données personnelles)
 CV & lettre de motivation template/
 
-# Claude Code : réglages personnels (hooks Impeccable)
+# Réglages personnels de l'éditeur et des outils locaux
 .claude/settings.local.json
 .impeccable/config.local.json
 
 # Comptes du site partagé (mots de passe chiffrés, bases, CV et clés des amis)
 comptes/
 
-# Skill de design Impeccable (outil d'un tiers) : installée en local, pas publiée
+# Outils et notes de travail locaux, pas publiés
+CLAUDE.md
+.claude/
+# Skill de design Impeccable (outil d'un tiers)
 .claude/skills/impeccable/
 .claude/agents/impeccable-*
 .impeccable/

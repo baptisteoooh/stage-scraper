@@ -2,8 +2,6 @@
 
 Outil local qui collecte les offres de stage medtech / santé (profil IA / data), les dédoublonne, les note avec une IA (Gemini), les affiche dans une appli Streamlit, envoie un récap par mail et suit les candidatures.
 
-Le cahier des charges complet est dans `CLAUDE.md`.
-
 ## État d'avancement
 
 - [x] 1. Squelette, base SQLite, `config.yaml`, `.env.example`, Git

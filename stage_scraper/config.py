@@ -18,6 +18,9 @@ CHEMIN_CONFIG = RACINE / "config.yaml"
 # Secrets attendus dans .env, avec leur usage.
 SECRETS_ATTENDUS = {
     "GEMINI_API_KEY": "scoring IA (Gemini)",
+    "CLOUDFLARE_ACCOUNT_ID": "IA gratuite de secours (Cloudflare Workers AI)",
+    "CLOUDFLARE_API_TOKEN": "IA gratuite de secours (Cloudflare Workers AI)",
+    "GROQ_API_KEY": "IA gratuite de secours (Groq)",
     "ANTHROPIC_API_KEY": "fiches de Ma sélection : analyse et lettre (Claude, crédit prépayé)",
     "FRANCE_TRAVAIL_CLIENT_ID": "API France Travail",
     "FRANCE_TRAVAIL_CLIENT_SECRET": "API France Travail",
@@ -30,8 +33,8 @@ SECRETS_ATTENDUS = {
 # Secrets propres à chaque compte (site en mode comptes) : chacun a sa clé, jamais celle de BAP.
 SECRETS_PERSONNELS = ("GEMINI_API_KEY", "ANTHROPIC_API_KEY")
 # Secrets de BAP prêtés aux amis : la clé partenaire Careerjet (prévue pour un site qui sert ses visiteurs),
-# avec un plafond par ami et par jour (voir comptes.py).
-SECRETS_PARTAGES = ("CAREERJET_API_KEY",)
+# avec un plafond par ami et par jour (voir comptes.py), et les IA gratuites de la cascade (voir ia.py).
+SECRETS_PARTAGES = ("CAREERJET_API_KEY", "CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN", "GROQ_API_KEY")
 
 
 @dataclass(frozen=True)
@@ -101,7 +104,8 @@ def secret(nom: str) -> str | None:
 def ou_mettre_la_cle() -> str:
     """Où ajouter sa clé Gemini : dans .env pour BAP, dans Mon profil pour un ami."""
     compte = COMPTE.get()
-    return "ajoute ta clé dans Mon profil" if compte and compte.dossier else "GEMINI_API_KEY dans .env"
+    return ("ajoute ta clé dans Mon profil" if compte and compte.dossier
+            else "GEMINI_API_KEY, ou CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_API_TOKEN, ou GROQ_API_KEY dans .env")
 
 
 def secrets_manquants() -> list[str]:

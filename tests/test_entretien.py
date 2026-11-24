@@ -6,7 +6,7 @@ from datetime import date
 
 import pytest
 
-from stage_scraper import db, entretien, profil, reglages
+from stage_scraper import db, entretien, ia, profil, reglages
 from stage_scraper.web import langue
 from test_profil import copie  # noqa: F401  (copie de config.yaml aux critères de référence)
 from test_site_web import base, client  # noqa: F401  (fixtures)
@@ -33,7 +33,7 @@ def conn(tmp_path):
 
 @pytest.fixture
 def sans_ia(monkeypatch):
-    monkeypatch.setattr(entretien, "secret", lambda nom: None)   # jamais de vrai Gemini, même si .env a une clé
+    monkeypatch.setattr(ia, "secret", lambda nom: None)   # jamais de vraie IA, même si .env a des clés
 
 
 class FauxGemini:

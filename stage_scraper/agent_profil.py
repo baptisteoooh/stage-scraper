@@ -13,8 +13,7 @@
 import json
 import re
 
-from . import db, garde_fou, gemini, profil, reglages, requetes, scoring
-from .config import secret
+from . import db, garde_fou, gemini, ia, profil, reglages, requetes, scoring
 
 MESSAGES_GARDES = 12
 TOURS_MAX = 4
@@ -124,9 +123,9 @@ def demander(conn, chemin_config, config: dict, message: str, historique: list[d
     """Un message de l'étudiant. Renvoie {reponse, suggestions, changements: [{champ, libelle, avant, apres}],
     refus: [raisons], profil, alertes}. Les changements sont déjà écrits dans config.yaml."""
     if client is None:
-        if not secret("GEMINI_API_KEY"):
-            raise AgentImpossible("l'IA n'est pas branchée (clé Gemini absente) : modifie ton profil avec les boutons « Modifier »")
-        client = gemini.ClientGemini(delai_entre_appels=0)
+        if not ia.disponible(config):
+            raise AgentImpossible("l'IA n'est pas branchée : modifie ton profil avec les boutons « Modifier »")
+        client = ia.client(config)
 
     donnees = reglages.lire(chemin_config)
     avant = profil.lire(donnees)

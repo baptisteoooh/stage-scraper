@@ -12,9 +12,8 @@
 import json
 
 from . import cv as module_cv
-from . import db, garde_fou, gemini, requetes, scoring
+from . import db, garde_fou, gemini, ia, requetes, scoring
 from . import profil as module_profil
-from .config import secret
 
 MESSAGES_GARDES = 10      # derniers messages de la conversation renvoyés à l'IA
 TOURS_MAX = 4             # appels d'outils successifs avant d'exiger la réponse
@@ -138,9 +137,9 @@ def demander(conn, config: dict, question: str, historique: list[dict] | None = 
         return {"reponse": "Aucune offre disponible pour l'instant : lance d'abord un scrap.", "offres": [],
                 "ignores": 0, "lues": []}
     if client is None:
-        if not secret("GEMINI_API_KEY"):
-            raise ChatImpossible("l'IA n'est pas branchée (clé Gemini absente) : l'assistant ne peut pas répondre")
-        client = gemini.ClientGemini(delai_entre_appels=0)
+        if not ia.disponible(config):
+            raise ChatImpossible("l'IA n'est pas branchée : l'assistant ne peut pas répondre")
+        client = ia.client(config)
 
     systeme = consignes(config, offres, module_cv.texte_cv(config))
     contents = _conversation(historique or [])

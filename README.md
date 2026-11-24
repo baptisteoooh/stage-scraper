@@ -104,6 +104,7 @@ Après chaque collecte, les nouvelles offres sont triées, sans appel à l'IA :
 Chaque offre gardée par le tri est notée par Gemini (`gemini-3.5-flash-lite`, offre gratuite de Google AI Studio ; modèle réglable dans `config.yaml > scoring.modele`) : note de 0 à 10, catégorie (À postuler vite ≥ 8, À regarder 5–7, Bof < 5), section (Santé, Hors santé mais intéressant, À négocier), résumé de la mission (3 ou 4 phrases, 50 à 80 mots), explication, durée et date de début lues dans l'offre, raison d'exclusion éventuelle.
 
 - Clé : `GEMINI_API_KEY` dans `.env` (à créer gratuitement sur https://aistudio.google.com, bouton « Get API key », sans carte bancaire). Sans clé, les offres restent en attente et seront notées au premier passage qui en dispose.
+- **IA de secours, gratuites** (`stage_scraper/ia.py`) : quand Gemini manque ou a épuisé son quota du jour, la cascade passe à Cloudflare Workers AI (Gemma 4 26B, environ 300 offres/jour) puis à Groq (Qwen3.8 27B, environ 65 offres/jour). Clés `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN` (https://dash.cloudflare.com/profile/api-tokens, modèle de jeton « Workers AI ») et `GROQ_API_KEY` (https://console.groq.com/keys) dans `.env`, sans carte bancaire. Ordre et modèles dans `config.yaml > ia > cascade` (les catalogues gratuits changent souvent : un modèle retiré se remplace là). Le modèle qui a noté chaque offre est gardé (colonne `modele_ia`).
 - Le CV (`profil/cv.pdf`) et les offres marquées « pas intéressé » (avec leur raison) sont utilisés automatiquement : l'IA note plus bas les offres qui leur ressemblent.
 - Coût : nul. L'offre gratuite limite le nombre de requêtes : les appels sont espacés (`scoring.delai_entre_appels_s`), et si le quota est atteint ou le modèle surchargé, le reste est noté au passage suivant. Les tokens de chaque passage sont dans le journal.
 
@@ -228,9 +229,9 @@ Sans `--comptes`, rien ne change : tu entres directement, comme avant.
   ses recherches à lui sur Careerjet (ta clé partenaire, prévue pour servir les visiteurs d'un site). Ses offres
   Careerjet vont dans sa base, pas dans la tienne. Garde-fous : une recherche identique faite dans les 24 h (par toi
   ou un ami) est reprise sans appeler Careerjet, et un ami a au plus 15 vraies recherches par jour. Ton quota
-  SerpApi et ton Gmail ne servent jamais aux amis. Puis tout est noté avec **sa** clé Gemini, à
-  coller dans Mon profil › « Ma clé Gemini » (gratuite : https://aistudio.google.com/apikey). Sans clé, ses offres
-  arrivent sans note. Le passage automatique de 8 h fait la même chose pour chaque ami, juste après le tien.
+  SerpApi et ton Gmail ne servent jamais aux amis. Puis tout est noté avec **sa** clé Gemini s'il en a collé une
+  dans Mon profil › « Ma clé Gemini », sinon par les IA gratuites de secours (tes clés Cloudflare et Groq, prêtées
+  comme Careerjet ; leur quota du jour est commun à tous les comptes). Le passage automatique de 8 h fait la même chose pour chaque ami, juste après le tien.
 - **Pas de mails pour les amis** pour l'instant (ils partiraient de ta boîte Gmail).
 - **Sécurité** : mots de passe jamais gardés (empreinte scrypt), session de 30 jours dans un cookie protégé
   (HttpOnly, SameSite, et Secure en HTTPS), 5 essais ratés = une minute de pause. Le site n'écoute que sur
@@ -374,7 +375,8 @@ stage_scraper/
   prefiltre.py         exclusions et critères (contrat, lieu, durée, dates)
   dedoublonnage.py     repérage d'une même offre publiée sur plusieurs sites
   traitement.py        pré-filtre + doublons des nouvelles offres
-  scoring.py           note de chaque offre par Gemini
+  scoring.py           note de chaque offre par l'IA
+  ia.py                cascade d'IA : Gemini s'il a une clé, puis Cloudflare et Groq (gratuits)
   claude.py            client Claude, prix, plafonds du crédit
   gemini.py            client de l'API Gemini
   chat_offres.py       assistant : chat sur les offres (agent qui lit les annonces)

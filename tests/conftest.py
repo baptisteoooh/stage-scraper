@@ -34,3 +34,6 @@ def _pas_d_internet(request, monkeypatch):
     monkeypatch.setattr(imaplib, "IMAP4_SSL", _interdit)
     monkeypatch.setattr(smtplib, "SMTP_SSL", _interdit)
     monkeypatch.setattr(smtplib, "SMTP", _interdit)
+    # Les clés des IA de secours (ia.py) ne doivent pas venir du vrai .env : chaque test les pose s'il en a besoin.
+    for nom in ("CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN", "GROQ_API_KEY"):
+        monkeypatch.delenv(nom, raising=False)

@@ -16,9 +16,9 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
 from . import cv as module_cv
-from . import claude, db, gemini
+from . import claude, db, gemini, ia
 from . import profil as module_profil
-from .config import secret, ou_mettre_la_cle
+from .config import ou_mettre_la_cle
 from .prefiltre import entreprise_suivie
 
 log = logging.getLogger(__name__)
@@ -65,10 +65,11 @@ def noter_nouvelles(conn, config: dict, passage_id: int, auto: bool, client=None
         return bilan
 
     if client is None:
-        if not secret("GEMINI_API_KEY"):
-            bilan["message"] = f"{len(offres)} offre(s) en attente de note : clé Gemini absente ({ou_mettre_la_cle()})"
+        if not ia.disponible(config):
+            bilan["message"] = f"{len(offres)} offre(s) en attente de note : aucune IA branchée ({ou_mettre_la_cle()})"
             return bilan
-        client = gemini.ClientGemini(delai_entre_appels=reglages.get("delai_entre_appels_s", 4))
+        client = ia.client(config, delai_entre_appels=reglages.get("delai_entre_appels_s", 4),
+                           attentes_surcharge=gemini.ATTENTES_SURCHARGE)
 
     deja_depense = cout_du_mois(conn)
     budget = reglages.get("budget_mensuel_usd", 2.0)
@@ -91,7 +92,7 @@ def noter_nouvelles(conn, config: dict, passage_id: int, auto: bool, client=None
             if notation is None:
                 bilan["erreurs"].append(f"offre {offre['id']} : réponse de l'IA illisible")
                 continue
-            enregistrer(conn, offre["id"], notation, config)
+            enregistrer(conn, offre["id"], notation, config, modele=(usage or {}).get("modele") or reglages["modele"])
             bilan["notees"] += 1
     except BudgetAtteint as e:
         bilan["message"] = str(e)
@@ -111,7 +112,7 @@ def noter_nouvelles(conn, config: dict, passage_id: int, auto: bool, client=None
 
 
 def noter(client, reglages: dict, systeme: list, parties: list):
-    """Un appel à Gemini pour une offre. Renvoie (Notation ou None si réponse inexploitable, usage)."""
+    """Un appel à l'IA pour une offre. Renvoie (Notation ou None si réponse inexploitable, usage)."""
     texte, usage = client.generer(reglages["modele"], systeme[0]["text"], parties,
                                   schema=SCHEMA, reflexion=reglages.get("reflexion"))
     try:
@@ -221,14 +222,15 @@ def exemples_pas_interesse(conn, maximum: int) -> str:
                      + (f" : {l['raison']}" if l["raison"] else "") for l in lignes)
 
 
-def enregistrer(conn, offre_id: int, notation: Notation, config: dict) -> None:
+def enregistrer(conn, offre_id: int, notation: Notation, config: dict, modele: str | None = None) -> None:
+    """`modele` : celui qui a noté (les notes de deux modèles différents ne se comparent pas tout à fait)."""
     score = max(0, min(10, notation.score))
     conn.execute(
         "UPDATE offres SET score = ?, categorie = ?, section = ?, resume = ?, pourquoi = ?, duree_ia = ?, "
-        "date_debut_ia = ?, exclusion_ia = ?, poste_ia_data = ?, date_scoring = ? WHERE id = ?",
+        "date_debut_ia = ?, exclusion_ia = ?, poste_ia_data = ?, date_scoring = ?, modele_ia = ? WHERE id = ?",
         (score, categorie(score, config), notation.section, notation.resume, notation.pourquoi,
          notation.duree, notation.date_debut, notation.exclusion or None, int(notation.poste_ia_data),
-         _maintenant(), offre_id),
+         _maintenant(), modele, offre_id),
     )
 
 

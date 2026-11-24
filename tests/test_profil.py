@@ -6,7 +6,7 @@ import shutil
 
 import pytest
 
-from stage_scraper import agent_profil, profil, reglages
+from stage_scraper import agent_profil, ia, profil, reglages
 from stage_scraper.config import CHEMIN_CONFIG
 from test_site_web import base, client  # noqa: F401  (fixtures)
 
@@ -175,10 +175,10 @@ def test_api_profil_refus_et_vide(client, copie, monkeypatch):  # noqa: F811
 def test_agent_sans_cle(copie, monkeypatch, tmp_path):
     from contextlib import closing
     from stage_scraper import db
-    monkeypatch.setattr(agent_profil, "secret", lambda nom: None)
+    monkeypatch.setattr(ia, "secret", lambda nom: None)   # aucune IA branchée
     with closing(db.connecter(tmp_path / "x.db")) as conn:
         db.initialiser(conn)
-        with pytest.raises(agent_profil.AgentImpossible, match="clé Gemini absente"):
+        with pytest.raises(agent_profil.AgentImpossible, match="IA n.est pas branchée"):
             agent_profil.demander(conn, copie, {}, "bonjour")
 
 

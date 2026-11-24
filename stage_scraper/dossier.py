@@ -22,7 +22,7 @@ import re
 import unicodedata
 
 from . import cv as module_cv
-from . import claude, db, garde_fou, gemini, requetes
+from . import claude, db, garde_fou, gemini, ia, requetes
 from .scoring import LONGUEUR_DESCRIPTION_MAX, ajouter_usage
 
 MESSAGES_GARDES = 10      # derniers messages de la conversation renvoyés à l'IA
@@ -385,9 +385,8 @@ class _Fournisseurs:
             if nom == "claude":
                 self.clients[nom] = claude.ClientClaude(
                     timeout=self.timeout, max_tokens=self.config.get("dossier", {}).get("max_tokens", 8000))
-            else:   # BAP attend devant l'écran : un seul nouvel essai en cas de surcharge
-                self.clients[nom] = gemini.ClientGemini(delai_entre_appels=0, attentes_surcharge=(5,),
-                                                        timeout=self.timeout)
+            else:   # Gemini, ou la cascade sans clé Gemini ; BAP attend devant l'écran : un seul nouvel essai
+                self.clients[nom] = ia.client(self.config, attentes_surcharge=(5,), timeout=self.timeout)
         return self.clients[nom]
 
 

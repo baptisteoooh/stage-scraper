@@ -5,7 +5,7 @@ from pathlib import Path
 
 # À augmenter quand on modifie la structure des tables, en ajoutant la
 # modification correspondante dans MIGRATIONS (pour mettre à jour les bases existantes).
-VERSION_SCHEMA = 9
+VERSION_SCHEMA = 10
 
 MIGRATIONS = {
     2: [
@@ -40,6 +40,9 @@ MIGRATIONS = {
         "FROM candidatures WHERE offre_id IS NULL",
         "UPDATE candidatures SET offre_id = (SELECT o.id FROM offres o WHERE o.source = 'manuel' "
         "AND o.source_id = 'candidature-' || candidatures.id) WHERE offre_id IS NULL",
+    ],
+    10: [
+        "ALTER TABLE offres ADD COLUMN modele_ia TEXT",
     ],
 }
 
@@ -109,6 +112,7 @@ CREATE TABLE IF NOT EXISTS offres (
     exclusion_ia        TEXT,
     poste_ia_data       INTEGER,            -- 1 si l'IA juge que c'est un poste IA / data (sert aux alertes)
     date_scoring        TEXT,
+    modele_ia           TEXT,               -- modèle qui a noté (gemini-…, cloudflare/…, groq/…), voir ia.py
 
     -- Indicateurs
     vue                 INTEGER NOT NULL DEFAULT 0,

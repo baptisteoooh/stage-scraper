@@ -4,7 +4,7 @@ from contextlib import closing
 import pytest
 import requests
 
-from stage_scraper import db, gemini, scoring, traitement
+from stage_scraper import db, gemini, ia, scoring, traitement
 from stage_scraper.config import charger_config
 from stage_scraper.offre import nouvelle_offre
 
@@ -65,6 +65,15 @@ def test_note_et_enregistre(tmp_path):
         assert scoring.noter_nouvelles(conn, CONFIG, 2, False, client=FauxClient([]))["notees"] == 0
 
 
+def test_modele_qui_a_note_enregistre(tmp_path):
+    """Gemini par défaut ; le modèle de secours de la cascade quand c'est lui qui a répondu."""
+    with closing(base(tmp_path)) as conn:
+        secours = (notation().model_dump_json(), {**USAGE, "modele": "cloudflare/@cf/google/gemma-4-26b-a4b-it"})
+        scoring.noter_nouvelles(conn, CONFIG, 1, False, client=FauxClient([reponse(notation()), secours]))
+        assert [l[0] for l in conn.execute("SELECT modele_ia FROM offres ORDER BY id")] == [
+            CONFIG["scoring"]["modele"], "cloudflare/@cf/google/gemma-4-26b-a4b-it"]
+
+
 def test_parametres_envoyes(tmp_path):
     with closing(base(tmp_path, nb=1)) as conn:
         client = FauxClient([reponse(notation())])
@@ -104,7 +113,7 @@ def test_budget_mensuel(tmp_path):
 
 
 def test_sans_cle(tmp_path, monkeypatch):
-    monkeypatch.setattr(scoring, "secret", lambda nom: None)
+    monkeypatch.setattr(ia, "secret", lambda nom: None)   # aucune IA branchée
     with closing(base(tmp_path, nb=1)) as conn:
         bilan = scoring.noter_nouvelles(conn, CONFIG, 1, False)
         assert "GEMINI_API_KEY" in bilan["message"]

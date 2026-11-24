@@ -25,8 +25,7 @@ from datetime import date
 
 from ruamel.yaml.comments import CommentedMap
 
-from . import agent_profil, db, gemini, profil, reglages, requetes, scoring
-from .config import secret
+from . import agent_profil, db, gemini, ia, profil, reglages, requetes, scoring
 
 QUESTIONS = ("quoi", "quand", "ou", "contrats", "secteurs", "entreprises")
 CHAMPS_QUESTION = {
@@ -340,16 +339,16 @@ def _depuis_choix(qid, choix: dict, base: dict, actuel: dict, neuf: bool, aujour
 
 def _comprendre(conn, config, qid, texte, donnees, base, actuel, neuf, aujourd_hui, refus, client) -> dict:
     """Texte libre -> valeurs : Gemini s'il est là, sinon (ou s'il échoue) une lecture simple du texte."""
-    if client is None and secret("GEMINI_API_KEY"):
+    if client is None and ia.disponible(config):
         try:
-            client = gemini.ClientGemini(delai_entre_appels=0, attentes_surcharge=(3,))
+            client = ia.client(config, attentes_surcharge=(3,))
         except gemini.ErreurGemini:
             client = None
     if client is not None:
         try:
             return _comprendre_ia(conn, config, client, qid, texte, donnees, base, actuel, neuf, aujourd_hui, refus)
         except gemini.ErreurGemini as e:
-            refus.append(f"Gemini n'a pas répondu ({e})")
+            refus.append(f"l'IA n'a pas répondu ({e})")
     choix, directes = lire_texte(qid, texte, aujourd_hui)
     if directes:
         return directes

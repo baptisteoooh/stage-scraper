@@ -57,7 +57,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import langue
-from .. import a_revoir, agent_profil, chat_offres, claude, comptes, db, decisions, dossier, entretien, expiration, notifications, presentation, profil, reglages, requetes, selection
+from .. import a_revoir, agent_profil, chat_offres, claude, comptes, db, decisions, dossier, entretien, expiration, ia, notifications, presentation, profil, reglages, requetes, selection
 from .. import cv as module_cv
 from .. import config as config_module
 from ..config import CHEMIN_CONFIG, COMPTE, RACINE, charger_config, chemin_projet, secret
@@ -339,7 +339,7 @@ def api_a_trier():
         offres = [carte(o, nouveau) for o in requetes.offres_a_trier(conn)]
         nb_selection = len(selection.fiches(conn))
     return {"offres": offres, "selection": nb_selection, "scrap": phrase_scrap(scrap),
-            "ia_manquante": not secret("GEMINI_API_KEY") and any(o["score"] is None for o in offres)}
+            "ia_manquante": not ia.disponible(config_courante()) and any(o["score"] is None for o in offres)}
 
 
 @app.get("/api/offres/{offre_id}")
@@ -834,7 +834,7 @@ def api_profil(request: Request):
             "champs": {c: {"libelle": l, "type": t} for c, (l, t) in profil.CHAMPS.items()},
             "champs_tri": sorted(profil.CHAMPS_TRI), "departements": profil.DEPARTEMENTS,
             "groupes": profil.GROUPES, "contrats": profil.CONTRATS, "six_mois": profil.SIX_MOIS,
-            "ia_prete": CLIENT_IA is not None or bool(secret("GEMINI_API_KEY"))}
+            "ia_prete": CLIENT_IA is not None or ia.disponible(config_courante())}
 
 
 class ValeursProfil(BaseModel):
@@ -932,7 +932,7 @@ def _entretien(action):
 @app.get("/api/entretien")
 def api_entretien():
     return {"questions": entretien.liste_questions(), "neuf": entretien.a_faire(reglages.lire(chemin_config())),
-            "ia_prete": CLIENT_IA is not None or bool(secret("GEMINI_API_KEY"))}
+            "ia_prete": CLIENT_IA is not None or ia.disponible(config_courante())}
 
 
 @app.post("/api/entretien/question")

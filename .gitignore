@@ -33,3 +33,11 @@ CV & lettre de motivation template/
 
 # Comptes du site partagé (mots de passe chiffrés, bases, CV et clés des amis)
 comptes/
+
+# Skill de design Impeccable (outil d'un tiers) : installée en local, pas publiée
+.claude/skills/impeccable/
+.claude/agents/impeccable-*
+.impeccable/
+
+# Captures de sites pris en exemple
+exemples sites/

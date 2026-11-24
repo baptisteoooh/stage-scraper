@@ -238,10 +238,11 @@ Sans `--comptes`, rien ne change : tu entres directement, comme avant.
   la machine (127.0.0.1) : sur Internet, il passe toujours par Caddy en HTTPS (voir ci-dessous). Ne l'ouvre
   jamais directement sur Internet.
 
-### Mise en ligne (serveur Oracle Cloud, en cours)
+### Mise en ligne (serveur Oracle Cloud : préparée, pas déployée)
 
-Le site partagé tourne sur une machine Ubuntu 24.04 gratuite d'Oracle Cloud (« Always Free », région Paris),
-derrière **Caddy** (HTTPS automatique) et un nom gratuit **DuckDNS** (`mon-site.duckdns.org`).
+Tout est prêt pour héberger le site partagé sur une machine Ubuntu 24.04 gratuite d'Oracle Cloud (« Always Free »),
+derrière **Caddy** (HTTPS automatique) et un nom gratuit **DuckDNS** (`mon-site.duckdns.org`), mais le projet
+tourne pour l'instant en local seulement.
 
 1. Sur le PC, empaqueter le code (seulement les fichiers suivis par Git : ni données, ni clés) et l'envoyer :
    ```

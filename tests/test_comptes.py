@@ -232,6 +232,34 @@ def test_bap_puis_un_ami(site, dossier):
     assert lea.get("/api/a-trier").status_code == 200
 
 
+def test_cookie_secure_derriere_caddy(dossier, monkeypatch):
+    """En ligne, Caddy reçoit le HTTPS et transmet au site en local avec X-Forwarded-Proto: https. Le cookie de
+    session doit alors être « Secure », mais seulement si l'en-tête vient de la machine elle-même (127.0.0.1)."""
+    from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+
+    monkeypatch.setenv("STAGE_SCRAPER_COMPTES", "1")
+    app = ProxyHeadersMiddleware(serveur.app, trusted_hosts="127.0.0.1")   # comme uvicorn dans site_web.py
+    comptes.creer_admin("bap", MDP)
+    https = {"x-forwarded-proto": "https"}
+    with TestClient(app, client=("127.0.0.1", 50000)) as local:
+        r = local.post("/api/compte/connexion", json={"nom": "bap", "mot_de_passe": MDP}, headers=https)
+        assert r.status_code == 200 and "secure" in r.headers["set-cookie"].lower()
+    with TestClient(app, client=("198.51.100.9", 50000)) as dehors:   # un inconnu qui invente l'en-tête
+        r = dehors.post("/api/compte/connexion", json={"nom": "bap", "mot_de_passe": MDP}, headers=https)
+        assert r.status_code == 200 and "secure" not in r.headers["set-cookie"].lower()
+
+
+def test_en_ligne_le_premier_compte_ne_se_cree_pas_depuis_le_site(dossier, monkeypatch):
+    monkeypatch.setenv("STAGE_SCRAPER_COMPTES", "1")
+    monkeypatch.setenv("STAGE_SCRAPER_EN_LIGNE", "1")
+    with TestClient(serveur.app) as inconnu:
+        assert inconnu.get("/api/compte").json()["premier"] is False         # pas de formulaire « créer le compte »
+        r = inconnu.post("/api/compte/inscription", json={"nom": "pirate", "mot_de_passe": MDP})
+        assert r.status_code == 400 and comptes.aucun_compte()
+    comptes.creer_admin("bap", MDP)                                       # ce que fait site_web.py --creer-admin
+    assert comptes.compte("bap").admin
+
+
 def test_sans_mode_comptes_rien_ne_change(dossier):
     with TestClient(serveur.app) as c:
         assert c.get("/api/compte").json() == {"mode": False}

@@ -88,7 +88,7 @@ document.querySelectorAll('[data-langue]').forEach((b) => {
   b.setAttribute('aria-pressed', String(b.dataset.langue === LANGUE));
   b.addEventListener('click', () => {
     if (b.dataset.langue === LANGUE) return;
-    document.cookie = `langue=${b.dataset.langue}; path=/; max-age=31536000; samesite=lax`;
+    document.cookie = `langue=${b.dataset.langue}; path=/; max-age=31536000; samesite=lax${location.protocol === 'https:' ? '; secure' : ''}`;
     location.reload();
   });
 });

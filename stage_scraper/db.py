@@ -206,7 +206,15 @@ def connecter(chemin: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(chemin, timeout=30)  # attend jusqu'à 30 s si l'appli et la tâche écrivent en même temps
     conn.row_factory = sqlite3.Row  # accès aux colonnes par leur nom : ligne["titre"]
     conn.execute("PRAGMA foreign_keys = ON")
+    mode_wal(conn)
     return conn
+
+
+def mode_wal(conn: sqlite3.Connection) -> None:
+    """Mode WAL (journal à part) : le site peut lire pendant que le passage de 8 h écrit, sans « database is
+    locked ». Le réglage reste dans le fichier ; synchronous=NORMAL suffit en WAL (sûr en cas de coupure)."""
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA synchronous = NORMAL")
 
 
 def initialiser(conn: sqlite3.Connection) -> None:

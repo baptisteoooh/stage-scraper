@@ -251,7 +251,7 @@ if (DEPUIS_PROFIL) {
 }
 plusTard.addEventListener('click', () => {
   // « Plus tard » : on ne redemande plus pendant cette visite (cookie de session), le brouillon reste.
-  if (!DEPUIS_PROFIL) document.cookie = 'entretien=plus_tard; path=/; samesite=lax';
+  if (!DEPUIS_PROFIL) document.cookie = `entretien=plus_tard; path=/; samesite=lax${location.protocol === 'https:' ? '; secure' : ''}`;
 });
 
 (async () => {

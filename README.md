@@ -233,9 +233,43 @@ Sans `--comptes`, rien ne change : tu entres directement, comme avant.
   arrivent sans note. Le passage automatique de 8 h fait la même chose pour chaque ami, juste après le tien.
 - **Pas de mails pour les amis** pour l'instant (ils partiraient de ta boîte Gmail).
 - **Sécurité** : mots de passe jamais gardés (empreinte scrypt), session de 30 jours dans un cookie protégé
-  (HttpOnly, SameSite), 5 essais ratés = une minute de pause. Le site n'écoute toujours que sur ce PC
-  (127.0.0.1) : pour que tes amis y accèdent, il faut un accès à distance privé (par exemple Tailscale,
-  pas encore mis en place). Ne l'ouvre jamais directement sur Internet.
+  (HttpOnly, SameSite, et Secure en HTTPS), 5 essais ratés = une minute de pause. Le site n'écoute que sur
+  la machine (127.0.0.1) : sur Internet, il passe toujours par Caddy en HTTPS (voir ci-dessous). Ne l'ouvre
+  jamais directement sur Internet.
+
+### Mise en ligne (serveur Oracle Cloud, en cours)
+
+Le site partagé tourne sur une machine Ubuntu 24.04 gratuite d'Oracle Cloud (« Always Free », région Paris),
+derrière **Caddy** (HTTPS automatique) et un nom gratuit **DuckDNS** (`mon-site.duckdns.org`).
+
+1. Sur le PC, empaqueter le code (seulement les fichiers suivis par Git : ni données, ni clés) et l'envoyer :
+   ```
+   git archive --format=tar.gz -o stage-scraper.tar.gz HEAD
+   scp stage-scraper.tar.gz ubuntu@<adresse IP du serveur>:
+   ```
+2. Sur le serveur (`ssh ubuntu@<adresse IP>`) :
+   ```
+   mkdir -p code && tar xzf stage-scraper.tar.gz -C code
+   sudo bash code/deploiement/installer_serveur.sh mon-site.duckdns.org
+   ```
+   Le script demande le jeton DuckDNS et, la première fois, ton nom et ton mot de passe admin. En ligne, le
+   premier compte ne peut **pas** se créer depuis le site (sinon le premier inconnu venu deviendrait admin) :
+   seulement par `python site_web.py --creer-admin` sur le serveur, ce que fait le script.
+3. **Mettre à jour le code** : refaire 1 et 2. Le script ne touche jamais aux données du serveur (bases,
+   `config.yaml`, `profil/`, `comptes/`, `.env`) et relance le site.
+
+Sur le serveur, tout est dans `/opt/stage-scraper` (utilisateur `stage`, sans droits d'administration) :
+- le site : service `stage-scraper` (`python site_web.py --en-ligne`), relancé tout seul s'il plante ;
+- le passage de 8 h (`run.py --auto`) et la sauvegarde de 3 h 30 (`run.py --sauvegarder`) : minuteries systemd,
+  rattrapées au démarrage si la machine était éteinte à l'heure prévue (comme l'option de la tâche Windows) ;
+- les bases sont en mode **WAL** : le site lit pendant que le passage écrit, sans blocage.
+
+**Sauvegardes** (`python run.py --sauvegarder`, aussi utilisable sur le PC) : un dossier daté par jour dans
+`data/sauvegardes/auto/`, 14 jours gardés. Les bases sont copiées avec l'API de sauvegarde de SQLite (copie propre
+même pendant une écriture), plus `config.yaml`, `.env`, `profil/` et tout `comptes/`. Pour restaurer : arrêter le
+site (`sudo systemctl stop stage-scraper`), recopier le fichier voulu à sa place en effaçant les fichiers `-wal` et
+`-shm` à côté de la base, puis `sudo systemctl start stage-scraper`. Ces sauvegardes restent sur le serveur : elles
+protègent d'une erreur ou d'une base abîmée, pas de la perte de la machine.
 
 ## Lancement de l'appli
 
@@ -327,10 +361,13 @@ run.py                 lancement d'un passage
 app.py                 lancement de l'appli (streamlit run app.py)
 site_web.py            lancement du nouveau site (python site_web.py)
 .streamlit/config.toml réglages de l'appli (visible seulement depuis ce PC)
+deploiement/
+  installer_serveur.sh installation / mise à jour sur le serveur Ubuntu (Oracle Cloud)
 stage_scraper/
   config.py            lecture de config.yaml et .env ; compte en cours (site partagé)
   comptes.py           comptes du site partagé : mots de passe, sessions, invitations, dossier de chaque ami
-  db.py                tables SQLite, enregistrement des offres, journal
+  db.py                tables SQLite (mode WAL), enregistrement des offres, journal
+  sauvegarde.py        sauvegarde datée des bases et fichiers perso (run.py --sauvegarder)
   offre.py             format commun d'une offre
   collecte.py          lance chaque source, isole les pannes, écrit le journal
   sources/             un module de collecte par source (google_jobs.py, careerjet.py, ...)

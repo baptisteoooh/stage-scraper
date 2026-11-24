@@ -100,6 +100,13 @@ def mode_comptes() -> bool:
     return os.getenv("STAGE_SCRAPER_COMPTES") == "1"
 
 
+def en_ligne() -> bool:
+    """Site sur Internet (python site_web.py --en-ligne) : le premier compte (admin) ne se crée jamais depuis le
+    site, seulement sur le serveur (python site_web.py --creer-admin). Sinon, si comptes.db était perdu, le premier
+    inconnu à ouvrir la page deviendrait admin."""
+    return os.getenv("STAGE_SCRAPER_EN_LIGNE") == "1"
+
+
 @app.middleware("http")
 async def _compte_de_la_requete(request: Request, appel_suivant):
     """En mode comptes : retrouve la personne connectée (cookie de session) et fait travailler tout le code
@@ -1320,7 +1327,7 @@ def api_compte(invitation: str | None = None):
     if not mode_comptes():
         return {"mode": False}
     c = COMPTE.get()
-    rep = {"mode": True, "connecte": c is not None, "premier": comptes.aucun_compte(),
+    rep = {"mode": True, "connecte": c is not None, "premier": comptes.aucun_compte() and not en_ligne(),
            "invitation": comptes.invitation_valable(invitation) if invitation else None}
     if c is None:
         return rep
@@ -1350,7 +1357,7 @@ def api_inscription(corps: CorpsConnexion, request: Request):
     if not mode_comptes():
         raise HTTPException(404, "Pas de comptes sur ce site.")
     try:
-        c = comptes.creer_admin(corps.nom, corps.mot_de_passe) if comptes.aucun_compte() \
+        c = comptes.creer_admin(corps.nom, corps.mot_de_passe) if comptes.aucun_compte() and not en_ligne() \
             else comptes.creer_avec_invitation(corps.code or "", corps.nom, corps.mot_de_passe)
     except comptes.CompteRefuse as e:
         _refuser(e)

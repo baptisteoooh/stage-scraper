@@ -8,6 +8,7 @@
     python run.py --retraiter              refait le tri de toutes les offres (après un changement de config)
     python run.py --noter                  note les offres en attente avec l'IA, sans collecter
     python run.py --test-mail              envoie un mail de test à ton adresse (vérifie l'envoi Gmail)
+    python run.py --sauvegarder            sauvegarde datée des bases et fichiers perso (14 jours gardés)
 
 Site partagé (comptes d'amis) : après un passage complet, chaque ami reçoit les nouvelles offres et les note
 avec sa propre clé Gemini (aucune requête de plus vers les sites).
@@ -17,7 +18,7 @@ import logging
 import sys
 from contextlib import closing
 
-from stage_scraper import collecte, comptes, db, notifications, pipeline, scoring
+from stage_scraper import collecte, comptes, db, notifications, pipeline, sauvegarde, scoring
 from stage_scraper.config import COMPTE, SECRETS_ATTENDUS, charger_config, chemin_projet, secrets_manquants
 
 
@@ -36,6 +37,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="note avec l'IA les offres en attente, sans collecter (après avoir ajouté la clé)")
     parser.add_argument("--test-mail", action="store_true",
                         help="envoie un mail de test à ton adresse, même si l'envoi est désactivé")
+    parser.add_argument("--sauvegarder", action="store_true",
+                        help="copie datée des bases, réglages, profils et comptes (les 14 derniers jours sont gardés)")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(message)s", datefmt="%H:%M:%S")
@@ -49,6 +52,8 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         print(f"Mail de test envoyé à {notifications.adresses()[2]}.")
         return 0
+    if args.sauvegarder:
+        return sauvegarder()
     chemin_db = chemin_projet(config["general"]["base_de_donnees"])
 
     with closing(db.connecter(chemin_db)) as conn:
@@ -96,6 +101,16 @@ def passages_des_amis(base_commune, auto: bool = False) -> list[str]:
     for ligne in lignes:
         print(ligne)
     return lignes
+
+
+def sauvegarder() -> int:
+    bilan = sauvegarde.sauvegarder()
+    print(f"Sauvegarde : {bilan['fichiers']} fichier(s) dans {bilan['dossier']}")
+    if bilan["effacees"]:
+        print(f"Anciennes sauvegardes effacées : {', '.join(bilan['effacees'])}")
+    for erreur in bilan["erreurs"]:
+        print(f"ERREUR {erreur}")
+    return 1 if bilan["erreurs"] else 0
 
 
 def utf8_sur_la_console() -> None:

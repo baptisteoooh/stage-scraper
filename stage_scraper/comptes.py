@@ -24,7 +24,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from . import db, reglages
-from .config import CHEMIN_CONFIG, Compte, RACINE, lire_cles
+from .config import CHEMIN_MODELE, Compte, RACINE, lire_cles
 
 DUREE_SESSION = timedelta(days=30)
 DUREE_INVITATION = timedelta(days=7)
@@ -194,10 +194,11 @@ def supprimer(nom: str) -> None:
 
 
 def _preparer_dossier(c: Compte) -> None:
-    """Dossier neuf : réglages tirés de ceux du projet, mais sans le profil de BAP (l'entretien d'accueil le remplira)."""
+    """Dossier neuf : réglages tirés du modèle vide (config.exemple.yaml), jamais de ceux de BAP ; l'entretien
+    d'accueil les remplira."""
     c.dossier.mkdir(parents=True, exist_ok=False)
     (c.dossier / "profil").mkdir()
-    donnees = reglages.lire(Path(os.getenv("STAGE_SCRAPER_CONFIG") or CHEMIN_CONFIG))   # les réglages de BAP servent de modèle
+    donnees = reglages.lire(CHEMIN_MODELE)
     p = donnees["profil"]
     p["recherche"] = ""
     for cle in ("entretien_accueil",):

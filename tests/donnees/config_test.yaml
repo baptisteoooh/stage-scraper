@@ -1,0 +1,330 @@
+# =====================================================================
+# Stage Scraper : config FICTIVE des tests (étudiant inventé, aucune donnée réelle)
+# Ce fichier se modifie sans toucher au code.
+# Les secrets (clés API, mots de passe) ne vont PAS ici, mais dans .env.
+# =====================================================================
+
+general:
+  # Chemin de la base SQLite, relatif au dossier du projet.
+  base_de_donnees: data/stages.db
+  # Une offre publiée il y a plus de N jours est ignorée.
+  anciennete_max_jours: 90
+
+# ---------------------------------------------------------------------
+# Critères du stage
+# ---------------------------------------------------------------------
+criteres:
+  contrats_acceptes: [stage, cdd]   # un CDD suit les mêmes règles de dates et de durée
+  dates:
+    debut_au_plus_tot: 2027-04-01
+    debut_ideal: 2027-04-15
+    debut_au_plus_tard: 2027-05-10  # "début mai"
+    fin_au_plus_tard: 2027-08-31
+  duree:
+    min_mois: 3
+    max_mois: 5        # 5 mois possibles si le stage finit au plus tard le 31 août
+    # Fourchettes gardées même si leur maximum dépasse max_mois.
+    fourchettes_acceptees: ["3 à 6 mois", "4 à 6 mois"]
+    # Offre "6 mois" sec chez une entreprise suivie : a_negocier ou exclure.
+    # Ailleurs, une offre de 6 mois sec est toujours exclue.
+    six_mois_entreprise_suivie: a_negocier
+  lieu:
+    departements: ["75", "77", "78", "91", "92", "93", "94", "95"]
+    hybride: true
+    full_remote: true
+    # Mots qui suffisent à placer une offre en Île-de-France quand elle n'a pas de code postal.
+    # Une offre dont le lieu ne contient aucun de ces mots (ni code postal d'IDF) est exclue,
+    # sauf si son lieu est vague ("France", "Remote", "3 Locations"...).
+    villes: [Paris, Île-de-France, Ile de France, IDF, Seine-et-Marne, Yvelines, Essonne, Hauts-de-Seine,
+             Seine-Saint-Denis, Val-de-Marne, Val-d'Oise, La Défense, Levallois, Issy-les-Moulineaux,
+             Boulogne-Billancourt, Neuilly, Courbevoie, Puteaux, Nanterre, Suresnes, Rueil-Malmaison,
+             Saint-Cloud, Sèvres, Meudon, Clamart, Châtillon, Montrouge, Malakoff, Vanves, Bagneux,
+             Antony, Sceaux, Le Plessis-Robinson, Clichy, Asnières, Colombes, Gennevilliers,
+             Saint-Ouen, Saint-Denis, Aubervilliers, Pantin, Montreuil, Bagnolet, Bobigny, Romainville,
+             Noisy-le-Grand, Tremblay-en-France, Roissy, Villepinte, Vincennes, Nogent-sur-Marne,
+             Charenton, Ivry, Vitry, Villejuif, Le Kremlin-Bicêtre, Gentilly, Arcueil, Cachan,
+             Créteil, Rungis, Orly, Wissous, Massy, Palaiseau, Saclay, Orsay, Gif-sur-Yvette, Les Ulis,
+             Évry, Courcouronnes, Corbeil, Chilly-Mazarin, Versailles, Vélizy, Buc, Jouy-en-Josas,
+             Guyancourt, Montigny-le-Bretonneux, Saint-Quentin-en-Yvelines, Élancourt, Trappes, Plaisir,
+             Saint-Germain-en-Laye, Poissy, Chatou, Le Chesnay, Rambouillet, Mantes, Cergy, Pontoise,
+             Argenteuil, Sarcelles, Marne-la-Vallée, Champs-sur-Marne, Noisiel, Torcy, Serris, Chessy,
+             Melun, Fontainebleau, Meaux]
+  langues: [fr, en]
+
+# ---------------------------------------------------------------------
+# Exclusions dures (pré-filtre, avant tout appel IA)
+# Comparaison sur le mot entier, sans tenir compte des majuscules ni des accents.
+# ---------------------------------------------------------------------
+exclusions:
+  # Cherchés dans le titre et le type de contrat.
+  contrats:
+    - alternance
+    - alternant
+    - alternante
+    - apprentissage
+    - apprenti
+    - apprentie
+    - CDI
+    - VIE
+    - V.I.E
+    - stage de fin d'études
+    - PFE
+    - projet de fin d'études
+    - work-study
+    - apprenticeship
+    - end of studies internship
+  # Postes non techniques, cherchés dans le titre.
+  postes:
+    - marketing
+    - commercial
+    - commerciale
+    - business developer
+    - business development
+    - bizdev
+    - vente
+    - vendeur
+    - sales
+    - account manager
+    - key account
+    - chargé de communication
+    - ressources humaines
+    - talent acquisition
+    - recrutement
+    - comptabilité
+    - achats
+  # Niveaux de poste trop élevés, cherchés dans le titre (ignorés si le titre parle de stage).
+  niveaux:
+    - senior
+    - Sr.
+    - lead
+    - principal
+    - staff engineer
+    - head of
+    - directeur
+    - directrice
+    - director
+    - manager senior
+    - VP
+    - CTO
+
+# ---------------------------------------------------------------------
+# Domaines, par ordre de priorité (1 = le plus intéressant).
+# L'IA reçoit ces noms et leur ordre pour noter les offres.
+# ---------------------------------------------------------------------
+domaines:
+  - nom: IA / machine learning
+    priorite: 1
+    tres_interessant: true   # le mot-clé "IA" et ses variantes rendent une offre très intéressante
+  - nom: Data science
+    priorite: 2
+  - nom: Data analyst
+    priorite: 3
+  - nom: Data engineering
+    priorite: 4
+  - nom: Logiciel embarqué
+    priorite: 5
+  - nom: Bioinformatique
+    priorite: 6
+  - nom: Qualité / réglementaire
+    priorite: 7
+  - nom: Conseil santé
+    priorite: 8
+  - nom: Product
+    priorite: 9
+
+# ---------------------------------------------------------------------
+# Secteurs
+# ---------------------------------------------------------------------
+secteurs:
+  cible: [medtech, healthtech, e-santé, santé numérique, digital health, dispositif médical,
+          medical device, imagerie médicale, hôpital, clinique]
+  ok: [biotech, biotechnologie]
+  score_reduit: [pharma, pharmaceutique, laboratoire pharmaceutique, assurance santé, mutuelle]
+  # Hors santé : section "Hors santé mais intéressant", uniquement pour ces domaines.
+  hors_sante_domaines: ["IA / machine learning", "Data science"]
+  taille_preferee: [scale-up, grosse startup]
+
+# ---------------------------------------------------------------------
+# Entreprises suivies (pages carrières). Liste fictive (tests).
+# groupe : priorite_absolue | grand_groupe | scale_up | ecosysteme
+# alias : autres noms sous lesquels l'entreprise apparaît dans les offres
+# carrieres : outil de recrutement de sa page carrières et identifiant chez cet outil
+#             (sans ce bloc, l'entreprise n'est pas collectée directement)
+# ---------------------------------------------------------------------
+entreprises_suivies:
+  - {nom: Doctolib, groupe: priorite_absolue, carrieres: {outil: ashby, id: doctolib}}
+  - {nom: Medtronic, groupe: grand_groupe, carrieres: {outil: workday, url: https://medtronic.wd1.myworkdayjobs.com/MedtronicCareers}}
+  - {nom: Johnson & Johnson MedTech, groupe: grand_groupe, alias: [Johnson & Johnson, J&J, Ethicon, DePuy Synthes], carrieres: {outil: workday, url: https://jj.wd5.myworkdayjobs.com/JJ}}
+  - {nom: Siemens Healthineers, groupe: grand_groupe, alias: [Siemens Healthcare]}
+  - {nom: GE HealthCare, groupe: grand_groupe, alias: [GE Healthcare], carrieres: {outil: workday, url: https://gehc.wd5.myworkdayjobs.com/GEHC_ExternalSite}}
+  - {nom: Philips, groupe: grand_groupe, carrieres: {outil: workday, url: https://philips.wd3.myworkdayjobs.com/jobs-and-careers}}
+  - {nom: Abbott, groupe: grand_groupe, carrieres: {outil: workday, url: https://abbott.wd5.myworkdayjobs.com/abbottcareers}}
+  - {nom: Stryker, groupe: grand_groupe, carrieres: {outil: workday, url: https://stryker.wd1.myworkdayjobs.com/StrykerCareers}}
+  - {nom: Boston Scientific, groupe: grand_groupe}
+  - {nom: BD, groupe: grand_groupe, alias: [Becton Dickinson, Becton, Dickinson and Company], carrieres: {outil: workday, url: https://bdx.wd1.myworkdayjobs.com/EXTERNAL_CAREER_SITE_FRANCE}}
+  - {nom: Withings, groupe: scale_up}
+  - {nom: Owkin, groupe: scale_up, carrieres: {outil: ashby, id: owkin}}
+  - {nom: Nabla, groupe: scale_up, carrieres: {outil: ashby, id: nabla}}
+  - {nom: Gleamer, groupe: scale_up}
+  - {nom: Lifen, groupe: scale_up, carrieres: {outil: ashby, id: lifen}}
+  - {nom: Station F, groupe: ecosysteme}
+  - {nom: Paris Santé Campus, groupe: ecosysteme}
+  - {nom: Medicen, groupe: ecosysteme}
+
+# ---------------------------------------------------------------------
+# Profil de l'étudiant fictif des tests
+# ---------------------------------------------------------------------
+profil:
+  # Ce que tu cherches, en une phrase : l'IA s'en sert pour noter les offres (modifiable dans « Mon profil »).
+  recherche: Un stage data dans la santé numérique, de préférence dans une start-up
+  ecole: École Exemple
+  annee: 4e année (A4)
+  majeure: Data & Santé
+  competences: [Python, SQL, R, machine learning]
+  # Utilisés automatiquement dès que les fichiers existent. Les IA ne reçoivent que leur
+  # texte anonymisé (coordonnées et nom retirés, voir stage_scraper/cv.py), jamais le PDF.
+  cv: profil/cv.pdf
+  modele_lettre: profil/modele_lettre.txt   # une lettre que tu as écrite : sert de modèle de style
+
+# ---------------------------------------------------------------------
+# Scoring IA
+# ---------------------------------------------------------------------
+scoring:
+  # Gemini, offre gratuite de Google AI Studio (clé GEMINI_API_KEY dans .env).
+  # Google change souvent ses modèles : si celui-ci disparaît, mets-en un autre ici.
+  modele: gemini-3.5-flash-lite
+  budget_mensuel_usd: 2.0
+  seuils:
+    a_postuler_vite: 8   # score >= 8
+    a_regarder: 5        # score de 5 à 7 ; en dessous : Bof
+  # Nombre d'offres "pas intéressé" données en exemple à l'IA.
+  exemples_pas_interesse_max: 10
+  reflexion: null             # réflexion de Gemini : null (réglage du modèle), minimal, low, medium, high
+  delai_entre_appels_s: 4     # secondes entre deux appels (offre gratuite : nombre de requêtes par minute limité)
+  max_offres_par_passage: 150  # au-delà, le reste est noté au passage suivant
+
+# ---------------------------------------------------------------------
+# IA : fournisseurs essayés dans l'ordre (voir stage_scraper/ia.py). Quand l'un a épuisé son quota
+# gratuit du jour, le suivant prend le relais jusqu'au lendemain. Gemini n'est utilisé que si
+# GEMINI_API_KEY est renseignée (avec le modèle de chaque usage : scoring.modele, chat.modele…).
+# Les catalogues gratuits changent souvent : si un modèle est retiré, remplace-le ici.
+# options : réglages du modèle (ici : réflexion coupée, bien plus rapide et économe en quota).
+# ---------------------------------------------------------------------
+ia:
+  cascade:
+    - fournisseur: gemini
+    - fournisseur: cloudflare        # CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_API_TOKEN ; ~300 offres/jour gratuites
+      modele: "@cf/google/gemma-4-26b-a4b-it"
+      options: {chat_template_kwargs: {enable_thinking: false}}
+    - fournisseur: groq              # GROQ_API_KEY ; ~65 offres/jour gratuites
+      modele: qwen/qwen3.8-27b
+      options: {reasoning_effort: none}
+
+# ---------------------------------------------------------------------
+# Suivi des candidatures
+# ---------------------------------------------------------------------
+candidatures:
+  relance_jours: 7   # rappel de relance proposé N jours après l'envoi (ou après une relance)
+
+# ---------------------------------------------------------------------
+# Crédit Claude (API Anthropic, prépayé) : utilisé seulement par la page Candidater.
+# Au-delà d'un plafond, Gemini (gratuit) prend le relais tout seul.
+# ---------------------------------------------------------------------
+claude:
+  credit_usd: 5.0              # crédit acheté (pour l'affichage du Journal)
+  credit_depuis: 2026-01-01    # date d'achat : seules les dépenses depuis cette date comptent
+  plafond_mensuel_usd: 1.0
+  plafond_total_usd: 4.5       # marge avant les 5 $ ; le solde exact est dans la console Anthropic (Billing)
+
+# ---------------------------------------------------------------------
+# Chat sur les offres (page « Chercher » de l'appli) : Gemini choisit les offres
+# de la base qui répondent le mieux à ta demande. Un appel par question.
+# ---------------------------------------------------------------------
+chat:
+  modele: gemini-3.5-flash-lite
+  reflexion: null   # null (réglage du modèle), minimal, low, medium, high
+
+# ---------------------------------------------------------------------
+# Notifications par mail
+# ---------------------------------------------------------------------
+notifications:
+  # false = aucun mail ne part : chaque mail est écrit en aperçu dans data/mails/ (à ouvrir dans le navigateur).
+  # Passer à true une fois l'aperçu validé et le mail de test reçu (python run.py --test-mail).
+  envoi_actif: false
+  dossier_apercus: data/mails
+  # Alerte immédiate (à chaque passage) : note >= seuil, ou poste IA/data chez une entreprise suivie.
+  alerte_seuil_score: 8
+  alerte_ia_data_entreprise_suivie: true
+  # Récap quotidien (passage automatique de 8 h) : offres notées au moins ceci, pas encore envoyées.
+  recap_score_min: 5
+  max_offres_par_mail: 30
+
+# ---------------------------------------------------------------------
+# Recherches envoyées aux sites et aux API
+# ---------------------------------------------------------------------
+recherches:
+  requetes:
+    - stage intelligence artificielle
+    - stage machine learning
+    - stage data science
+    - stage data analyst
+    - stage data engineer
+    - stage bioinformatique
+    - stage logiciel embarqué
+    - stage dispositif médical
+    - stage affaires réglementaires
+    - stage medtech
+    - stage e-santé
+    - machine learning internship
+    - data science internship
+
+# ---------------------------------------------------------------------
+# Sources
+# ---------------------------------------------------------------------
+sources:
+  france_travail:
+    actif: false   # API suspendue par France Travail (octobre 2026)
+  google_jobs:          # via SerpApi, offre gratuite : 250 recherches/mois
+    actif: true
+    lieu: Ile-de-France,France
+    seulement_en_auto: true    # pour ne pas épuiser le quota avec les passages manuels
+    recherches_par_passage: 7  # 7 x 31 jours = 217, sous les 250 du mois
+    reserve: 10                # recherches gardées de côté pour les tests
+    delai_secondes: 1
+  careerjet:
+    actif: true
+    lieu: Île-de-France
+    type_contrat: i            # i = stage (internship)
+    offres_par_requete: 20     # Careerjet en renvoie 20 au maximum par recherche
+    referer: https://exemple.github.io/   # site déclaré dans l'espace partenaire Careerjet
+    # ip_utilisateur: 1.2.3.4  # facultatif : sinon l'adresse IP publique est détectée automatiquement
+    delai_secondes: 1
+  gmail:
+    actif: true
+    libelle: Alertes stage     # libellé Gmail où le filtre range les mails d'alerte
+    jours_a_relire: 14         # relit les mails des N derniers jours (les offres déjà connues sont ignorées)
+    dossier_emails: data/emails   # où `python -m stage_scraper.sources.gmail --telecharger` enregistre les mails
+  linkedin:
+    actif: false   # mis de côté : le robots.txt de LinkedIn interdit ses pages de recherche aux robots (alertes email à la place)
+    pages_max: 3
+    delai_min_secondes: 5
+    delai_max_secondes: 15
+  indeed:
+    actif: false   # mis de côté : Indeed répond 403 + CAPTCHA aux robots (alertes email à la place)
+    pages_max: 3
+    delai_min_secondes: 5
+    delai_max_secondes: 15
+  carrieres:
+    actif: true
+    delai_secondes: 2
+
+# Page « Candidater » : diagnostic de l'offre, conseils CV, lettre de motivation (Gemini).
+# Modèles essayés dans l'ordre, « nom » ou « nom:réflexion » (low, medium, high).
+dossier:
+  # Claude d'abord, Gemini en secours (et seul quand un plafond de crédit Claude est atteint).
+  modeles: [claude-sonnet-5-5:medium, gemini-3.5-flash-lite:high, gemini-3.5-flash-lite]             # analyse de l'offre
+  modeles_premier_jet: [claude-sonnet-5-5:medium, gemini-3.5-flash-lite, gemini-3.5-flash-lite:high] # 1re lettre
+  modeles_retouche: [claude-haiku-5-5:low, gemini-3.5-flash-lite, gemini-3.5-flash-lite:high]        # retouches
+  max_tokens: 8000             # plafond de longueur d'une réponse de Claude (réflexion comprise)
+  timeout_diagnostic_s: 120   # au-delà, on passe au modèle suivant
+  timeout_lettre_s: 60

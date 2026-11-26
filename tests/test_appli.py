@@ -10,7 +10,7 @@ from streamlit.testing.v1 import AppTest
 
 from stage_scraper import config as module_config
 from stage_scraper import db, expiration, export, reglages, requetes, traitement
-from stage_scraper.config import CHEMIN_CONFIG, charger_config
+from stage_scraper.config import CHEMIN_CONFIG, RACINE, charger_config
 from stage_scraper.offre import nouvelle_offre
 
 CONFIG = charger_config()
@@ -167,7 +167,7 @@ def test_chaque_page_s_affiche(appli, page):
 
 
 def test_appli_complete_avec_menu(appli):
-    at = AppTest.from_file(str(CHEMIN_CONFIG.parent / "app.py"), default_timeout=30).run()
+    at = AppTest.from_file(str(RACINE / "app.py"), default_timeout=30).run()
     assert not at.exception, at.exception
     assert at.title[0].value == "📥 À trier"
     assert at.segmented_control(key="filtre_a_trier").options[:2] == ["Toutes  2", "Santé  1"]

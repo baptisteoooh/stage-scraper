@@ -44,3 +44,6 @@ CLAUDE.md
 
 # Captures de sites pris en exemple
 exemples sites/
+
+# Tes réglages (critères, profil, entreprises, recherches) : jamais publiés. Modèle vide : config.exemple.yaml
+config.yaml

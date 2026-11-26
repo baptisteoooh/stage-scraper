@@ -123,7 +123,7 @@ def appliquer(donnees, valeurs: dict) -> list[dict]:
     # Un domaine retiré disparaît aussi des listes qui en dépendent.
     if "domaines" in valeurs and "autres_secteurs_domaines" not in valeurs:
         nouveau["autres_secteurs_domaines"] = [d for d in nouveau["autres_secteurs_domaines"] if d in nouveau["domaines"]]
-    verifier(nouveau)
+    verifier(nouveau, set(valeurs))
     changements = [{"champ": champ, "libelle": CHAMPS[champ][0], "avant": avant[champ], "apres": nouveau[champ]}
                    for champ in CHAMPS if nouveau[champ] != avant[champ]]
     for ch in changements:
@@ -209,37 +209,45 @@ def normaliser(champ: str, valeur):
     raise ProfilInvalide(f"type inconnu pour {champ}")
 
 
-def verifier(p: dict) -> None:
-    """Les règles qui lient les champs entre eux (lève ProfilInvalide)."""
-    if not p["contrats"]:
+def verifier(p: dict, modifies: set | None = None) -> None:
+    """Les règles qui lient les champs entre eux (lève ProfilInvalide).
+    « Garde au moins un… » ne vise que les champs modifiés (`modifies`, None = tous) : un profil neuf, encore
+    vide, peut ainsi être rempli champ par champ."""
+    def touche(*champs):
+        return modifies is None or any(c in modifies for c in champs)
+    if touche("contrats") and not p["contrats"]:
         raise ProfilInvalide("garde au moins un type de contrat (stage ou CDD)")
-    if not p["departements"] and not p["full_remote"]:
+    if touche("departements", "full_remote") and not p["departements"] and not p["full_remote"]:
         raise ProfilInvalide("garde au moins un département, ou accepte le télétravail complet")
-    if not p["domaines"]:
+    if touche("domaines") and not p["domaines"]:
         raise ProfilInvalide("garde au moins un domaine")
     inconnus = [d for d in p["autres_secteurs_domaines"] if d not in p["domaines"]]
     if inconnus:
         raise ProfilInvalide(f"{CHAMPS['autres_secteurs_domaines'][0]} : « {inconnus[0]} » n'est pas dans tes domaines")
-    tot, ideal, tard, fin = (date.fromisoformat(p[c]) for c in ("debut_au_plus_tot", "debut_ideal",
-                                                                 "debut_au_plus_tard", "fin_au_plus_tard"))
-    if not tot <= tard:
+    # Une date vide (profil pas encore rempli) n'est pas vérifiée.
+    tot, ideal, tard, fin = (date.fromisoformat(p[c]) if p[c] else None
+                             for c in ("debut_au_plus_tot", "debut_ideal", "debut_au_plus_tard", "fin_au_plus_tard"))
+    if tot and tard and not tot <= tard:
         raise ProfilInvalide("le début au plus tôt doit précéder le début au plus tard")
-    if not tot <= ideal <= tard:
+    if ideal and ((tot and ideal < tot) or (tard and ideal > tard)):
         raise ProfilInvalide("le début idéal doit être entre le début au plus tôt et au plus tard")
-    if not tard < fin:
+    if tard and fin and not tard < fin:
         raise ProfilInvalide("la fin au plus tard doit venir après le début au plus tard")
-    if p["duree_min"] > p["duree_max"]:
+    if p["duree_min"] and p["duree_max"] and p["duree_min"] > p["duree_max"]:
         raise ProfilInvalide("la durée minimale dépasse la durée maximale")
 
 
 def alertes(p: dict) -> list[str]:
     """Incohérences qui n'empêchent pas d'enregistrer, mais qu'il faut signaler."""
     sortie = []
-    tot, fin = date.fromisoformat(p["debut_au_plus_tot"]), date.fromisoformat(p["fin_au_plus_tard"])
-    mois_possibles = (fin - tot).days / 30.4
-    if p["duree_min"] > mois_possibles + 0.25:
-        sortie.append(f"Entre le début au plus tôt et la fin au plus tard, il n'y a que {mois_possibles:.1f} mois : "
-                      f"moins que ta durée minimale ({p['duree_min']:g} mois).")
+    if p["debut_au_plus_tot"] and p["fin_au_plus_tard"]:
+        tot, fin = date.fromisoformat(p["debut_au_plus_tot"]), date.fromisoformat(p["fin_au_plus_tard"])
+        mois_possibles = (fin - tot).days / 30.4
+        if p["duree_min"] > mois_possibles + 0.25:
+            sortie.append(f"Entre le début au plus tôt et la fin au plus tard, il n'y a que {mois_possibles:.1f} mois : "
+                          f"moins que ta durée minimale ({p['duree_min']:g} mois).")
+    else:
+        sortie.append("Indique quand tu veux commencer et finir : sans dates, aucune offre n'est triée sur sa date de début.")
     if p["duree_max"] >= 6 and p["six_mois"] == "exclure":
         sortie.append("Ta durée maximale accepte 6 mois, mais les offres de 6 mois sont réglées sur « toujours exclues ».")
     if not p["requetes"]:
@@ -344,6 +352,27 @@ def zone(p: dict) -> str:
         lieu = "aucun département"
     modes = [m for m, oui in (("hybride", p["hybride"]), ("télétravail complet", p["full_remote"])) if oui]
     return lieu + (f" ; {' et '.join(modes)} accepté{'s' if len(modes) > 1 else ''}" if modes else "")
+
+
+def etudes(profil: dict) -> str:
+    """« 4e année, École X, majeure Y » avec ce qui est renseigné (pour les consignes des IA)."""
+    morceaux = [str(profil.get("annee") or ""), str(profil.get("ecole") or ""),
+                f"majeure {profil['majeure']}" if profil.get("majeure") else ""]
+    return ", ".join(m for m in morceaux if m) or "non précisées"
+
+
+def dates_et_duree(criteres: dict) -> str:
+    """Les critères de dates et de durée en une phrase (pour les consignes des IA) ; les valeurs vides sont omises."""
+    d, du = criteres.get("dates") or {}, criteres.get("duree") or {}
+    morceaux = []
+    if du.get("min_mois") and du.get("max_mois"):
+        morceaux.append(f"durée de {float(du['min_mois']):g} à {float(du['max_mois']):g} mois")
+    if d.get("debut_au_plus_tot") and d.get("debut_au_plus_tard"):
+        morceaux.append(f"début entre le {d['debut_au_plus_tot']} et le {d['debut_au_plus_tard']}"
+                        + (f" (idéal : {d['debut_ideal']})" if d.get("debut_ideal") else ""))
+    if d.get("fin_au_plus_tard"):
+        morceaux.append(f"fin au plus tard le {d['fin_au_plus_tard']}")
+    return ", ".join(morceaux) or "dates et durée non précisées"
 
 
 def en_texte(p: dict) -> str:

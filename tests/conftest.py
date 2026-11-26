@@ -5,7 +5,13 @@ Google, Gemini ou Gmail pour de vrai. Seuls les tests marqués `reseau` (lancés
 y ont droit.
 """
 import imaplib
+import os
 import smtplib
+from pathlib import Path
+
+# Config fictive pour tous les tests (posée avant tout import de stage_scraper) : jamais le config.yaml réel,
+# qui n'est pas publié et peut être vide ou rempli autrement sur chaque PC.
+os.environ["STAGE_SCRAPER_CONFIG_PROJET"] = str(Path(__file__).parent / "donnees" / "config_test.yaml")
 
 import httpx
 import pytest

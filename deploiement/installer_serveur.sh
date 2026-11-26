@@ -64,7 +64,7 @@ if [[ $SOURCE != "$APP" ]]; then
         --exclude='/.impeccable/' --exclude='/.claude/' --exclude='/exemples sites/' \
         --exclude='/CV & lettre de motivation template/' \
         "$SOURCE/" "$APP/"
-    [[ -f $APP/config.yaml ]] || cp "$SOURCE/config.yaml" "$APP/config.yaml"   # premier passage seulement
+    [[ -f $APP/config.yaml ]] || cp "$SOURCE/config.exemple.yaml" "$APP/config.yaml"   # premier passage : modèle vide
 fi
 chown -R "$UTILISATEUR:$UTILISATEUR" "$APP"
 chmod 750 "$APP"

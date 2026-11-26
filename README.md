@@ -31,6 +31,11 @@ copy .env.example .env
 
 Ensuite, ouvre `.env` et remplis les clés au fur et à mesure (chaque ligne indique à quelle étape elle sert).
 
+Tes réglages (critères, profil, entreprises suivies, recherches) vont dans `config.yaml`, qui n'est jamais publié
+(il est dans `.gitignore`). Au premier lancement, il est créé à partir du modèle vide `config.exemple.yaml`, puis
+l'entretien d'accueil du site (`python site_web.py`) le remplit. Tu peux aussi le copier et le remplir à la main :
+`copy config.exemple.yaml config.yaml`.
+
 ### Activer l'environnement virtuel (facultatif)
 
 Une fois activé, tu peux taper `python` au lieu de `.venv\Scripts\python`.
@@ -67,7 +72,7 @@ L'offre gratuite donne 250 recherches par mois. Par défaut, Google Jobs ne tour
 Careerjet tourne à chaque passage, manuel ou auto, avec les 13 recherches de `config.yaml`. Il exige :
 - la clé `CAREERJET_API_KEY` dans `.env` ;
 - que l'adresse IP de ta box soit autorisée dans ton espace partenaire Careerjet ;
-- l'en-tête Referer `https://ton-pseudo.github.io/`, ta page de présentation (réglage `sources.careerjet.referer`).
+- l'en-tête Referer égal à ta page de présentation déclarée chez Careerjet, par exemple `https://ton-pseudo.github.io/` (réglage `sources.careerjet.referer`).
 
 Si le journal affiche « Unauthorized access from IP », c'est que l'adresse IP de ta box a changé : ajoute la nouvelle adresse dans l'espace partenaire Careerjet.
 
@@ -355,8 +360,9 @@ Autre heure : ajoute `-Heure 07:30` à la fin.
 ## Organisation des fichiers
 
 ```
-config.yaml            paramètres (critères, domaines, entreprises suivies, sources, modèles d'IA)
+config.yaml            tes paramètres (critères, domaines, entreprises suivies, sources, modèles d'IA), jamais sur Git
 .env                   secrets (jamais sur Git) ; modèle dans .env.example
+config.exemple.yaml    modèle vide de config.yaml (copié au premier lancement)
 run.py                 lancement d'un passage
 app.py                 lancement de l'appli (streamlit run app.py)
 site_web.py            lancement du nouveau site (python site_web.py)

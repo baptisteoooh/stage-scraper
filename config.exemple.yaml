@@ -1,0 +1,269 @@
+# =====================================================================
+# Stage Scraper : modèle de paramètres (vide)
+# Au premier lancement, ce fichier est copié en config.yaml (non publié), puis l'entretien
+# d'accueil du site (python site_web.py) le remplit avec ce que tu cherches.
+# config.yaml se modifie ensuite depuis « Mon profil » et « Réglages », ou à la main.
+# Les secrets (clés API, mots de passe) ne vont PAS ici, mais dans .env.
+# =====================================================================
+
+general:
+  # Chemin de la base SQLite, relatif au dossier du projet.
+  base_de_donnees: data/stages.db
+  # Une offre publiée il y a plus de N jours est ignorée.
+  anciennete_max_jours: 90
+
+# ---------------------------------------------------------------------
+# Critères du stage (remplis par l'entretien d'accueil, modifiables dans « Mon profil »)
+# Une date ou une durée laissée vide n'est pas vérifiée.
+# ---------------------------------------------------------------------
+criteres:
+  contrats_acceptes: [stage]   # stage et/ou cdd (un CDD suit les mêmes règles de dates et de durée)
+  dates:
+    debut_au_plus_tot:
+    debut_ideal:
+    debut_au_plus_tard:
+    fin_au_plus_tard:
+  duree:
+    min_mois:
+    max_mois:
+    # Fourchettes gardées même si leur maximum dépasse max_mois (ex. "3 à 6 mois").
+    fourchettes_acceptees: []
+    # Offre "6 mois" sec chez une entreprise suivie : a_negocier ou exclure.
+    # Ailleurs, une offre de 6 mois sec est toujours exclue.
+    six_mois_entreprise_suivie: a_negocier
+  lieu:
+    departements: []   # départements d'Île-de-France : 75, 77, 78, 91, 92, 93, 94, 95
+    hybride: false
+    full_remote: false
+    # Mots qui suffisent à placer une offre en Île-de-France quand elle n'a pas de code postal.
+    # Une offre dont le lieu ne contient aucun de ces mots (ni code postal d'IDF) est exclue,
+    # sauf si son lieu est vague ("France", "Remote", "3 Locations"...).
+    villes: [Paris, Île-de-France, Ile de France, IDF, Seine-et-Marne, Yvelines, Essonne, Hauts-de-Seine,
+             Seine-Saint-Denis, Val-de-Marne, Val-d'Oise, La Défense, Levallois, Issy-les-Moulineaux,
+             Boulogne-Billancourt, Neuilly, Courbevoie, Puteaux, Nanterre, Suresnes, Rueil-Malmaison,
+             Saint-Cloud, Sèvres, Meudon, Clamart, Châtillon, Montrouge, Malakoff, Vanves, Bagneux,
+             Antony, Sceaux, Le Plessis-Robinson, Clichy, Asnières, Colombes, Gennevilliers,
+             Saint-Ouen, Saint-Denis, Aubervilliers, Pantin, Montreuil, Bagnolet, Bobigny, Romainville,
+             Noisy-le-Grand, Tremblay-en-France, Roissy, Villepinte, Vincennes, Nogent-sur-Marne,
+             Charenton, Ivry, Vitry, Villejuif, Le Kremlin-Bicêtre, Gentilly, Arcueil, Cachan,
+             Créteil, Rungis, Orly, Wissous, Massy, Palaiseau, Saclay, Orsay, Gif-sur-Yvette, Les Ulis,
+             Évry, Courcouronnes, Corbeil, Chilly-Mazarin, Versailles, Vélizy, Buc, Jouy-en-Josas,
+             Guyancourt, Montigny-le-Bretonneux, Saint-Quentin-en-Yvelines, Élancourt, Trappes, Plaisir,
+             Saint-Germain-en-Laye, Poissy, Chatou, Le Chesnay, Rambouillet, Mantes, Cergy, Pontoise,
+             Argenteuil, Sarcelles, Marne-la-Vallée, Champs-sur-Marne, Noisiel, Torcy, Serris, Chessy,
+             Melun, Fontainebleau, Meaux]
+  langues: [fr, en]
+
+# ---------------------------------------------------------------------
+# Exclusions dures (pré-filtre, avant tout appel IA)
+# Comparaison sur le mot entier, sans tenir compte des majuscules ni des accents.
+# ---------------------------------------------------------------------
+exclusions:
+  # Contrats qui ne sont pas des stages, cherchés dans le titre et le type de contrat.
+  contrats:
+    - alternance
+    - alternant
+    - alternante
+    - apprentissage
+    - apprenti
+    - apprentie
+    - CDI
+    - VIE
+    - V.I.E
+    - work-study
+    - apprenticeship
+  # Postes à écarter, cherchés dans le titre (ex. marketing, commercial, sales).
+  postes: []
+  # Niveaux de poste trop élevés pour un stage, cherchés dans le titre (ignorés si le titre parle de stage).
+  niveaux:
+    - senior
+    - Sr.
+    - lead
+    - principal
+    - staff engineer
+    - head of
+    - directeur
+    - directrice
+    - director
+    - manager senior
+    - VP
+    - CTO
+
+# ---------------------------------------------------------------------
+# Domaines, par ordre de priorité (1 = le plus intéressant).
+# L'IA reçoit ces noms et leur ordre pour noter les offres.
+# Exemple :
+#   - nom: Data science
+#     priorite: 1
+#     tres_interessant: true
+# ---------------------------------------------------------------------
+domaines: []
+
+# ---------------------------------------------------------------------
+# Secteurs
+# ---------------------------------------------------------------------
+secteurs:
+  cible: []                 # secteurs visés (cible principale)
+  ok: []                    # bien aussi
+  score_reduit: []          # moins intéressants (note réduite)
+  # Hors des secteurs visés : section "Hors santé mais intéressant", uniquement pour ces domaines.
+  hors_sante_domaines: []
+  taille_preferee: []       # ex. scale-up, grosse startup
+
+# ---------------------------------------------------------------------
+# Entreprises suivies (pages carrières).
+# groupe : priorite_absolue | grand_groupe | scale_up | ecosysteme
+# alias : autres noms sous lesquels l'entreprise apparaît dans les offres
+# carrieres : outil de recrutement de sa page carrières et identifiant chez cet outil
+#             (sans ce bloc, l'entreprise n'est pas collectée directement)
+# Exemple :
+#   - {nom: Exemple SA, groupe: scale_up, carrieres: {outil: ashby, id: exemple}}
+#   - {nom: Autre Groupe, groupe: grand_groupe, carrieres: {outil: workday, url: https://autre.wd3.myworkdayjobs.com/careers}}
+# ---------------------------------------------------------------------
+entreprises_suivies: []
+
+# ---------------------------------------------------------------------
+# Profil de l'étudiant (utilisé par le scoring IA)
+# ---------------------------------------------------------------------
+profil:
+  # Ce que tu cherches, en une phrase : l'IA s'en sert pour noter les offres (modifiable dans « Mon profil »).
+  recherche: ""
+  ecole: ""
+  annee: ""
+  majeure: ""
+  competences: []
+  # Utilisés automatiquement dès que les fichiers existent. Les IA ne reçoivent que leur
+  # texte anonymisé (coordonnées et nom retirés, voir stage_scraper/cv.py), jamais le PDF.
+  cv: profil/cv.pdf
+  modele_lettre: profil/modele_lettre.txt   # une lettre que tu as écrite : sert de modèle de style
+
+# ---------------------------------------------------------------------
+# Scoring IA
+# ---------------------------------------------------------------------
+scoring:
+  # Gemini, offre gratuite de Google AI Studio (clé GEMINI_API_KEY dans .env).
+  # Google change souvent ses modèles : si celui-ci disparaît, mets-en un autre ici.
+  modele: gemini-3.5-flash-lite
+  budget_mensuel_usd: 2.0
+  seuils:
+    a_postuler_vite: 8   # score >= 8
+    a_regarder: 5        # score de 5 à 7 ; en dessous : Bof
+  # Nombre d'offres "pas intéressé" données en exemple à l'IA.
+  exemples_pas_interesse_max: 10
+  reflexion: null             # réflexion de Gemini : null (réglage du modèle), minimal, low, medium, high
+  delai_entre_appels_s: 4     # secondes entre deux appels (offre gratuite : nombre de requêtes par minute limité)
+  max_offres_par_passage: 150  # au-delà, le reste est noté au passage suivant
+
+# ---------------------------------------------------------------------
+# IA : fournisseurs essayés dans l'ordre (voir stage_scraper/ia.py). Quand l'un a épuisé son quota
+# gratuit du jour, le suivant prend le relais jusqu'au lendemain. Gemini n'est utilisé que si
+# GEMINI_API_KEY est renseignée (avec le modèle de chaque usage : scoring.modele, chat.modele…).
+# Les catalogues gratuits changent souvent : si un modèle est retiré, remplace-le ici.
+# options : réglages du modèle (ici : réflexion coupée, bien plus rapide et économe en quota).
+# ---------------------------------------------------------------------
+ia:
+  cascade:
+    - fournisseur: gemini
+    - fournisseur: cloudflare        # CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_API_TOKEN ; ~300 offres/jour gratuites
+      modele: "@cf/google/gemma-4-26b-a4b-it"
+      options: {chat_template_kwargs: {enable_thinking: false}}
+    - fournisseur: groq              # GROQ_API_KEY ; ~65 offres/jour gratuites
+      modele: qwen/qwen3.8-27b
+      options: {reasoning_effort: none}
+
+# ---------------------------------------------------------------------
+# Suivi des candidatures
+# ---------------------------------------------------------------------
+candidatures:
+  relance_jours: 7   # rappel de relance proposé N jours après l'envoi (ou après une relance)
+
+# ---------------------------------------------------------------------
+# Crédit Claude (API Anthropic, prépayé, clé ANTHROPIC_API_KEY dans .env) : utilisé seulement
+# par les fiches de « Ma sélection ». Au-delà d'un plafond, Gemini (gratuit) prend le relais tout seul.
+# Plafond total à 0 : Claude n'est jamais appelé. Renseigne ton crédit et la date d'achat pour l'activer.
+# ---------------------------------------------------------------------
+claude:
+  credit_usd: 0.0              # crédit acheté (pour l'affichage du Journal)
+  credit_depuis: 2000-01-01    # date d'achat : seules les dépenses depuis cette date comptent
+  plafond_mensuel_usd: 1.0
+  plafond_total_usd: 0.0       # garde une marge sous le crédit acheté
+
+# ---------------------------------------------------------------------
+# Chat sur les offres (page « Chercher » de l'appli) : Gemini choisit les offres
+# de la base qui répondent le mieux à ta demande. Un appel par question.
+# ---------------------------------------------------------------------
+chat:
+  modele: gemini-3.5-flash-lite
+  reflexion: null   # null (réglage du modèle), minimal, low, medium, high
+
+# ---------------------------------------------------------------------
+# Notifications par mail
+# ---------------------------------------------------------------------
+notifications:
+  # false = aucun mail ne part : chaque mail est écrit en aperçu dans data/mails/ (à ouvrir dans le navigateur).
+  # Passer à true une fois l'aperçu validé et le mail de test reçu (python run.py --test-mail).
+  envoi_actif: false
+  dossier_apercus: data/mails
+  # Alerte immédiate (à chaque passage) : note >= seuil, ou poste IA/data chez une entreprise suivie.
+  alerte_seuil_score: 8
+  alerte_ia_data_entreprise_suivie: true
+  # Récap quotidien (passage automatique de 8 h) : offres notées au moins ceci, pas encore envoyées.
+  recap_score_min: 5
+  max_offres_par_mail: 30
+
+# ---------------------------------------------------------------------
+# Recherches envoyées aux sites et aux API (remplies par l'entretien d'accueil)
+# ---------------------------------------------------------------------
+recherches:
+  requetes: []
+
+# ---------------------------------------------------------------------
+# Sources
+# ---------------------------------------------------------------------
+sources:
+  france_travail:
+    actif: false   # API suspendue par France Travail (octobre 2026)
+  google_jobs:          # via SerpApi, offre gratuite : 250 recherches/mois
+    actif: true
+    lieu: Ile-de-France,France
+    seulement_en_auto: true    # pour ne pas épuiser le quota avec les passages manuels
+    recherches_par_passage: 7  # 7 x 31 jours = 217, sous les 250 du mois
+    reserve: 10                # recherches gardées de côté pour les tests
+    delai_secondes: 1
+  careerjet:
+    actif: true
+    lieu: Île-de-France
+    type_contrat: i            # i = stage (internship)
+    offres_par_requete: 20     # Careerjet en renvoie 20 au maximum par recherche
+    referer: ""                # ton site déclaré dans l'espace partenaire Careerjet (ex. https://toi.github.io/)
+    # ip_utilisateur: 1.2.3.4  # facultatif : sinon l'adresse IP publique est détectée automatiquement
+    delai_secondes: 1
+  gmail:
+    actif: true
+    libelle: Alertes stage     # libellé Gmail où le filtre range les mails d'alerte
+    jours_a_relire: 14         # relit les mails des N derniers jours (les offres déjà connues sont ignorées)
+    dossier_emails: data/emails   # où `python -m stage_scraper.sources.gmail --telecharger` enregistre les mails
+  linkedin:
+    actif: false   # mis de côté : le robots.txt de LinkedIn interdit ses pages de recherche aux robots (alertes email à la place)
+    pages_max: 3
+    delai_min_secondes: 5
+    delai_max_secondes: 15
+  indeed:
+    actif: false   # mis de côté : Indeed répond 403 + CAPTCHA aux robots (alertes email à la place)
+    pages_max: 3
+    delai_min_secondes: 5
+    delai_max_secondes: 15
+  carrieres:
+    actif: true
+    delai_secondes: 2
+
+# Fiches de « Ma sélection » : diagnostic de l'offre, conseils CV, lettre de motivation.
+# Modèles essayés dans l'ordre, « nom » ou « nom:réflexion » (low, medium, high).
+dossier:
+  # Claude d'abord, Gemini en secours (et seul quand un plafond de crédit Claude est atteint).
+  modeles: [claude-sonnet-5-5:medium, gemini-3.5-flash-lite:high, gemini-3.5-flash-lite]             # analyse de l'offre
+  modeles_premier_jet: [claude-sonnet-5-5:medium, gemini-3.5-flash-lite, gemini-3.5-flash-lite:high] # 1re lettre
+  modeles_retouche: [claude-haiku-5-5:low, gemini-3.5-flash-lite, gemini-3.5-flash-lite:high]        # retouches
+  max_tokens: 8000             # plafond de longueur d'une réponse de Claude (réflexion comprise)
+  timeout_diagnostic_s: 120   # au-delà, on passe au modèle suivant
+  timeout_lettre_s: 60

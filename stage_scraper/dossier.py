@@ -23,6 +23,7 @@ import unicodedata
 
 from . import cv as module_cv
 from . import claude, db, garde_fou, gemini, ia, requetes
+from . import profil as module_profil
 from .scoring import LONGUEUR_DESCRIPTION_MAX, ajouter_usage
 
 MESSAGES_GARDES = 10      # derniers messages de la conversation renvoyés à l'IA
@@ -289,16 +290,12 @@ def texte_offre(o: dict) -> str:
 
 
 def _criteres(config: dict) -> str:
-    c = config["criteres"]
-    d = c["dates"]
-    return (f"stage de {c['duree']['min_mois']:g} à {c['duree']['max_mois']:g} mois, début entre le "
-            f"{d['debut_au_plus_tot']} et le {d['debut_au_plus_tard']} (idéal {d['debut_ideal']}), fin au plus tard "
-            f"le {d['fin_au_plus_tard']}, en Île-de-France")
+    return f"stage, {module_profil.dates_et_duree(config['criteres'])}, en Île-de-France"
 
 
 def consignes_diagnostic(config: dict, texte_cv: str, offre: str) -> str:
     profil = config["profil"]
-    return f"""Tu prépares le dossier de candidature de BAP ({profil['annee']} à l'{profil['ecole']}, majeure {profil['majeure']}) pour une offre de stage.
+    return f"""Tu prépares le dossier de candidature de l'étudiant (études : {module_profil.etudes(profil)}) pour une offre de stage.
 Tu es un conseiller calme, neutre et objectif : ni flatterie ni dramatisation, chaque jugement appuyé sur un fait.
 Tu t'adresses directement à BAP en le tutoyant (« tu », « ton CV »). Écris un français correct, avec tous les accents et apostrophes.
 

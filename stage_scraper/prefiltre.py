@@ -112,9 +112,10 @@ def verifier(offre: dict, config: dict, aujourd_hui: date | None = None) -> tupl
     if debut:
         if not offre.get("date_debut"):
             detectes["date_debut"] = debut.isoformat()
-        dates = criteres["dates"]
+        dates = criteres.get("dates") or {}
+        tard, tot = _date(dates.get("debut_au_plus_tard")), _date(dates.get("debut_au_plus_tot"))  # vides : pas vérifiées
         dernier_jour = debut.replace(day=calendar.monthrange(debut.year, debut.month)[1])
-        if debut > _date(dates["debut_au_plus_tard"]) or dernier_jour < _date(dates["debut_au_plus_tot"]):
+        if (tard and debut > tard) or (tot and dernier_jour < tot):
             return f"début : {_nom_mois(debut)} (hors de la fenêtre avril-mai)", detectes
 
     return None, detectes
@@ -177,7 +178,9 @@ def _duree_dans(texte: str, annonce_obligatoire: bool):
 
 def juger_duree(minimum: float, maximum: float, reglages: dict, suivie: dict | None) -> str | None:
     """Raison de l'exclusion, ou None si la durée convient (ou est à négocier)."""
-    min_mois, max_mois = reglages["min_mois"], reglages["max_mois"]
+    min_mois, max_mois = reglages.get("min_mois"), reglages.get("max_mois")
+    if not min_mois or not max_mois:   # durée pas encore choisie : pas vérifiée
+        return None
     if maximum < min_mois:
         return f"durée : {_mois(maximum)} (trop court)"
     if maximum <= max_mois:

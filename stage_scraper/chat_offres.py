@@ -83,11 +83,10 @@ def ligne_offre(o: dict) -> str:
 def consignes(config: dict, offres: list[dict], cv: str | None = None) -> str:
     profil, criteres = config["profil"], config["criteres"]
     p = module_profil.lire(config)
-    dates = criteres["dates"]
     bloc_cv = f"\n\nCV DE BAP (coordonnées retirées)\n<cv>\n{cv}\n</cv>" if cv else ""
-    return f"""Tu es l'assistant personnel de recherche de stage de BAP, étudiant ingénieur en {profil['annee']} à l'{profil['ecole']} (majeure {profil['majeure']}).
-Compétences : {', '.join(profil['competences'])}. {"Son CV est à la fin de ces consignes : c'est la référence sur ce qu'il a fait." if cv else "Son CV n'est pas encore disponible."}
-Ce qu'il cherche : {p['recherche'] or 'un stage technique'} ; lieu : {module_profil.zone(p)} ; début entre le {dates['debut_au_plus_tot']} et le {dates['debut_au_plus_tard']}, fin au plus tard le {dates['fin_au_plus_tard']}, durée {criteres['duree']['min_mois']:g} à {criteres['duree']['max_mois']:g} mois.
+    return f"""Tu es l'assistant personnel de recherche de stage de BAP, étudiant (études : {module_profil.etudes(profil)}).
+Compétences : {', '.join(profil.get('competences') or []) or 'non précisées'}. {"Son CV est à la fin de ces consignes : c'est la référence sur ce qu'il a fait." if cv else "Son CV n'est pas encore disponible."}
+Ce qu'il cherche : {p['recherche'] or 'un stage technique'} ; lieu : {module_profil.zone(p)} ; {module_profil.dates_et_duree(criteres)}.
 
 Tu es un vrai conseiller, pas un moteur de recherche : tu analyses, tu compares et tu donnes des conseils concrets.
 

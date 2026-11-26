@@ -14,7 +14,8 @@ cette interface. Choix précis du framework (FastAPI proposé) délégué, à co
 
 ## Users
 
-- **Aujourd'hui : BAP**, étudiant ingénieur qui cherche un stage en Île-de-France. Il travaille sur PC, en
+- **Aujourd'hui : BAP**, étudiant ingénieur qui cherche un stage en Île-de-France (ses critères restent dans son
+  `config.yaml`, jamais publié). Il travaille sur PC, en
   **longues sessions** : il trie les nouvelles offres puis prépare plusieurs candidatures d'affilée (lecture des
   annonces, lettre de motivation, conversation avec l'IA, suivi des relances).
 - **Plus tard : tout étudiant** qui cherche un stage, quel que soit son domaine. Pas encore pris en compte : on construit

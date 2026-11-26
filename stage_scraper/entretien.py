@@ -188,10 +188,10 @@ def _rangees(qid, p, actuel, valeurs, neuf, montrer, aujourd_hui) -> list[dict]:
         mois = [_mois_suivant(aujourd_hui, i) for i in range(1, MOIS_PROPOSES + 1)]
         debut = p["debut_ideal"][:7]
         return [{"id": "debut", "multiple": False, "choix": [{"id": f"{a}-{m:02d}", "libelle": f"{MOIS_FR[m - 1].capitalize()} {a}"}
-                                                              for a, m in mois], "_choisis": [debut]},
+                                                              for a, m in mois], "_choisis": [debut] if debut else []},
                 {"id": "duree", "multiple": False, "choix": [{"id": f"{a}-{b}", "libelle": _duree(a, b, "fr").capitalize()}
                                                              for a, b in DUREES],
-                 "_choisis": [f"{p['duree_min']:g}-{p['duree_max']:g}"]}]
+                 "_choisis": [f"{p['duree_min']:g}-{p['duree_max']:g}"] if p["duree_max"] else []}]
     if qid == "ou":
         zone = next((z for z, (_, deps) in ZONES.items() if set(deps) == set(p["departements"])), None)
         tele = next((t for t, (_, hy, re_) in TELETRAVAIL.items() if (hy, re_) == (p["hybride"], p["full_remote"])), None)
@@ -298,8 +298,11 @@ def _depuis_choix(qid, choix: dict, base: dict, actuel: dict, neuf: bool, aujour
         if not sortie:
             return {}
         # fin au plus tard : la fin du dernier mois quand on commence au plus tôt (avril + 5 mois -> 31 août)
-        tot = date.fromisoformat(sortie.get("debut_au_plus_tot", base["debut_au_plus_tot"]))
-        nb = max(1, round(float(sortie.get("duree_max", base["duree_max"]))))
+        tot, duree_max = sortie.get("debut_au_plus_tot") or base["debut_au_plus_tot"], sortie.get("duree_max") or base["duree_max"]
+        if not tot or not duree_max:   # modèle vide : il faut le début et la durée pour en déduire la fin
+            return sortie
+        tot = date.fromisoformat(tot)
+        nb = max(1, round(float(duree_max)))
         a, mo = _mois_suivant(tot, nb - 1)
         sortie["fin_au_plus_tard"] = date(a, mo, monthrange(a, mo)[1]).isoformat()
         return sortie
@@ -527,12 +530,16 @@ def _nombre(n, langue) -> str:
 
 
 def _duree(a, b, langue: str) -> str:
+    if not a or not b:   # durée pas encore choisie (modèle vide)
+        return "length to be set" if langue == "en" else "durée à préciser"
     if float(a) == float(b):
         return f"{_nombre(a, langue)} month{'s' if float(a) > 1 else ''}" if langue == "en" else f"{_nombre(a, langue)} mois"
     return f"{_nombre(a, langue)}–{_nombre(b, langue)} months" if langue == "en" else f"{_nombre(a, langue)} à {_nombre(b, langue)} mois"
 
 
 def _mois(iso: str, langue: str) -> str:
+    if not iso:   # date pas encore choisie (modèle vide)
+        return "date to be set" if langue == "en" else "date à préciser"
     j = date.fromisoformat(iso)
     return f"{MOIS_EN[j.month - 1]} {j.year}" if langue == "en" else f"{MOIS_FR[j.month - 1]} {j.year}"
 

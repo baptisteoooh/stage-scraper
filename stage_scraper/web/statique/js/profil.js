@@ -21,6 +21,7 @@ const reduit = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 // ======================================================================= mise en forme des valeurs
 
 const dateLongue = (iso, annee = true) => {
+  if (!iso) return '…';   // date pas encore choisie (profil neuf)
   const texte = new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'long', ...(annee ? { year: 'numeric' } : {}) })
     .format(new Date(`${iso}T12:00:00`));
   return LANGUE === 'fr' ? texte.replace(/^1 /, '1er ') : texte;

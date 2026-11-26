@@ -13,7 +13,13 @@ from dotenv import load_dotenv
 
 # Dossier racine du projet (celui qui contient config.yaml).
 RACINE = Path(__file__).resolve().parent.parent
-CHEMIN_CONFIG = RACINE / "config.yaml"
+# Modèle vide publié avec le code. config.yaml (les réglages de l'étudiant) n'est jamais publié :
+# il est créé à partir du modèle au premier lancement, puis rempli par l'entretien d'accueil.
+CHEMIN_MODELE = RACINE / "config.exemple.yaml"
+# STAGE_SCRAPER_CONFIG_PROJET remplace config.yaml partout (les tests y mettent leur config fictive).
+CHEMIN_CONFIG = Path(os.getenv("STAGE_SCRAPER_CONFIG_PROJET") or RACINE / "config.yaml")
+if not CHEMIN_CONFIG.exists() and CHEMIN_MODELE.exists():
+    CHEMIN_CONFIG.write_bytes(CHEMIN_MODELE.read_bytes())
 
 # Secrets attendus dans .env, avec leur usage.
 SECRETS_ATTENDUS = {
